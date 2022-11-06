@@ -1,0 +1,67 @@
+Working code
+============
+
+const { Spot } = require('@binance/connector')
+//const Spot = require('./binance-connector-node/src/spot')
+const client = new Spot(apiKey, apiSecret)
+console.log(client);
+
+//client.account().then(response => client.logger.log(response.data))
+
+//client.marginAllOrders(
+//  'BTCUSDT'
+//).then(response => client.logger.log(response.data))
+//  .catch(error => client.logger.error(error))
+client.newMarginOrder(
+  'BTCUSDT', // symbol
+  'BUY',
+  'LIMIT',
+  {
+    quantity: 0.005,
+    isIsolated: 'TRUE',
+    price: '20000',
+    newClientOrderId: 'my_order',
+    newOrderRespType: 'FULL',
+    timeInForce: 'GTC'
+  }
+).then(response => client.logger.log(response.data))
+  .catch(error => client.logger.error(error))
+
+Reference -
+~/rsi/binance-connector-node/src/modules$ view margin.js
+ 
+ @param {string} symbol
+ 188    * @param {string} side - BUY or SELL
+ 189    * @param {string} type
+ 190    * @param {object} [options]
+ 191    * @param {string} [options.isIsolated] - TRUE or FALSE
+ 192    * @param {number} [options.quantity]
+ 193    * @param {number} [options.quoteOrderQty]
+ 194    * @param {number} [options.price]
+ 195    * @param {number} [options.stopPrice] - Used with STOP_LOSS, STOP_LOSS_LIMIT,
+ 196    *    TAKE_PROFIT, and TAKE_PROFIT_LIMIT orders.
+ 197    * @param {string} [options.newClientOrderId] - A unique id among open orders.
+ 198    *    Automatically generated if not sent.
+ 199    * @param {number} [options.icebergQty] - Used with LIMIT, STOP_LOSS_LIMIT,
+ 200    *    and TAKE_PROFIT_LIMIT to create an iceberg order.
+ 201    * @param {string} [options.newOrderRespType] - Set the response JSON. ACK, RESULT, or FULL;
+ 202    *    MARKET and LIMIT order types default to FULL, all other orders default to ACK.
+ 203    * @param {string} [options.sideEffectType] - NO_SIDE_EFFECT, MARGIN_BUY, AUTO_REPAY;
+ 204    *    default NO_SIDE_EFFECT.
+ 205    * @param {string} [options.timeInForce] - GTC, IOC, FOK
+ 206    * @param {number} [options.recvWindow] - The value cannot be greater than 60000
+ 207    */
+ 208   newMarginOrder (symbol, side, type, options = {}) {
+ 209     validateRequiredParameters({ symbol, side, type })
+ 210 
+ 211     return this.signRequest(
+ 212       'POST',
+ 213       '/sapi/v1/margin/order',
+ 214       Object.assign(options, {
+ 215         symbol: symbol.toUpperCase(),
+ 216         side: side.toUpperCase(),
+ 217         type: type.toUpperCase()
+ 218       })
+ 219     )
+ 220   }
+
