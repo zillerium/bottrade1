@@ -1,0 +1,16 @@
+e - trade - event type
+E - event time
+s - symbol
+t - trade id
+p - price
+q - qty
+b - buyer id
+a - seller id
+T - trade time
+m - true
+M - true
+
+Example - 
+{"e":"trade","E":1667717660094,"s":"BTCUSDT","t":2102690107,"p":"21169.54000000","q":"0.00927000","b":15135216860,"a":15135216812,"T":1667717660094,"m":false,"M":true}
+21169.54
+
