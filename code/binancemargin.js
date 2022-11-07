@@ -10,7 +10,7 @@ console.log("secret " + apiSecret);
 
 const client = new Spot(apiKey, apiSecret)
 console.log(client);
-
+var numTries=0;
 //client.account().then(response => client.logger.log(response.data))
 
 //client.marginAllOrders(
@@ -29,7 +29,10 @@ client.newMarginOrder(
     newOrderRespType: 'FULL',
     timeInForce: 'GTC'
   }
-).then(response => {client.logger.log(response.data); getOrder('001')})
+).then(response => {
+    client.logger.log(response.data); 
+    getOrder('001')
+  })
   .catch(error => client.logger.error(error))
 
 function getOrder(orderId) {
@@ -40,7 +43,18 @@ client.marginOrder(
     origClientOrderId: orderId,
 
   }
-).then(response => {client.logger.log(response.data); if (response.data.executedQty == 0.005) {sellOrder('002');} return})
+).then(response => {
+      if (numTries> 10) process.exit();
+      client.logger.log(response.data);
+      console.log("exec qty "+response.data.executedQty); 
+      if (response.data.executedQty == 0.005) {
+          sellOrder('002');
+      } else {
+          getOrder(orderId);
+          numTries++;
+      } 
+      return;
+  })
   .catch(error => client.logger.error(error))
 
 }
