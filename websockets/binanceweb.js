@@ -14,7 +14,10 @@ var rsiPeriod=5;
 var rsiCurrent=0;
 var priceMoves=[]; // open and closes - json format
 var RSIN=5; // period for RS
-var numberPeriods=0; // number of candlesticks 
+var numberPeriods=0; // number of candlesticks
+var profitMargin = 0.005; // profit from the txn
+var capital = 100; // capital available for the trade
+
 ws.onmessage = (event) => {
 
 // get the streamed data	
@@ -83,7 +86,14 @@ ws.onmessage = (event) => {
 	   rsi = calcRSI(rs);
 	   console.log("rsi value = " + rsi);
        }
-       let pricevar = {"open":openPrice, "close": closePrice, "txns": numberTxns, "min":minPrice, "max":maxPrice, "avg":avgPrice, "var":varPrice, "ratio": priceRatio, "rsi": rsi};
+       let tvr = numberTxns/varPrice; // ratio => more txns more variation
+	   // max":20708.57,"avg":20707.585,"var":0.9850000000005821
+       let buyP = maxPrice - 2*varPrice; // var taken from the average, so *2
+       let sellP = parseFloat(profitMargin + capital)*parseFloat(buyP/capital)
+       let pricevar = {"open":openPrice, "close": closePrice, "txns": numberTxns, 
+	       "min":minPrice, "max":maxPrice, "avg":avgPrice, "var":varPrice, 
+	       "ratio": priceRatio, "rsi": rsi, "tvr": tvr, "buy": buyP, "sell": sellP
+               };
        console.log("price data ===== array = " + JSON.stringify(pricevar));
        if (minPrice > 0) {
            prices.push(pricevar);
