@@ -9,8 +9,8 @@ var openPrice=0.00; // open price on a candlestick
 var closePrice=0.00; // close price on a candlestick
 var prevClosePrice=0.00; // prev close price on a candlestick
 var prices = []; // prices from stream
-var runCycle=10;
-var rsiPeriod=10;
+var runCycle=16;
+var rsiPeriod=5;
 var rsiCurrent=0;
 var priceMoves=[]; // open and closes - json format
 var RSIN=5; // period for RS
@@ -19,7 +19,7 @@ ws.onmessage = (event) => {
 
 // get the streamed data	
    let obj = JSON.parse(event.data); // data stream of prices
-   console.log(JSON.stringify(obj));
+ //  console.log(JSON.stringify(obj));
 
 // get the price 
    let price = parseFloat(obj.p).toFixed(2); // price
@@ -29,10 +29,10 @@ ws.onmessage = (event) => {
 
    let orgTime = parseInt(obj.E); // time - in millisecs
    let tradeTime = parseInt(obj.E/1000);
-   console.log("trade time = " + tradeTime);
+//   console.log("trade time = " + tradeTime);
 
    let d = new Date(orgTime);
-   console.log("local time in date - " + d);
+//   console.log("local time in date - " + d);
    //let timeCheck = d.setUTCSeconds(orgTime);
    let numberSecs = (d.getTime() - d.getMilliseconds())/1000; // number of secs for that candlestick
    console.log("local time in secs - " + numberSecs);
@@ -51,10 +51,15 @@ ws.onmessage = (event) => {
    }
        // data streams in millisecs - only take sec blocks	   
    if (numberSecs > prevSecs) {
-	   // new candletick    
+	   // new candletick
+       let priceUDdef = { "up": 0.00, "down": 0.00};
+ 
        let priceUD = priceUpDown(closePrice, prevClosePrice); // [up, down] prices
        if (priceMoves.length > RSIN) priceMoves.splice(0, 1); // remove first entry for that RS period
-	   priceMoves.push(priceUD);
+       if (k>1)
+          priceMoves.push(priceUD);
+       else 
+	  priceMoves.push(priceUDdef);
 
        console.log("min price = " + minPrice);
        console.log("max price = " + maxPrice);
@@ -71,19 +76,20 @@ ws.onmessage = (event) => {
        let rsi = 0.00;	   
        if (priceMoves.length > RSIN) {
            let avgP = SAMoves(priceMoves);
-	   let rs = calcRS(avgP[0]["upAvg"], calcRS[0]["downAvg"]);
+           console.log("price moves data ===== array = " + JSON.stringify(priceMoves));
+	   console.log("avg prices rsi " + JSON.stringify(avgP));
+	   let rs = calcRS(avgP["upAvg"], avgP["downAvg"]);
+	   console.log("rs value = " + rs);
 	   rsi = calcRSI(rs);
+	   console.log("rsi value = " + rsi);
        }
        let pricevar = {"open":openPrice, "close": closePrice, "txns": numberTxns, "min":minPrice, "max":maxPrice, "avg":avgPrice, "var":varPrice, "ratio": priceRatio, "rsi": rsi};
-       console.log("price data ===== array = " + prices);
+       console.log("price data ===== array = " + JSON.stringify(pricevar));
        if (minPrice > 0) {
            prices.push(pricevar);
 
        }
        console.log("==================================== new time in secs ===================================");
-       if (priceMoves.length > RSIN) {
-           let avgP = SAMoves(priceMoves);
-       }
        prevSecs = numberSecs; // init current sec value
        prevClosePrice = closePrice; // save prev close price
        minPrice = parseFloat(price); // init min price
@@ -113,27 +119,6 @@ ws.onmessage = (event) => {
       let priceChange=0;
       for (let i=0;i < prices.length; i++) {
 	  //  {"open":20867.08,"close":20866.87,"txns":50,"min":20866.16,"max":20867.1,"avg":20866.629999999997,"var":0.47000000000116415,"ratio":0.00002252349392110855}
-          if (i>0) {
-	      priceChange = prices[i].close - prices[i-1].close;
-	      if (priceChange == 0) {
-	          priceUp=0;
-		  priceDown=0;
-	      } else {
-	          if (priceChange > 0) {
-		      priceUp=priceChange;
-		      priceDown=0;
-	          } else {
-	              priceUp=0; 
-		      priceDown=abs(priceChange);	  
-                  }
-	      }  
-	      
-	  }  
-	  if (i>rsiPeriod) {
-              
-          } 		  
-	  priceUpTot=priceUpTot+priceUp;
-	  priceDownTot=priceDownTot+priceDown;
           console.log("price data " + i + " " + JSON.stringify(prices[i]));
       }
       
@@ -145,10 +130,10 @@ ws.onmessage = (event) => {
 }
 
 
-function priceUpDown(priceCloseT, priceCloseT-1) {
+function priceUpDown(priceCloseT, priceCloseT_1) {
     let priceUp=0;
     let priceDown=0;
-    priceChange = priceCloseT - pricesCloseT-1;
+    priceChange = priceCloseT - priceCloseT_1;
     if (priceChange == 0) {
         priceUp=0;
         priceDown=0;
@@ -158,7 +143,7 @@ function priceUpDown(priceCloseT, priceCloseT-1) {
             priceDown=0;
         } else {
             priceUp=0; 
-            priceDown=abs(priceChange);	  
+            priceDown=Math.abs(priceChange);	  
         }
     }
     let priceUD = { "up": priceUp, "down": priceDown};
@@ -179,17 +164,17 @@ function SAMoves(udMoves) {
   //  downMoves.forEach(p => {sumDown += p;});
     let avgUp = sumUp/udMoves.length;
     let avgDown = sumDown/udMoves.length;
-    let jsonAvg = {"upAvg": avgUp, "upDown": avgDown};
+    let jsonAvg = {"upAvg": avgUp, "downAvg": avgDown};
     return jsonAvg; 	
 }
 
 function calcRS(avgUp, avgDown) {
-    return AvgUp/AvgDown;
+    return avgUp/avgDown;
 }
 
-function calcRSI(RSI) {
-    let RSI = 100 - 100/(1+RS);
-    return RSI;
+function calcRSI(RS) {
+    let RSIval = 100 - 100/(1+RS);
+    return RSIval;
 }
 
 //ws.on('message', function incoming(data) {
