@@ -1,7 +1,13 @@
+require('dotenv').config();
 const { Spot } = require('@binance/connector')
+const apiSecret = process.env.API_SECRET;
+const apiKey = process.env.API_KEY;
 //const Spot = require('./binance-connector-node/src/spot')
-const apiSecret = 'xxx' 
-const apiKey = 'xxx'
+
+console.log("secret " + apiSecret);
+
+//process.exit();
+
 const client = new Spot(apiKey, apiSecret)
 console.log(client);
 
@@ -19,11 +25,40 @@ client.newMarginOrder(
     quantity: 0.005,
     isIsolated: 'TRUE',
     price: '20000',
-    newClientOrderId: 'my_order',
+    newClientOrderId: '001',
     newOrderRespType: 'FULL',
     timeInForce: 'GTC'
   }
-).then(response => client.logger.log(response.data))
+).then(response => {client.logger.log(response.data); getOrder('001')})
   .catch(error => client.logger.error(error))
 
+function getOrder(orderId) {
+client.marginOrder(
+  'BTCUSDT', // symbol
+  {
+    isIsolated: 'TRUE',
+    origClientOrderId: orderId,
 
+  }
+).then(response => {client.logger.log(response.data); if (response.data.executedQty == 0.005) {sellOrder('002');} return})
+  .catch(error => client.logger.error(error))
+
+}
+
+
+function sellOrder(orderId) {
+client.newMarginOrder(
+  'BTCUSDT', // symbol
+  'SELL',
+  'LIMIT',
+  {
+    quantity: 0.005,
+    isIsolated: 'TRUE',
+    price: '22000',
+    newClientOrderId: orderId,
+    newOrderRespType: 'FULL',
+    timeInForce: 'GTC'
+  }
+).then(response => {client.logger.log(response.data); return})
+  .catch(error => client.logger.error(error))
+}
