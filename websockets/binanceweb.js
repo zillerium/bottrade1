@@ -1,8 +1,8 @@
 const WebSocket = require('ws');
 const ws = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@trade');
 var prevSecs = 0;
-var minPrice = 0;
-var maxPrice = 0;
+var minPrice = 0.00;
+var maxPrice = 0.00;
 var k=0;
 var prices = [];
 ws.onmessage = (event) => {
@@ -22,26 +22,35 @@ ws.onmessage = (event) => {
    if (numberSecs > prevSecs) {
        console.log("min price = " + minPrice);
        console.log("max price = " + maxPrice);
-       let pricevar = {"min":minPrice, "max":maxPrice};
+       let totPrice=parseFloat(minPrice)+parseFloat(maxPrice);
+       console.log("tot price = " + totPrice);
+       let avgPrice = totPrice/2;
+       let varPrice=maxPrice-avgPrice;
+       console.log("avg price = " + avgPrice);
+       let pricevar = {"min":minPrice, "max":maxPrice, "avg":avgPrice, "var":varPrice};
        console.log("price data ===== array = " + prices);
-       if (minPrice > 0)
+       if (minPrice > 0) {
            prices.push(pricevar);
+
+       }
        console.log("==================================== new time in secs ===================================");
        prevSecs = numberSecs;
-       minPrice = price;
-       maxPrice = price;
+       minPrice = parseFloat(price);
+       maxPrice = parseFloat(price);
        k++;
    } else {
-       if (price < minPrice) minPrice =price;
-       if (price > maxPrice) maxPrice = price;
+       if (price < minPrice) minPrice =parseFloat(price);
+       if (price > maxPrice) maxPrice = parseFloat(price);
 
 
    }
-   if (k>3) {
+   if (k>10) {
       // let pricevar = {"min":minPrice, "max":maxPrice};
      //  prices.push(pricevar);
        console.log("price data ===== array = " + prices);
-      
+      for (let i=0;i < prices.length; i++) {
+          console.log("price data " + i + " " + JSON.stringify(prices[i]));
+      }
 
       process.exit();
    }
