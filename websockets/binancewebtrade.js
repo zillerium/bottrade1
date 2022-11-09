@@ -17,7 +17,7 @@ var RSIN=5; // period for RS
 var numberPeriods=0; // number of candlesticks
 var profitMargin = 0.005; // profit from the txn
 var capital = 100; // capital available for the trade
-var orderRef = 99999;
+var orderRefGlobal = 99999;
 var sold = true;
 var totOrders = 0;
 var totOrderLimit = 1;
@@ -42,7 +42,7 @@ let u=1;
 for (let i=0;i< 99999;i++) {
 	u=u+1;
 }
-console.log("id " + orderRef);
+console.log("id " + orderRefGlobal);
 console.log("secret " + apiSecret);
 
 
@@ -132,10 +132,12 @@ ws.onmessage = (event) => {
        //let orderRef = 1;
        console.log("start wait ....");
        if (sold) {
-	   orderRef=orderRef+2; // take into account the sell order    
+	   console.log("order ref at invoke 111111111111111111111111111" + orderRefGlobal);
+	   orderRefGlobal++; // take into account the sell order    
+	   console.log("order ref at invoke 000000000000000000000000000" + orderRefGlobal);
 	   sold=false;    
-           newMarginOrder(buyP, sellP, btcQty, orderRef);
-	   getId();    
+           newMarginOrder(buyP, sellP, btcQty, orderRefGlobal);
+	   //getId();    
        }
       // setTimeout(function() { console.log("waiting ...........");
      //  }, 10000);
@@ -247,6 +249,7 @@ function newMarginOrder(buyPrice, sellPrice, btcQty, orderRef) {
     let buyPriceStr = buyPrice.toString();
     let sellPriceStr = sellPrice.toString();
     let orderRefStr = orderRef.toString();
+    console.log("price order reference global " + orderRefGlobal);
     console.log("price str buy " + buyPriceStr);
     console.log("price str sell "+ sellPriceStr);
  
@@ -267,12 +270,12 @@ function newMarginOrder(buyPrice, sellPrice, btcQty, orderRef) {
     }
     ).then(response => {
         client.logger.log(response.data); 
-        getOrder(buyPrice, sellPrice, btcQty, orderRef)
+        getOrder(buyPrice, sellPrice, btcQty, orderRef, orderRef); // order ref = pair ref for order
      })
     .catch(error => client.logger.error(error))
 }
 
-function getSellOrder(sellPrice, btcQty, orderRef) {
+function getSellOrder(sellPrice, btcQty, orderRef, OrderPair) {
     console.log("selling price == "+ sellPrice);
     let sellOrderRef = orderRef;
     let Pair = 'BTCUSDT';
@@ -289,20 +292,18 @@ function getSellOrder(sellPrice, btcQty, orderRef) {
     ).then(response => {
       if (numTries> 20) { // async needed later
 	    Status = 'Open';
-            let sql = buildSQLInsert(sellOrderRef, Pair, Type, Price, Qty, Status);
+            let sql = buildSQLInsert(sellOrderRef, OrderPair, Pair, Type, Price, Qty, Status);
             insertOrder(sql);
 	    sold=false;
 	    return;  
 	   //process.exit();
-      }
+      } else {
 	
         client.logger.log(response.data);
         console.log("exec qty "+response.data.executedQty); 
         if (response.data.executedQty == btcQty) {
             console.log("------- sold order now -------");
-           // sellOrder(sellPrice, btcQty, orderRef+1);
-	    //insert buy order - do after sell to save time
-            let sql = buildSQLInsert(sellOrderRef, Pair, Type, Price, Qty, Status);
+            let sql = buildSQLInsert(sellOrderRef, OrderPair, Pair, Type, Price, Qty, Status);
             insertOrder(sql)
             totOrders++;
 	    console.log(" tot orders 999999999999999999999999 " + totOrders);
@@ -310,16 +311,18 @@ function getSellOrder(sellPrice, btcQty, orderRef) {
             numTries = 111;
         } else {
 	    console.log("------- no match for sell order ------");
-            getSellOrder(sellPrice, btcQty, orderRef);
-            sold=false;		
+            getSellOrder(sellPrice, btcQty, orderRef, OrderPair);
             numTries++;
         } 
         return;
+       }
      })
   .catch(error => client.logger.error(error))
 
 }
-function getOrder(buyPrice, sellPrice, btcQty, orderRef) {
+function getOrder(buyPrice, sellPrice, btcQty, orderRef, OrderPair) {
+    console.log("order reference global in get order  "+ orderRefGlobal);
+	
     console.log("selling price == "+ sellPrice);
     let buyOrderRef = orderRef;
     let Pair = 'BTCUSDT';
@@ -336,42 +339,42 @@ function getOrder(buyPrice, sellPrice, btcQty, orderRef) {
     ).then(response => {
       if (numTries> 10) { // async needed later
 	    Status = 'Open';
-            let sql = buildSQLInsert(buyOrderRef, Pair, Type, Price, Qty, Status);
+            let sql = buildSQLInsert(buyOrderRef, OrderPair, Pair, Type, Price, Qty, Status);
             insertOrder(sql);
 	    return;  
 	   //process.exit();
-      }
+      } else {
 	
         client.logger.log(response.data);
         console.log("exec qty "+response.data.executedQty); 
         if (response.data.executedQty == btcQty) {
-            console.log("------- sell order now -------");
-            sellOrder(sellPrice, btcQty, orderRef+1);
+            console.log("------- sell order now, buy was done -------");
+            console.log("????????????? global order ref before ???????????? " + orderRefGlobal );
+            console.log("????????????? local order ref ???????????? " + orderRef );
+		orderRefGlobal++; // global var
+            console.log("????????????? global order ref after ??????????? " + orderRefGlobal );
+	    sellOrder(sellPrice, btcQty, orderRefGlobal, orderRef); // order ref for the buy is the ref for the order pair
 	    //insert buy order - do after sell to save time
-            let sql = buildSQLInsert(buyOrderRef, Pair, Type, Price, Qty, Status);
+            let sql = buildSQLInsert(buyOrderRef, OrderPair, Pair, Type, Price, Qty, Status);
             insertOrder(sql) 
             numTries = 11;
         } else {
 	    console.log("------- no match for sell ------");
-            getOrder(buyPrice, sellPrice, btcQty, orderRef);
+            getOrder(buyPrice, sellPrice, btcQty, orderRef, OrderPair);
             numTries++;
         } 
         return;
+      }	      
      })
   .catch(error => client.logger.error(error))
 
 }
 
 
-function sellOrder(sellPrice, btcQty,  orderRefSell) {
-    let buyOrderRef = orderRefSell;
-    let Pair = 'BTCUSDT';
-    let Type = 'SELL';
-    let Price = sellPrice;
-    let Qty = btcQty;
-    let Status = 'Open'; // sell order
-	
-    let sellPriceStr = sellPrice.toString();
+function sellOrder(sellPrice, btcQty,  orderRefSell, OrderPair) {
+console.log("kkkkkkkkkkkkk global ref ======" + orderRefGlobal);	
+console.log("kkkkkkkkkkkkk local ref ======" + orderRefSell);	
+
     client.newMarginOrder(
       'BTCUSDT', // symbol
       'SELL',
@@ -385,17 +388,17 @@ function sellOrder(sellPrice, btcQty,  orderRefSell) {
         timeInForce: 'GTC'
     }
     ).then(response => {client.logger.log(response.data);
-	    getSellOrder(sellPrice, btcQty, orderRefSell);
+	    getSellOrder(sellPrice, btcQty, orderRefSell, OrderPair);
             //totOrders++;
 	    return})
     .catch(error => client.logger.error(error))
 }
 
-function buildSQLInsert(OrderRef, Pair, Type, Price, Qty, Status) {
+function buildSQLInsert(OrderRef, OrderPair, Pair, Type, Price, Qty, Status) {
 
     var sql =
-    "insert into trade (orderref, pair, type, price, qty, txndate, status) values (" +
-    OrderRef +
+    "insert into trade (orderref, orderpair, pair, type, price, qty, txndate, status) values (" +
+    OrderRef + ", " + OrderPair + 
     ",'" +
     Pair + "','" + Type + "'," + Price + "," + Qty + "," + "NOW()" + ",'"+ Status + "'" +
     ")";
@@ -442,9 +445,9 @@ sql = "select last_value from trade_id_seq";
 try {
         let res=pool.query(sql)
         .then((data) => {console.log(" order ref " + JSON.stringify(data));
-	orderRef = data["rows"][0]["last_value"];
-	console.log("order ref == "+ orderRef);
-	orderRef++;
+	orderRefGlobal = parseInt(data["rows"][0]["last_value"]);
+	console.log("order ref == "+ orderRefGlobal);
+	 //orderRef++;
 	return data})
 
 } catch (err) {
