@@ -315,6 +315,10 @@ function getSellOrder(sellPrice, btcQty, orderRef, OrderPair) {
 	    Status = 'Open';
             let sql = buildSQLInsert(sellOrderRef, OrderPair, Pair, Type, Price, Qty, Status);
             insertOrder(sql);
+	    //sold=true; // simulates a sale to allow a new buy order
+            totOrders++;
+	    console.log(" tot orders 999999999999999999999999 " + totOrders);
+	    if (totOrders>totOrderLimit) sold=false; else sold=true;
 	    return;  
 	   //process.exit();
       } else {
@@ -361,6 +365,9 @@ function getOrder(buyPrice, sellPrice, btcQty, orderRef, OrderPair) {
 	    let orderId = response.data.orderId;
 	    Status = 'Cancelled';
 	    cancelBuyOrder(orderId, buyOrderRef, OrderPair, Pair, Type, Price, Qty, Status);  
+            totOrders++;
+	    console.log(" tot orders 999999999999999999999999 " + totOrders);
+	    if (totOrders>totOrderLimit) sold=false; else sold=true;
 	    return;  
 	   //process.exit();
       } else {
