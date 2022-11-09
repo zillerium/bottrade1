@@ -131,7 +131,8 @@ ws.onmessage = (event) => {
        console.log("price data ===== array = " + JSON.stringify(pricevar));
        //let orderRef = 1;
        console.log("start wait ....");
-       if (sold) {
+    //  buyP = 17200.00;
+	   if (sold) {
 	   console.log("order ref at invoke 111111111111111111111111111" + orderRefGlobal);
 	   orderRefGlobal++; // take into account the sell order    
 	   console.log("order ref at invoke 000000000000000000000000000" + orderRefGlobal);
@@ -243,6 +244,26 @@ function newMarginOrder1(buyPrice, sellPrice, btcQty, orderRef) {
       console.log("****************************** second new order ***********************");	
 }
 
+function cancelBuyOrder(orderId, orderRef, OrderPair, Pair, Type, Price, Qty, Status) {
+console.log("ggggggggggggggggggggggggggggggggggg cancel buy order ggggggggggggg");
+client.cancelMarginOrder(
+  'BTCUSDT', // symbol
+  {
+    isIsolated: 'TRUE',
+	  orderId: orderId
+   // origClientOrderId: orderRef.toString()
+  }
+).then(response => {client.logger.log(response.data);
+let sql = buildSQLInsert(orderRef, OrderPair, Pair, Type, Price, Qty, Status);
+
+            insertOrder(sql);
+	    
+})
+  .catch(error => {client.logger.error(error); })
+
+
+}
+
 function newMarginOrder(buyPrice, sellPrice, btcQty, orderRef) {
 
     sold = false;
@@ -294,7 +315,6 @@ function getSellOrder(sellPrice, btcQty, orderRef, OrderPair) {
 	    Status = 'Open';
             let sql = buildSQLInsert(sellOrderRef, OrderPair, Pair, Type, Price, Qty, Status);
             insertOrder(sql);
-	    sold=false;
 	    return;  
 	   //process.exit();
       } else {
@@ -338,15 +358,17 @@ function getOrder(buyPrice, sellPrice, btcQty, orderRef, OrderPair) {
         }
     ).then(response => {
       if (numTries> 10) { // async needed later
-	    Status = 'Open';
-            let sql = buildSQLInsert(buyOrderRef, OrderPair, Pair, Type, Price, Qty, Status);
-            insertOrder(sql);
+	    let orderId = response.data.orderId;
+	    Status = 'Cancelled';
+	    cancelBuyOrder(orderId, buyOrderRef, OrderPair, Pair, Type, Price, Qty, Status);  
 	    return;  
 	   //process.exit();
       } else {
 	
         client.logger.log(response.data);
         console.log("exec qty "+response.data.executedQty); 
+        console.log("exec order id == "+response.data.orderId);
+	let orderId = response.data.orderId;
         if (response.data.executedQty == btcQty) {
             console.log("------- sell order now, buy was done -------");
             console.log("????????????? global order ref before ???????????? " + orderRefGlobal );
