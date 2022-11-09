@@ -19,7 +19,9 @@ var profitMargin = 0.005; // profit from the txn
 var capital = 100; // capital available for the trade
 var orderRef = 99999;
 var sold = true;
-var btcQty = 0.001;
+var totOrders = 0;
+var totOrderLimit = 1;
+var btcQty = 0.0025;
 require('dotenv').config();
 const { Spot } = require('@binance/connector')
 const apiSecret = process.env.API_SECRET;
@@ -285,10 +287,11 @@ function getSellOrder(sellPrice, btcQty, orderRef) {
             origClientOrderId: orderRef.toString(),
         }
     ).then(response => {
-      if (numTries> 10) { // async needed later
+      if (numTries> 20) { // async needed later
 	    Status = 'Open';
             let sql = buildSQLInsert(sellOrderRef, Pair, Type, Price, Qty, Status);
             insertOrder(sql);
+	    sold=false;
 	    return;  
 	   //process.exit();
       }
@@ -300,11 +303,15 @@ function getSellOrder(sellPrice, btcQty, orderRef) {
            // sellOrder(sellPrice, btcQty, orderRef+1);
 	    //insert buy order - do after sell to save time
             let sql = buildSQLInsert(sellOrderRef, Pair, Type, Price, Qty, Status);
-            insertOrder(sql) 
-            numTries = 11;
+            insertOrder(sql)
+            totOrders++;
+	    console.log(" tot orders 999999999999999999999999 " + totOrders);
+	    if (totOrders>totOrderLimit) sold=false; else sold=true;
+            numTries = 111;
         } else {
 	    console.log("------- no match for sell order ------");
             getSellOrder(sellPrice, btcQty, orderRef);
+            sold=false;		
             numTries++;
         } 
         return;
@@ -379,7 +386,7 @@ function sellOrder(sellPrice, btcQty,  orderRefSell) {
     }
     ).then(response => {client.logger.log(response.data);
 	    getSellOrder(sellPrice, btcQty, orderRefSell);
-            sold=false; // move global flag to getSellOrder when async is implemented
+            //totOrders++;
 	    return})
     .catch(error => client.logger.error(error))
 }
