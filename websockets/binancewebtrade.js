@@ -20,7 +20,7 @@ var capital = 100; // capital available for the trade
 var orderRefGlobal = 99999;
 var sold = true;
 var totOrders = 0;
-var totOrderLimit = 1;
+var totOrderLimit = 2;
 var btcQty = 0.0025;
 require('dotenv').config();
 const { Spot } = require('@binance/connector')
