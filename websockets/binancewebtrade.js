@@ -17,13 +17,25 @@ var RSIN=5; // period for RS
 var numberPeriods=0; // number of candlesticks
 var profitMargin = 0.005; // profit from the txn
 var capital = 100; // capital available for the trade
-var orderRef = 10;
+var orderRef = 99999;
 var sold = true;
+var btcQty = 0.0007;
 require('dotenv').config();
 const { Spot } = require('@binance/connector')
 const apiSecret = process.env.API_SECRET;
 const apiKey = process.env.API_KEY;
 //const Spot = require('./binance-connector-node/src/spot')
+const Pool = require("pg").Pool;
+const pool = new Pool({
+  user: "postgres",
+  host: "localhost",
+  database: "crypto",
+  password: "password",
+  port: 5432,
+});
+
+pool.connect();
+getId();
 
 console.log("secret " + apiSecret);
 
@@ -112,13 +124,13 @@ ws.onmessage = (event) => {
 	       "ratio": priceRatio, "rsi": rsi, "tvr": tvr, "buy": buyP, "sell": sellP
                };
        console.log("price data ===== array = " + JSON.stringify(pricevar));
-       let btcQty = 0.01;
        //let orderRef = 1;
        console.log("start wait ....");
        if (sold) {
 	   orderRef=orderRef+2; // take into account the sell order    
 	   sold=false;    
            newMarginOrder(buyP, sellP, btcQty, orderRef);
+	   getId();    
        }
       // setTimeout(function() { console.log("waiting ...........");
      //  }, 10000);
@@ -250,13 +262,19 @@ function newMarginOrder(buyPrice, sellPrice, btcQty, orderRef) {
     }
     ).then(response => {
         client.logger.log(response.data); 
-        getOrder(sellPrice, btcQty, orderRef)
+        getOrder(buyPrice, sellPrice, btcQty, orderRef)
      })
     .catch(error => client.logger.error(error))
 }
 
-function getOrder(sellPrice, btcQty, orderRef) {
+function getSellOrder(sellPrice, btcQty, orderRef) {
     console.log("selling price == "+ sellPrice);
+    let sellOrderRef = orderRef;
+    let Pair = 'BTCUSDT';
+    let Type = 'SELL';
+    let Price = sellPrice;
+    let Qty = btcQty;
+    let Status = 'Closed'; // buy order
     client.marginOrder(
         'BTCUSDT', // symbol
         {
@@ -264,17 +282,68 @@ function getOrder(sellPrice, btcQty, orderRef) {
             origClientOrderId: orderRef.toString(),
         }
     ).then(response => {
-      if (numTries> 10) process.exit();
+      if (numTries> 10) { // async needed later
+	    Status = 'Open';
+            buildSQLInsert(sellOrderRef, Pair, Type, Price, Qty, Status);
+            insertOrder(sql);
+	    return;  
+	   //process.exit();
+      }
+	
+        client.logger.log(response.data);
+        console.log("exec qty "+response.data.executedQty); 
+        if (response.data.executedQty == btcQty) {
+            console.log("------- sold order now -------");
+           // sellOrder(sellPrice, btcQty, orderRef+1);
+	    //insert buy order - do after sell to save time
+            buildSQLInsert(sellOrderRef, Pair, Type, Price, Qty, Status);
+            insertOrder(sql) 
+            numTries = 11;
+        } else {
+	    console.log("------- no match for sell order ------");
+            getSellOrder(sellPrice, btcQty, orderRef);
+            numTries++;
+        } 
+        return;
+     })
+  .catch(error => client.logger.error(error))
+
+}
+function getOrder(buyPrice, sellPrice, btcQty, orderRef) {
+    console.log("selling price == "+ sellPrice);
+    let buyOrderRef = orderRef;
+    let Pair = 'BTCUSDT';
+    let Type = 'BUY';
+    let Price = buyPrice;
+    let Qty = btcQty;
+    let Status = 'Closed'; // buy order
+    client.marginOrder(
+        'BTCUSDT', // symbol
+        {
+            isIsolated: 'TRUE',
+            origClientOrderId: orderRef.toString(),
+        }
+    ).then(response => {
+      if (numTries> 10) { // async needed later
+	    Status = 'Open';
+            buildSQLInsert(buyOrderRef, Pair, Type, Price, Qty, Status);
+            insertOrder(sql);
+	    return;  
+	   //process.exit();
+      }
 	
         client.logger.log(response.data);
         console.log("exec qty "+response.data.executedQty); 
         if (response.data.executedQty == btcQty) {
             console.log("------- sell order now -------");
             sellOrder(sellPrice, btcQty, orderRef+1);
+	    //insert buy order - do after sell to save time
+            buildSQLInsert(buyOrderRef, Pair, Type, Price, Qty, Status);
+            insertOrder(sql) 
             numTries = 11;
         } else {
 	    console.log("------- no match for sell ------");
-            getOrder(sellPrice, btcQty, orderRef);
+            getOrder(buyPrice, sellPrice, btcQty, orderRef);
             numTries++;
         } 
         return;
@@ -285,7 +354,14 @@ function getOrder(sellPrice, btcQty, orderRef) {
 
 
 function sellOrder(sellPrice, btcQty,  orderRefSell) {
-	let sellPriceStr = sellPrice.toString();
+    let buyOrderRef = orderRefSell;
+    let Pair = 'BTCUSDT';
+    let Type = 'SELL';
+    let Price = sellPrice;
+    let Qty = btcQty;
+    let Status = 'Open'; // sell order
+	
+    let sellPriceStr = sellPrice.toString();
     client.newMarginOrder(
       'BTCUSDT', // symbol
       'SELL',
@@ -298,9 +374,66 @@ function sellOrder(sellPrice, btcQty,  orderRefSell) {
         newOrderRespType: 'FULL',
         timeInForce: 'GTC'
     }
-    ).then(response => {client.logger.log(response.data); sold=false; return})
+    ).then(response => {client.logger.log(response.data);
+	    getSellOrder(sellPrice, btcQty, orderRef);
+            sold=false; // move global flag to getSellOrder when async is implemented
+	    return})
     .catch(error => client.logger.error(error))
 }
+
+function buildSQLInsert(OrderRef, Pair, Type, Price, Qty, Status) {
+
+    var sql =
+    "insert into crypto (orderref, pair, type, price, qty, txndate, status) values (" +
+    OrderRef +
+    ",'" +
+    Pair + "','" + Type + "'," + Price + "," + Qty + "," + NOW() + ",'"+ Status + "'" +
+    ")";
+    console.log('sql ==== ' + sql);
+    return sql;
+
+}
+
+function insertOrder(sql) {
+// need to add async await later into this db
+
+/*crypto=# CREATE TABLE TRADE(
+   ID SERIAL PRIMARY KEY,
+   ORDERREF INTEGER,
+   PAIR VARCHAR(8),
+   TYPE CHAR(4),
+   PRICE MONEY,
+   QTY NUMERIC(5,10),
+   TXNDATE TIMESTAMP,
+   STATUS VARCHAR(6)
+);
+*/
+
+  console.log("insert db");
+  //  var sql = "select user_name from account where user_name = '" + userName +"' ";
+  var res;
+  try {
+    pool.query(sql);
+  //  pool.end;
+   // return res.rows;
+  } catch (err) {
+    console.log(err);
+  }
+}
+
+function getId() {
+sql = "select currval('trade_id_seq')";
+try {
+	let res=pool.query(sql);
+	orderRef = res;
+	return res;
+} catch (err) {
+	console.log(err);
+	return 0;
+}
+
+}
+
 
 //ws.on('message', function incoming(data) {
 //    console.log(data);
