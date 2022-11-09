@@ -19,7 +19,7 @@ var profitMargin = 0.005; // profit from the txn
 var capital = 100; // capital available for the trade
 var orderRef = 99999;
 var sold = true;
-var btcQty = 0.0007;
+var btcQty = 0.001;
 require('dotenv').config();
 const { Spot } = require('@binance/connector')
 const apiSecret = process.env.API_SECRET;
@@ -36,10 +36,13 @@ const pool = new Pool({
 
 pool.connect();
 getId();
-
+let u=1;
+for (let i=0;i< 99999;i++) {
+	u=u+1;
+}
+console.log("id " + orderRef);
 console.log("secret " + apiSecret);
 
-//process.exit();
 
 const client = new Spot(apiKey, apiSecret)
 console.log(client);
@@ -284,7 +287,7 @@ function getSellOrder(sellPrice, btcQty, orderRef) {
     ).then(response => {
       if (numTries> 10) { // async needed later
 	    Status = 'Open';
-            buildSQLInsert(sellOrderRef, Pair, Type, Price, Qty, Status);
+            let sql = buildSQLInsert(sellOrderRef, Pair, Type, Price, Qty, Status);
             insertOrder(sql);
 	    return;  
 	   //process.exit();
@@ -296,7 +299,7 @@ function getSellOrder(sellPrice, btcQty, orderRef) {
             console.log("------- sold order now -------");
            // sellOrder(sellPrice, btcQty, orderRef+1);
 	    //insert buy order - do after sell to save time
-            buildSQLInsert(sellOrderRef, Pair, Type, Price, Qty, Status);
+            let sql = buildSQLInsert(sellOrderRef, Pair, Type, Price, Qty, Status);
             insertOrder(sql) 
             numTries = 11;
         } else {
@@ -326,7 +329,7 @@ function getOrder(buyPrice, sellPrice, btcQty, orderRef) {
     ).then(response => {
       if (numTries> 10) { // async needed later
 	    Status = 'Open';
-            buildSQLInsert(buyOrderRef, Pair, Type, Price, Qty, Status);
+            let sql = buildSQLInsert(buyOrderRef, Pair, Type, Price, Qty, Status);
             insertOrder(sql);
 	    return;  
 	   //process.exit();
@@ -338,7 +341,7 @@ function getOrder(buyPrice, sellPrice, btcQty, orderRef) {
             console.log("------- sell order now -------");
             sellOrder(sellPrice, btcQty, orderRef+1);
 	    //insert buy order - do after sell to save time
-            buildSQLInsert(buyOrderRef, Pair, Type, Price, Qty, Status);
+            let sql = buildSQLInsert(buyOrderRef, Pair, Type, Price, Qty, Status);
             insertOrder(sql) 
             numTries = 11;
         } else {
@@ -375,7 +378,7 @@ function sellOrder(sellPrice, btcQty,  orderRefSell) {
         timeInForce: 'GTC'
     }
     ).then(response => {client.logger.log(response.data);
-	    getSellOrder(sellPrice, btcQty, orderRef);
+	    getSellOrder(sellPrice, btcQty, orderRefSell);
             sold=false; // move global flag to getSellOrder when async is implemented
 	    return})
     .catch(error => client.logger.error(error))
@@ -384,10 +387,10 @@ function sellOrder(sellPrice, btcQty,  orderRefSell) {
 function buildSQLInsert(OrderRef, Pair, Type, Price, Qty, Status) {
 
     var sql =
-    "insert into crypto (orderref, pair, type, price, qty, txndate, status) values (" +
+    "insert into trade (orderref, pair, type, price, qty, txndate, status) values (" +
     OrderRef +
     ",'" +
-    Pair + "','" + Type + "'," + Price + "," + Qty + "," + NOW() + ",'"+ Status + "'" +
+    Pair + "','" + Type + "'," + Price + "," + Qty + "," + "NOW()" + ",'"+ Status + "'" +
     ")";
     console.log('sql ==== ' + sql);
     return sql;
@@ -421,15 +424,25 @@ function insertOrder(sql) {
   }
 }
 
+
+
 function getId() {
-sql = "select currval('trade_id_seq')";
+        console.log("test");
+//sql = "select currval('trade_id_seq')";
+sql = "select last_value from trade_id_seq";
+
+//sql = "select * from trade";
 try {
-	let res=pool.query(sql);
-	orderRef = res;
-	return res;
+        let res=pool.query(sql)
+        .then((data) => {console.log(" order ref " + JSON.stringify(data));
+	orderRef = data["rows"][0]["last_value"];
+	console.log("order ref == "+ orderRef);
+	orderRef++;
+	return data})
+
 } catch (err) {
-	console.log(err);
-	return 0;
+        console.log(err);
+        return 0;
 }
 
 }
