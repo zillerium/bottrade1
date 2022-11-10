@@ -16,10 +16,30 @@ var numTries=0;
 
 client.marginOpenOrders(
   {
+	//  side : 'BUY',
     symbol: 'BTCUSDT',
 	  isIsolated: 'TRUE'
   }
-).then(response => client.logger.log(response.data))
+).then(response => {
+	client.logger.log(response.data);
+let  grandtotsell = 0.00;
+let  grandtotbuy = 0.00;
+for(var attributename in response.data){
+    console.log(attributename+": "+ JSON.stringify(response.data[attributename]) );
+//"price":"21451.43","origQty":"0.025",
+let side =response.data[attributename]["side"].toString();
+let price = parseFloat(response.data[attributename]["price"]);
+let qty = parseFloat(response.data[attributename]["origQty"]);
+let tot = price * qty;
+if (side == 'SELL') grandtotsell += tot;
+if (side == 'BUY') grandtotbuy += tot;
+
+}
+
+console.log("total sell == " + grandtotsell);
+console.log("total buy == " + grandtotbuy);
+
+})
   .catch(error => client.logger.error(error))
 
 
