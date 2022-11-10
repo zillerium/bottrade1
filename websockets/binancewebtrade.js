@@ -96,7 +96,7 @@ var cancelSchema = new mongoose.Schema({
 }
 */
 
-var queryOrderSchema = new mongoose.Schema({
+var openOrderSchema = new mongoose.Schema({
   orderId : { type: Number, default: null},
   symbol : {type: String, default: null},
   clientOrderId : {type: String, default: null},
@@ -111,11 +111,12 @@ var queryOrderSchema = new mongoose.Schema({
   side : {type: String, default: null},
   isIsolated : {type: Boolean, default: null},
   fills: [
-     price: {type:String, default: null},
-     qty: {type:String, default: null},
-     commission: {type:String, default: null},
-     commissionAsset: {type:String, default: null},
-
+	  {
+	      price: {type:String, default: null},
+              qty: {type:String, default: null},
+              commission: {type:String, default: null},
+              commissionAsset: {type:String, default: null},
+	  }
   ]
 });
 
@@ -141,7 +142,7 @@ var queryOrderSchema = new mongoose.Schema({
 }
 */
 
-var openOrderSchema = new mongoose.Schema({
+var queryOrderSchema = new mongoose.Schema({
   orderId : { type: Number, default: null},
   symbol : {type: String, default: null},
   clientOrderId : {type: String, default: null},
@@ -905,7 +906,7 @@ function addCancelOrder(jsonCancelResponse) {
       });
 }
 function addQueryOrder(jsonQueryResponse) {
-  var queryRec = new querOrderModel( jsonQueryResponse);
+  var queryRec = new queryOrderModel( jsonQueryResponse);
     queryRec.save(function(err, doc){
         if(err) throw err;
          console.log("query order db done" + jsonQueryResponse);
