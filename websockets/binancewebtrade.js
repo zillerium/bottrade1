@@ -9,7 +9,7 @@ var openPrice=0.00; // open price on a candlestick
 var closePrice=0.00; // close price on a candlestick
 var prevClosePrice=0.00; // prev close price on a candlestick
 var prices = []; // prices from stream
-var runCycle=16;
+var runCycle=60;
 var rsiPeriod=5;
 var rsiCurrent=0;
 var priceMoves=[]; // open and closes - json format
@@ -20,7 +20,7 @@ var capital = 100; // capital available for the trade
 var orderRefGlobal = 99999;
 var sold = true;
 var totOrders = 0;
-var totOrderLimit = 2;
+var totOrderLimit = 20;
 var btcQty = 0.0025;
 require('dotenv').config();
 const { Spot } = require('@binance/connector')
@@ -263,7 +263,9 @@ ws.onmessage = (event) => {
        //let orderRef = 1;
        console.log("start wait ....");
     //  buyP = 17200.00;
+	   if (orderRefGlobal == 671) orderRefGlobal = 672;
 	   if (sold) {
+	       numTries = 0; //reset when considering new orders
 	   console.log("order ref at invoke 111111111111111111111111111" + orderRefGlobal);
 	   orderRefGlobal++; // take into account the sell order    
 	   console.log("order ref at invoke 000000000000000000000000000" + orderRefGlobal);
@@ -522,6 +524,7 @@ function getSellOrder(sellPrice, btcQty, orderRef, OrderPair) {
             insertOrder(sql);
 	    //sold=true; // simulates a sale to allow a new buy order
             totOrders++;
+	    numTries = 0;
 	    console.log(" tot orders 999999999999999999999999 " + totOrders);
 	    if (totOrders>totOrderLimit) sold=false; else sold=true;
 	    return;  
@@ -573,6 +576,7 @@ function getSellOrder(sellPrice, btcQty, orderRef, OrderPair) {
 }
 function getOrder(buyPrice, sellPrice, btcQty, orderRef, OrderPair) {
     console.log("order reference global in get order  "+ orderRefGlobal);
+    console.log("order reference  in get order  "+ orderRef);
 	
     console.log("selling price == "+ sellPrice);
     let buyOrderRef = orderRef;
@@ -628,11 +632,14 @@ function getOrder(buyPrice, sellPrice, btcQty, orderRef, OrderPair) {
       let isIsolated = response.data.isIsolated;
 
 
-      if (numTries> 10) { // async needed later
+      if (numTries> 20) { // async needed later
 //	    let orderId = response.data.orderId;
 	    addCancelOrder(response.data);
 	    Status = 'Cancelled';
-	    cancelBuyOrder(orderId, buyOrderRef, OrderPair, Pair, Type, Price, Qty, Status,
+	    console.log(" cancel orderid = " + orderId);
+	    console.log(" cancel buy order = " + buyOrderRef);
+
+	      cancelBuyOrder(orderId, buyOrderRef, OrderPair, Pair, Type, Price, Qty, Status,
                    orderId,
                    clientOrderId,
                    priceRes,
@@ -650,7 +657,8 @@ function getOrder(buyPrice, sellPrice, btcQty, orderRef, OrderPair) {
                    isWorking,
                    accountId,
                    isIsolated
-	    );  
+	    ); 
+	    numTries =0; // reset for next buy order
             totOrders++;
 	    console.log(" tot orders 999999999999999999999999 " + totOrders);
 	    if (totOrders>totOrderLimit) sold=false; else sold=true;
@@ -692,7 +700,7 @@ function getOrder(buyPrice, sellPrice, btcQty, orderRef, OrderPair) {
                    isIsolated
 	    );
             insertOrder(sql) 
-            numTries = 11;
+            numTries = 111;
         } else {
 	    console.log("------- no match for sell ------");
             getOrder(buyPrice, sellPrice, btcQty, orderRef, OrderPair);
@@ -724,6 +732,7 @@ console.log("kkkkkkkkkkkkk local ref ======" + orderRefSell);
     }
     ).then(response => {client.logger.log(response.data);
 	addOpenOrder(response.data);
+	    numTries = 0;
 	    getSellOrder(sellPrice, btcQty, orderRefSell, OrderPair);
             //totOrders++;
 	    return})

@@ -13,15 +13,25 @@ console.log(client);
 var numTries=0;
 //client.account({accountType: 'MARGIN'})
 //client.account({symbols: 'BTCUSDT'})
+client.cancelMarginOrder(
+  'BTCUSDT', // symbol
+  {
+    isIsolated: 'TRUE',
+	  orderId: orderId
+   // origClientOrderId: orderRef.toString()
+  }
+).then(response => {client.logger.log(response.data);
+})
+  .catch(error => {client.logger.error(error); })
 
-client.marginOpenOrders(
+/*client.marginOpenOrders(
   {
     symbol: 'BTCUSDT',
 	  isIsolated: 'TRUE'
   }
 ).then(response => client.logger.log(response.data))
   .catch(error => client.logger.error(error))
-
+*/
 
 /*
 client.marginOrder(
