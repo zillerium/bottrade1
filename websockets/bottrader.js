@@ -9,7 +9,10 @@ var openPrice=0.00; // open price on a candlestick
 var closePrice=0.00; // close price on a candlestick
 var prevClosePrice=0.00; // prev close price on a candlestick
 var prices = []; // prices from stream
-var runCycle=200;
+//var runCycle=400;
+var batchSize= 100;
+var runCycle=30;
+var prevAvgPrice=0;
 var rsiPeriod=5;
 var rsiCurrent=0;
 var priceMoves=[]; // open and closes - json format
@@ -20,8 +23,11 @@ var capital = 100; // capital available for the trade
 var orderRefGlobal = 99999;
 var sold = true;
 var totOrders = 0;
-var totOrderLimit = 50;
-var btcQty = 0.0025;
+var histId = 0;
+//var totOrderLimit = 100;
+var totOrderLimit = 1;
+//var btcQty = 0.0025;
+var btcQty = 0.01;
 require('dotenv').config();
 const { Spot } = require('@binance/connector')
 const apiSecret = process.env.API_SECRET;
@@ -168,7 +174,40 @@ var  openOrderModel = mongoose.model("openOrderModel", openOrderSchema);
 var  queryOrderModel = mongoose.model("queryOrderModel", queryOrderSchema);
 
 pool.connect();
-getId();
+
+main();
+
+async function main() {
+
+orderRefGlobal = await getId();
+histId = await getHistId();
+console.log("histid == " + histId);
+console.log("orderRefGlobal == " + orderRefGlobal);
+	//.rder
+
+/*let delay = 10;
+//fix as we have no async
+sleep = function(time) {
+  var stop = new Date().getTime();
+  while (new Date().getTime() < stop + time) {;
+  }
+  return new Promise((r, _) => r())
+}
+console.log("sleeping...")
+sleep(3000 * 1).then(() => console.log("awake"))
+*/
+let firstId = 3;
+let lastId = histId;
+console.log("oooooooooo histId = " + histId);
+if (lastId > 2*batchSize) firstId = lastId - batchSize;
+// add async later
+let priceSQL = "select avg(avg_price), sum(chg_price) from tradehist where id between " + firstId + " and " + lastId;
+console.log("price sql = " + priceSQL);
+var priceChgJson =await sumPrices(priceSQL);
+console.log("price change "+ JSON.stringify(priceChgJson));
+var sumPriceDB = parseFloat(priceChgJson["sum"]);
+var avgPriceDB = parseFloat(priceChgJson["avg"]);
+//console.log("price rows = " + JSON.stringify(priceRows));
 let u=1;
 for (let i=0;i< 99999;i++) {
 	u=u+1;
@@ -212,6 +251,7 @@ ws.onmessage = (event) => {
        prevSecs = numberSecs; // sec value for candlestick
        minPrice = parseFloat(price); // initialize to defaults
        maxPrice = parseFloat(price);
+       prevAvgPrice = parseFloat(price);
        numberTxns=1; // initialize to 1	   
        k++;
        rsiCurrentPeriod=1; // start of rsi period
@@ -262,6 +302,24 @@ ws.onmessage = (event) => {
        console.log("price data ===== array = " + JSON.stringify(pricevar));
        //let orderRef = 1;
        console.log("start wait ....");
+       //prevAvgPrice = praseFloat(price);
+       let chgPrice = avgPrice - prevAvgPrice;
+       prevAvgPrice = avgPrice;
+//sumPriceDB, avgPriceDB
+// avgPrice
+	avgpriceDB = (avgPriceDB + avgPrice)/2;
+	sumPriceDB =  (sumPriceDB + chgPrice)/2;
+       let percentChange = parseFloat(avgPriceDB/sumPriceDB);
+       let directionPrice = 0;
+       histId++;
+       
+       if (chgPrice > 0) directionPrice = 1; else directionPrice = -1;
+       let datadb = d.toString().replace('GMT+0000 (Coordinated Universal Time)','');
+       let statSQL = buildSQLStats(avgPrice, orgTime, chgPrice, directionPrice, datadb);
+       insertOrder(statSQL);
+       let trade = false;
+	   // Fri Nov 11 2022 07:23:40 GMT+0000 (Coordinated Universal Time)
+//function buildSQLStats(avgPrice, timePrice, chgPrice, directionPrice) {
     //  buyP = 17200.00;
 	   if (orderRefGlobal == 671) orderRefGlobal = 672;
 	   if (sold) {
@@ -269,8 +327,11 @@ ws.onmessage = (event) => {
 	   console.log("order ref at invoke 111111111111111111111111111" + orderRefGlobal);
 	   orderRefGlobal++; // take into account the sell order    
 	   console.log("order ref at invoke 000000000000000000000000000" + orderRefGlobal);
-	   sold=false;    
-           newMarginOrder(buyP, sellP, btcQty, orderRefGlobal);
+	   sold=false; 
+          // console.log("price rows = " + priceRows);
+           if ((percentChange > 0) && (percentChange < 0.005)) { 		   
+              if (trade) newMarginOrder(buyP, sellP, btcQty, orderRefGlobal);
+	   }
 	   //getId();    
        }
       // setTimeout(function() { console.log("waiting ...........");
@@ -300,7 +361,8 @@ ws.onmessage = (event) => {
 
    }
    
-   if (k>runCycle) {
+   if ((k>runCycle) || (totOrders > totOrderLimit)) {
+  // if ((k>runCycle)) {
       // let pricevar = {"min":minPrice, "max":maxPrice};
      //  prices.push(pricevar);
        console.log("price data ===== array = " + prices);
@@ -501,7 +563,7 @@ function getSellOrder(sellPrice, btcQty, orderRef, OrderPair) {
       let isWorking = response.data.isWorking;
       let accountId = response.data.accountId;
       let isIsolated = response.data.isIsolated;
-      if (numTries> 20) { // async needed later
+      if (numTries> 50) { // async needed later  - no sale implies bad market conditions
 	    Status = 'Open';
             let sql = buildSQLInsertBuy(sellOrderRef, OrderPair, Pair, Type, Price, Qty, Status,
                    orderId,
@@ -833,6 +895,16 @@ function buildSQLInsertBuy(OrderRef, OrderPair, Pair, Type, Price, Qty, Status,
 }
 
 
+function buildSQLStats(avgPrice, timePrice, chgPrice, directionPrice, timeSecs) {
+
+    var sql =
+    "insert into tradehist (avg_Price, time_Price, chg_Price, direction_Price, time_secs ) values (" +
+        avgPrice + "," + timePrice + "," + chgPrice + ", " + directionPrice + ",'" + timeSecs + "')";
+
+    console.log('sql ==== ' + sql);
+    return sql;
+
+}
 function buildSQLInsert(OrderRef, OrderPair, Pair, Type, Price, Qty, Status) {
 
     var sql =
@@ -861,7 +933,7 @@ function insertOrder(sql) {
 );
 */
 
-  console.log("insert db");
+  console.log("insert db   " + sql);
   //  var sql = "select user_name from account where user_name = '" + userName +"' ";
   var res;
   try {
@@ -875,19 +947,63 @@ function insertOrder(sql) {
 
 
 
-function getId() {
+async function getHistId() {
+        console.log("test history");
+//sql = "select currval('trade_id_seq')";
+sql = "select last_value from tradehist_id_seq";
+
+//sql = "select * from trade";
+try {
+        let res=await pool.query(sql)
+ //       .then((data) => {console.log(" hist ref " + JSON.stringify(data));
+let histIdlocal = parseInt(res.rows[0]["last_value"]);
+//	 console.log("histid llllllll = "+ histId);
+//	 console.log("last val llllllll = "+parseInt(data["rows"][0]["last_value"]) );
+		//orderRef++;
+//	return data})
+return histIdlocal;
+} catch (err) {
+        console.log(err);
+        return 0;
+}
+
+}
+async function sumPrices(sql) {
+        console.log("test price");
+//sql = "select currval('trade_id_seq')";
+
+try {
+        let res=await pool.query(sql)
+        //.then((data) => {console.log(" data returned " + JSON.stringify(data));
+	 //orderRef++;
+        console.log("res == " + JSON.stringify(res));
+	//priceRows = res.rows;
+	let sum= parseFloat(res.rows[0]["sum"]);
+	let avg=parseFloat(res.rows[0]["avg"]);
+	let priceJson = {"sum": sum, "avg": avg};
+	//return res.rows})
+	return priceJson;
+
+} catch (err) {
+        console.log(err);
+        return 0;
+}
+}
+async function getId() {
         console.log("test");
 //sql = "select currval('trade_id_seq')";
 sql = "select last_value from trade_id_seq";
 
 //sql = "select * from trade";
 try {
-        let res=pool.query(sql)
-        .then((data) => {console.log(" order ref " + JSON.stringify(data));
-	orderRefGlobal = parseInt(data["rows"][0]["last_value"]);
-	console.log("order ref == "+ orderRefGlobal);
+        let res=await pool.query(sql)
+       // .then((data) => {console.log(" order ref " + JSON.stringify(data));
+        console.log("res == " + JSON.stringify(res));
+	let orderRefGlobalLocal = parseInt(res.rows[0]["last_value"]);
+//	console.log("order ref == "+ orderRefGlobal);
 	 //orderRef++;
-	return data})
+	//return data})
+	return orderRefGlobalLocal;
 
 } catch (err) {
         console.log(err);
@@ -924,3 +1040,5 @@ function addQueryOrder(jsonQueryResponse) {
 //ws.on('message', function incoming(data) {
 //    console.log(data);
 //})
+
+}
