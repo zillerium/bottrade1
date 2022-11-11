@@ -499,7 +499,7 @@ let sql = buildSQLInsertBuy(orderRef, OrderPair, Pair, Type, Price, Qty, Status,
 	
 );
 
-            insertOrder(sql);
+            await insertOrder(sql);
 		} 
   catch (error) {client.logger.error(error);} 
 
@@ -509,14 +509,21 @@ let sql = buildSQLInsertBuy(orderRef, OrderPair, Pair, Type, Price, Qty, Status,
 async function newMarginOrder(buyPrice, sellPrice, btcQty, orderRef) {
     totOrders++;
     sold = false;
+    let OrderPair = orderRef;
+    let buyOrderRef = orderRef;
+    let Pair = 'BTCUSDT';
+    let Type = 'BUY';
+    let Price = buyPrice;
+    let Qty = btcQty;
+    let Status = 'Closed'; // buy order
     let buyPriceStr = buyPrice.toString();
     let sellPriceStr = sellPrice.toString();
     let orderRefStr = orderRef.toString();
     console.log("price order reference global " + orderRefGlobal);
     console.log("price str buy " + buyPriceStr);
     console.log("price str sell "+ sellPriceStr);
-let executedTrade = false;
-let checkedCount = 0;
+    let executedTrade = false;
+    let checkedCount = 0;
     //process.exit()
     console.log("++++++++++++++++++++++++ margin order ++++++++++++++++++++++++++++++");	
  try {
@@ -581,9 +588,8 @@ let checkedCount = 0;
 	    await addCancelOrder(response.data);
 	    Status = 'Cancelled';
 	    console.log(" cancel orderid = " + orderId);
-	    console.log(" cancel buy order = " + buyOrderRef);
 
-	      await cancelBuyOrder(orderId, buyOrderRef, OrderPair, Pair, Type, Price, Qty, Status,
+	      await cancelBuyOrder(orderId, orderRef, OrderPair, Pair, Type, Price, Qty, Status,
                    orderId,
                    clientOrderId,
                    priceRes,
@@ -951,6 +957,11 @@ async function sellOrder(sellPrice, btcQty,  orderRefSell, OrderPair) {
     console.log("kkkkkkkkkkkkk local ref ======" + orderRefSell);	
 let executedTrade = false;
 let checkedCount = 0;
+    let Pair = 'BTCUSDT';
+    let Type = 'SELL';
+    let Price = sellPrice;
+    let Qty = btcQty;
+    let Status = 'Closed'; // buy order
 	try {
     client.newMarginOrder(
       'BTCUSDT', // symbol
@@ -981,11 +992,11 @@ let checkedCount = 0;
       let updateTime = response.data.updateTime;
       let isWorking = response.data.isWorking;
       let accountId = response.data.accountId;
-       
+      let isIsolated = response.data.isIsolated;
 
 	while ((!executedTrade) && (checkedCount < 20)) {
          checkedCount++;
-         executedTrade = await getOrder(buyPrice, sellPrice, btcQty, orderRef, orderRef); // order ref = pair ref for order
+         executedTrade = await getSellOrder(sellPrice, btcQty, orderRefSell, OrderPair); // order ref = pair ref for order
 	}
 
 if (executedTrade) {
@@ -994,7 +1005,7 @@ if (executedTrade) {
             console.log("------- sold order now -------");
           //  let sql = buildSQLInsert(sellOrderRef, OrderPair, Pair, Type, Price, Qty, Status);
           //  insertOrder(sql)
-            let sql = buildSQLInsertBuy(sellOrderRef, 
+            let sql = buildSQLInsertBuy(orderRefSell, 
 		    OrderPair, Pair, Type, 
 		    Price, Qty, Status,
                    orderId,
