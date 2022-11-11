@@ -160,12 +160,12 @@ var queryOrderSchema = new mongoose.Schema({
   timeInForce : {type: String, default: null},
   type : {type: String, default: null},
   side : {type: String, default: null},
-  stopPrice : {type: String, default: null},
-  icebergQty : {type: String, default: null},
-  time : {type: Number, default: null},
-  updateTime : {type: Number, default: null},
-  isWorking : {type: Boolean, default: null},
-  accountId : {type: Number, default: null},
+  //stopPrice : {type: String, default: null},
+ // icebergQty : {type: String, default: null},
+//  time : {type: Number, default: null},
+//  updateTime : {type: Number, default: null},
+//  isWorking : {type: Boolean, default: null},
+//  accountId : {type: Number, default: null},
   isIsolated : {type: Boolean, default: null},
 });
 
@@ -456,12 +456,12 @@ async function cancelBuyOrder(orderId, orderRef, OrderPair, Pair, Type, Price, Q
                    timeInForce,
                    typeRes,
                    sideRes,
-                   stopPrice,
-                   icebergQty,
-                   timeRes,
-                   updateTime,
-                   isWorking,
-                   accountId,
+                 //  stopPrice,
+                //   icebergQty,
+               //    timeRes,
+              //     updateTime,
+             //      isWorking,
+             //      accountId,
                    isIsolated
 
 ) {
@@ -489,12 +489,12 @@ let sql = buildSQLInsertBuy(orderRef, OrderPair, Pair, Type, Price, Qty, Status,
                    timeInForce,
                    typeRes,
                    sideRes,
-                   stopPrice,
-                   icebergQty,
-                   timeRes,
-                   updateTime,
-                   isWorking,
-                   accountId,
+                //   stopPrice,
+               //    icebergQty,
+              //     timeRes,
+              //     updateTime,
+              //     isWorking,
+               //    accountId,
                    isIsolated
 	
 );
@@ -552,14 +552,14 @@ async function newMarginOrder(buyPrice, sellPrice, btcQty, orderRef) {
       let timeInForce = response.data.timeInForce;
       let typeRes = response.data.type;
       let sideRes = response.data.side;
-      let stopPrice = response.data.stopPrice;
-      let icebergQty = response.data.icebergQty;
-      let timeRes = response.data.time;
-      let updateTime = response.data.updateTime;
-      let isWorking = response.data.isWorking;
-      let accountId = response.data.accountId;
+    //  let stopPrice = response.data.stopPrice;
+    //  let icebergQty = response.data.icebergQty;
+   //   let timeRes = response.data.time;
+  //    let updateTime = response.data.updateTime;
+  //    let isWorking = response.data.isWorking;
+  //    let accountId = response.data.accountId;
       let isIsolated = response.data.isIsolated;
-
+ //console.log("iceberg qty == "+ icebergQty);
 
 	while ((!executedTrade) && (checkedCount < 20)) {
          checkedCount++;
@@ -577,8 +577,10 @@ async function newMarginOrder(buyPrice, sellPrice, btcQty, orderRef) {
 		    OrderPair, Pair, Type, 
 		    Price, Qty, Status, orderId, clientOrderId, priceRes, origQty,
                    executedQty, cummulativeQuoteQty, statusRes, timeInForce,
-                   typeRes, sideRes, stopPrice, icebergQty, timeRes,
-                   updateTime, isWorking, accountId, isIsolated
+                   typeRes, sideRes,
+		    //stopPrice, icebergQty, timeRes,
+                   //updateTime, isWorking, accountId, 
+		    isIsolated
 	    );
             await insertOrder(sql) 
         //getOrder(buyPrice, sellPrice, btcQty, orderRef, orderRef); // order ref = pair ref for order
@@ -588,6 +590,7 @@ async function newMarginOrder(buyPrice, sellPrice, btcQty, orderRef) {
 	    await addCancelOrder(response.data);
 	    Status = 'Cancelled';
 	    console.log(" cancel orderid = " + orderId);
+	  //  console.log(" iceberg qty " + icebergQty);
 
 	      await cancelBuyOrder(orderId, orderRef, OrderPair, Pair, Type, Price, Qty, Status,
                    orderId,
@@ -600,12 +603,12 @@ async function newMarginOrder(buyPrice, sellPrice, btcQty, orderRef) {
                    timeInForce,
                    typeRes,
                    sideRes,
-                   stopPrice,
-                   icebergQty,
-                   timeRes,
-                   updateTime,
-                   isWorking,
-                   accountId,
+                 //  stopPrice,
+                //   icebergQty,
+               //    timeRes,
+               //    updateTime,
+               //    isWorking,
+               //    accountId,
                    isIsolated
 	    ); 
          }
@@ -963,7 +966,7 @@ let checkedCount = 0;
     let Qty = btcQty;
     let Status = 'Closed'; // buy order
 	try {
-    client.newMarginOrder(
+    let response = await client.newMarginOrder(
       'BTCUSDT', // symbol
       'SELL',
       'LIMIT',
@@ -974,8 +977,12 @@ let checkedCount = 0;
         newClientOrderId: orderRefSell.toString(),
         newOrderRespType: 'FULL',
         timeInForce: 'GTC'
-    })
-      await addQueryOrder(response.data);
+    }
+   )
+		console.log("response " + JSON.stringify(response.data));
+      
+        client.logger.log(response.data); 
+		await addQueryOrder(response.data);
       let orderId = response.data.orderId;
       let clientOrderId = response.data.orderId;
       let priceRes = response.data.price;
@@ -987,13 +994,13 @@ let checkedCount = 0;
       let typeRes = response.data.type;
       let sideRes = response.data.side;
       let stopPrice = response.data.stopPrice;
-      let icebergQty = response.data.icebergQty;
-      let timeRes = response.data.time;
-      let updateTime = response.data.updateTime;
-      let isWorking = response.data.isWorking;
-      let accountId = response.data.accountId;
+    //  let icebergQty = response.data.icebergQty;
+  //    let timeRes = response.data.time;
+ //     let updateTime = response.data.updateTime;
+ //     let isWorking = response.data.isWorking;
+ //     let accountId = response.data.accountId;
       let isIsolated = response.data.isIsolated;
-
+//console.log("icebergqty == " + icebergQty);
 	while ((!executedTrade) && (checkedCount < 20)) {
          checkedCount++;
          executedTrade = await getSellOrder(sellPrice, btcQty, orderRefSell, OrderPair); // order ref = pair ref for order
@@ -1018,19 +1025,19 @@ if (executedTrade) {
                    timeInForce,
                    typeRes,
                    sideRes,
-                   stopPrice,
-                   icebergQty,
-                   timeRes,
-                   updateTime,
-                   isWorking,
-                   accountId,
+                 //  stopPrice,
+                 //  icebergQty,
+                 //  timeRes,
+                 //  updateTime,
+                //   isWorking,
+                //   accountId,
                    isIsolated
 	    );
             await insertOrder(sql) 
 } else {
 
 	    Status = 'Open';
-            let sql = buildSQLInsertBuy(sellOrderRef, OrderPair, Pair, Type, Price, Qty, Status,
+            let sql = buildSQLInsertBuy(orderRefSell, OrderPair, Pair, Type, Price, Qty, Status,
                    orderId,
                    clientOrderId,
                    priceRes,
@@ -1041,12 +1048,12 @@ if (executedTrade) {
                    timeInForce,
                    typeRes,
                    sideRes,
-                   stopPrice,
-                   icebergQty,
-                   timeRes,
-                   updateTime,
-                   isWorking,
-                   accountId,
+                //   stopPrice,
+                //   icebergQty,
+               //    timeRes,
+               //    updateTime,
+               //    isWorking,
+               //    accountId,
                    isIsolated);
             await insertOrder(sql) 
 
@@ -1093,12 +1100,12 @@ function buildSQLInsertBuy(OrderRef, OrderPair, Pair, Type, Price, Qty, Status,
                    timeInForce,
                    typeRes,
                    sideRes,
-                   stopPrice,
-                   icebergQty,
-                   timeRes,
-                   updateTime,
-                   isWorking,
-                   accountId,
+                //   stopPrice,
+               //    icebergQty,
+               //    timeRes,
+               //    updateTime,
+               //    isWorking,
+               //    accountId,
                    isIsolated
 ) {
 
@@ -1124,8 +1131,10 @@ function buildSQLInsertBuy(OrderRef, OrderPair, Pair, Type, Price, Qty, Status,
     var sql =
     "insert into trade (orderref, orderpair, pair, type, price, qty, txndate, status, " +
     "orderId, clientOrderId, priceRes, origQty, executedQty, cummulativeQuoteQty, " +
-    " statusRes, timeInForce, typeRes, sideRes, stopPrice, icebergQty, timeRes, " +
-    "updateTime, isWorking, accountId, isIsolated " +
+    " statusRes, timeInForce, typeRes, sideRes," +
+		//stopPrice, icebergQty, timeRes, " +
+   // "updateTime, isWorking, accountId,
+		"isIsolated " +
 
     ") values (" +
     OrderRef + ", " + OrderPair + 
@@ -1142,12 +1151,12 @@ function buildSQLInsertBuy(OrderRef, OrderPair, Pair, Type, Price, Qty, Status,
                    "'" + timeInForce + "'," +
                    "'" + typeRes + "'," +
                    "'" + sideRes + "'," +
-                   "'" + stopPrice + "'," +
-                   "'" + icebergQty + "'," +
-                   timeRes + "," +
-                   updateTime + "," +
-                   isWorking + "," +
-                   accountId + "," +
+              //     "'" + stopPrice + "'," +
+               //    "'" + icebergQty + "'," +
+              //     timeRes + "," +
+             //      updateTime + "," +
+            //       isWorking + "," +
+            //       accountId + "," +
                    isIsolated +
   /*symbol: 'BTCUSDT',
   orderId: 15302691247,
