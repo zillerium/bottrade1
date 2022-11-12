@@ -26,8 +26,8 @@ var totOrders = 0;
 var histId = 0;
 //var totOrderLimit = 100;
 var totOrderLimit = 1;
-var btcQty = 0.0025;
-//var btcQty = 0.005;
+//var btcQty = 0.0025;
+var btcQty = 0.005;
 require('dotenv').config();
 const { Spot } = require('@binance/connector')
 const apiSecret = process.env.API_SECRET;
@@ -667,7 +667,7 @@ async function manageSellOrder(sellPrice, btcQty, orderRefSellVal, OrderPair) {
             while ((!executedTrade) && (checkedCount < 20) && (!errorTrade)) {
                 checkedCount++;
 	        //    return {"exec":true, "rtn": 0};
-                let result = await getSellOrder(sellPrice, btcQty, orderRefSell, OrderPair); // order ref = pair ref for order
+                let result = await getSellOrder(sellPrice, btcQty, orderRefSellVal, OrderPair); // order ref = pair ref for order
                 if (result) { // await not working correctly
     	           executedTrade = result["exec"];
 	           errorTrade = result["error"];
@@ -677,7 +677,7 @@ async function manageSellOrder(sellPrice, btcQty, orderRefSellVal, OrderPair) {
                 console.log("------- sold order now -------");
                 //  let sql = buildSQLInsert(sellOrderRef, OrderPair, Pair, Type, Price, Qty, Status);
                 //  insertOrder(sql)
-                let sql = buildSQLInsertBuy(orderRefSell, 
+                let sql = buildSQLInsertBuy(orderRefSellVal, 
 		    OrderPair, Pair, Type, 
 		    Price, Qty, Status,
                    orderId,
@@ -704,7 +704,7 @@ async function manageSellOrder(sellPrice, btcQty, orderRefSellVal, OrderPair) {
 
                  if (!errorTrade) {
 	             Status = 'Open';
-                     let sql = buildSQLInsertBuy(orderRefSell, OrderPair, Pair, Type, Price, Qty, Status,
+                     let sql = buildSQLInsertBuy(orderRefSellVal, OrderPair, Pair, Type, Price, Qty, Status,
                                 orderId,
                                 clientOrderId,
                                 priceRes,
