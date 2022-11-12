@@ -476,24 +476,20 @@ async function timetest1(buyPrice, sellPrice, btcQty, orderRef) {
 async function manageOrder(buyPrice, sellPrice, btcQty, orderRef) {
 
     totOrders++;
-	console.log("tot orders ---------> " + totOrders);
-    sold = false;
+    console.log("tot orders ---------> " + totOrders);
+   
     let OrderPair = orderRef;
+    
     let buyOrderRef = orderRef;
     let Pair = 'BTCUSDT';
     let Type = 'BUY';
     let Price = buyPrice;
     let Qty = btcQty;
     let Status = 'Closed'; // buy order
-    let buyPriceStr = buyPrice.toString();
-    let sellPriceStr = sellPrice.toString();
-    let orderRefStr = orderRef.toString();
-    console.log("price order reference global " + orderRefGlobal);
-    console.log("price str buy " + buyPriceStr);
-    console.log("price str sell "+ sellPriceStr);
+    
     //let orderType = 'FOK';
     //let orderType = 'IOC';
-    let timeInForce = 'GTC';
+    let timeInForce = 'IOC';
     let orderType = 'BUY';	
     let errorTrade = false;
       let responseMargin = await bmod.newMarginOrder(buyPrice, btcQty, orderRef, timeInForce, orderType);
@@ -570,7 +566,6 @@ async function manageOrder(buyPrice, sellPrice, btcQty, orderRef) {
                   console.log("????????????? local order ref ???????????? " + orderRef );
                   let orderRefSellVal = orderRef++; // global var
                   console.log("????????????? global order ref after ??????????? " + orderRefGlobal );
-//	          await sellOrder(sellPrice, btcQty, orderRefSellVal, OrderPair); // order ref for the buy is the ref for the order pair
 	          await manageSellOrder(sellPrice, btcQty, orderRefSellVal, OrderPair); // order ref for the buy is the ref for the order pair
 	          //insert buy order - do after sell to save time
                    let sql = buildSQLGen(buyOrderRef, OrderPair, Pair, Type, Price, Qty, Status, responseMargin);
@@ -578,11 +573,11 @@ async function manageOrder(buyPrice, sellPrice, btcQty, orderRef) {
                    ///getOrder(buyPrice, sellPrice, btcQty, orderRef, orderRef); // order ref = pair ref for order
                    await addOpenOrder(responseMargin);
               } else {
-           //       if ((!errorTrade) 
-	//		  && (orderType != 'FOK') 
-	//		  && (orderType != 'IOC') 
+                  if ((!errorTrade) 
+      		          && (orderType != 'FOK') 
+			  && (orderType != 'IOC') 
 //
-//		  ) {
+		  ) {
 	              await addCancelOrder(responseMargin);
 	              Status = 'Cancelled';
 	              console.log(" cancel orderid = " + orderId);
@@ -593,7 +588,7 @@ async function manageOrder(buyPrice, sellPrice, btcQty, orderRef) {
                       let sql = buildSQLGen(orderRef, OrderPair, Pair, Type, Price, Qty, Status, responseMargin);
                       await insertOrder(sql);
 
-  //                }
+                  }
 	      }
          // }
       }	      
@@ -699,28 +694,6 @@ async function manageSellOrder(sellPrice, btcQty, orderRefSellVal, OrderPair) {
                 //  let sql = buildSQLInsert(sellOrderRef, OrderPair, Pair, Type, Price, Qty, Status);
                 //  insertOrder(sql)
 	        let sql = buildSQLGen(orderRefSellVal, OrderPair, Pair, Type, Price, Qty, Status, rSell);
-             /*   let sql = buildSQLInsertBuy(orderRefSellVal, 
-		    OrderPair, Pair, Type, 
-		    Price, Qty, Status,
-                   orderId,
-                   clientOrderId,
-                   priceRes,
-                   origQty,
-                   executedQty,
-                   cummulativeQuoteQty,
-                   statusRes,
-                   timeInForce,
-                   typeRes,
-                   sideRes,
-                 //  stopPrice,
-                 //  icebergQty,
-                 //  timeRes,
-                 //  updateTime,
-                //   isWorking,
-                //   accountId,
-                   isIsolated
-	        );
-		*/
                 await insertOrder(sql) 
 
             } else {
@@ -728,25 +701,6 @@ async function manageSellOrder(sellPrice, btcQty, orderRefSellVal, OrderPair) {
          //        if (!errorTrade) {
 	             Status = 'Open';
 		     let sql = buildSQLGen(orderRefSellVal, OrderPair, Pair, Type, Price, Qty, Status, rSell);
-               /*      let sql = buildSQLInsertBuy(orderRefSellVal, OrderPair, Pair, Type, Price, Qty, Status,
-                                orderId,
-                                clientOrderId,
-                                priceRes,
-                                origQty,
-                                executedQty,
-                                cummulativeQuoteQty,
-                                statusRes,
-                                timeInForce,
-                                typeRes,
-                                sideRes,
-                                //   stopPrice,
-                                //   icebergQty,
-                                //    timeRes,
-                                //    updateTime,
-                                //    isWorking,
-                                //    accountId,
-                                isIsolated);
-				*/
                      await insertOrder(sql);
 	   //      }
 	    }

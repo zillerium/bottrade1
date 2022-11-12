@@ -25,17 +25,20 @@ class BotMod {
 }
 
 // OrderType - 'BUY' or 'SELL'
-    newMarginOrder = async (price, quantity, clientOrderId, timeInForce, orderType) => {
+    newMarginOrder = async (price,  quantity, clientOrderId, timeInForce, orderType) => {
         let orderParams = {
             quantity: quantity,
             isIsolated: 'TRUE',
+	//    stopPrice: stopPrice.toString(),	
             price: price.toString(),
-            newClientOrderId: clientOrderId.toString(),
+            //newClientOrderId: clientOrderId.toString(), // binance will generate the id
             newOrderRespType: 'FULL',
-            timeInForce: timeInForce // FOK did not work in testing 
+            timeInForce: timeInForce //'FOK' // FOK did not work in testing 
 	}
 	try {
             return await this.client.newMarginOrder('BTCUSDT', orderType, 'LIMIT', orderParams)
+
+		
         //client.logger.log(resp.data);
         //return { "resp": resp.data, "error": false};
         }
