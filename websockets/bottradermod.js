@@ -473,46 +473,6 @@ async function timetest1(buyPrice, sellPrice, btcQty, orderRef) {
        }, 5000);
       console.log("****************************** second new order ***********************");	
 }
-/*
-async function cancelBuyOrder(orderId, orderRef, OrderPair, Pair, Type, Price, Qty, Status,
-                   orderId,
-                   clientOrderId,
-                   priceRes,
-                   origQty,
-                   executedQty,
-                   cummulativeQuoteQty,
-                   statusRes,
-                   timeInForce,
-                   typeRes,
-                   sideRes,
-                 //  stopPrice,
-                //   icebergQty,
-               //    timeRes,
-              //     updateTime,
-             //      isWorking,
-             //      accountId,
-                   isIsolated
-
-) {
-console.log("ggggggggggggggggggggggggggggggggggg cancel buy order ggggggggggggg");
-    try {
-	let response = await client.cancelMarginOrder(
-           'BTCUSDT', // symbol
-         {
-            isIsolated: 'TRUE',
-	    orderId: orderId
-            // origClientOrderId: orderRef.toString()
-         }
-        )
-
-		console.log(client.logger.log(response.data));
-
-		} 
-    catch (error) {client.logger.error(error);} 
-
-
-}
-*/
 async function manageOrder(buyPrice, sellPrice, btcQty, orderRef) {
 
     totOrders++;
@@ -692,30 +652,30 @@ async function manageSellOrder(sellPrice, btcQty, orderRefSellVal, OrderPair) {
     let Status = 'Closed'; // buy order
     //let rSell = await sellOrder(sellPrice, btcQty, orderRefSellVal, OrderPair);
 // price, quantity, clientOrderId, timeInForce, orderType)
-    let rSell = await bmod.newMarginOrder(sellPrice, btcQty, orderRefSellVal, OrderPair);
-    console.log("response " + JSON.stringify(rSell));
+    let rSell = await bmod.newMarginOrder(sellPrice, btcQty, orderRefSellVal, 'GTC', Type);
+ //   console.log("response " + JSON.stringify(rSell));
     
     if (rSell) {
-        if (!rSell["error"]) {
+      //  if (!rSell["error"]) {
 
             await addQueryOrder(rSell);
-            let orderId = rSell.resp.orderId;
-            let clientOrderId = rSell.resp.orderId;
-            let priceRes = rSell.resp.price;
-            let origQty = rSell.resp.origQty;
-            let executedQty = rSell.resp.executedQty;
-            let cummulativeQuoteQty = rSell.resp.cummulativeQuoteQty;
-            let statusRes = rSell.resp.status;
-            let timeInForce = rSell.resp.timeInForce;
-            let typeRes = rSell.resp.type;
-            let sideRes = rSell.resp.side;
-            let stopPrice = rSell.resp.stopPrice;
+            let orderId = rSell.data.orderId;
+            let clientOrderId = rSell.data.orderId;
+            let priceRes = rSell.data.price;
+            let origQty = rSell.data.origQty;
+            let executedQty = rSell.data.executedQty;
+            let cummulativeQuoteQty = rSell.data.cummulativeQuoteQty;
+            let statusRes = rSell.data.status;
+            let timeInForce = rSell.data.timeInForce;
+            let typeRes = rSell.data.type;
+            let sideRes = rSell.data.side;
+            let stopPrice = rSell.data.stopPrice;
             //  let icebergQty = rSell.resp.icebergQty;
             //    let timeRes = rSellresp..time;
             //     let updateTime = rSell.resp.updateTime;
             //     let isWorking = rSell.resp.isWorking;
             //     let accountId = rSell.resp.accountId;
-            let isIsolated = rSell.resp.isIsolated;
+            let isIsolated = rSell.data.isIsolated;
             //console.log("icebergqty == " + icebergQty);
             //while ((!executedTrade) && (checkedCount < 20)) {
             //  checkedCount++;
@@ -726,17 +686,20 @@ async function manageSellOrder(sellPrice, btcQty, orderRefSellVal, OrderPair) {
             while ((!executedTrade) && (checkedCount < 20) && (!errorTrade)) {
                 checkedCount++;
 	        //    return {"exec":true, "rtn": 0};
-                let result = await getSellOrder(sellPrice, btcQty, orderRefSellVal, OrderPair); // order ref = pair ref for order
+               // let result = await getSellOrder(sellPrice, btcQty, orderRefSellVal, OrderPair); // order ref = pair ref for order
+                  let result = await bmod.getOrder(orderId, isIsolated); // order ref = pair ref for order
                 if (result) { // await not working correctly
-    	           executedTrade = result["exec"];
-	           errorTrade = result["error"];
+		       client.logger.log(result.data);
+                       if (result.data.executedQty > 0) { executedTrade = true;}
+		       await addQueryOrder(result.data);
 	        }
             }
             if (executedTrade) {
                 console.log("------- sold order now -------");
                 //  let sql = buildSQLInsert(sellOrderRef, OrderPair, Pair, Type, Price, Qty, Status);
                 //  insertOrder(sql)
-                let sql = buildSQLInsertBuy(orderRefSellVal, 
+	        let sql = buildSQLGen(orderRefSellVal, OrderPair, Pair, Type, Price, Qty, Status, rSell);
+             /*   let sql = buildSQLInsertBuy(orderRefSellVal, 
 		    OrderPair, Pair, Type, 
 		    Price, Qty, Status,
                    orderId,
@@ -757,13 +720,15 @@ async function manageSellOrder(sellPrice, btcQty, orderRefSellVal, OrderPair) {
                 //   accountId,
                    isIsolated
 	        );
+		*/
                 await insertOrder(sql) 
 
             } else {
 
-                 if (!errorTrade) {
+         //        if (!errorTrade) {
 	             Status = 'Open';
-                     let sql = buildSQLInsertBuy(orderRefSellVal, OrderPair, Pair, Type, Price, Qty, Status,
+		     let sql = buildSQLGen(orderRefSellVal, OrderPair, Pair, Type, Price, Qty, Status, rSell);
+               /*      let sql = buildSQLInsertBuy(orderRefSellVal, OrderPair, Pair, Type, Price, Qty, Status,
                                 orderId,
                                 clientOrderId,
                                 priceRes,
@@ -781,142 +746,15 @@ async function manageSellOrder(sellPrice, btcQty, orderRefSellVal, OrderPair) {
                                 //    isWorking,
                                 //    accountId,
                                 isIsolated);
+				*/
                      await insertOrder(sql);
-	         }
+	   //      }
 	    }
-	}
+	//}
     }
 }
 
-/*
-async function newMarginOrder(buyPrice, sellPrice, btcQty, orderRef, orderType) {
-    console.log("++++++++++++++++++++++++ margin order ++++++++++++++++++++++++++++++");	
- try {
-   let resp = await client.newMarginOrder(
-      'BTCUSDT', // symbol
-      'BUY',
-      'LIMIT',
-    {
-        quantity: btcQty,
-        isIsolated: 'TRUE',
-        price: buyPrice.toString(),
-        //price: '20000',
-        newClientOrderId: orderRef.toString(),
-        newOrderRespType: 'FULL',
-        //timeInForce: 'FOK' // FOK did not work in testing 
-        timeInForce: orderType // FOK did not work in testing 
-    })
-        client.logger.log(resp.data);
-        return { "resp": resp.data, "error": false};
- }
-    catch (error) {
-	    client.logger.error(error);
-            return {"resp": null, "error": true};
-    }
-}
-*/
-async function getSellOrder(sellPrice, btcQty, orderRef, OrderPair) {
-    console.log("selling price == "+ sellPrice);
-    let sellOrderRef = orderRef;
-    let Pair = 'BTCUSDT';
-    let Type = 'SELL';
-    let Price = sellPrice;
-    let Qty = btcQty;
-    let Status = 'Closed'; // buy order
-try { 
-    let response = await client.marginOrder(
-        'BTCUSDT', // symbol
-        {
-            isIsolated: 'TRUE',
-            origClientOrderId: orderRef.toString(),
-        }
-    )
 
-        await addQueryOrder(response.data);
-        client.logger.log(response.data);
-        console.log("exec qty "+response.data.executedQty); 
-        console.log("exec order id == "+response.data.orderId);
-        if (response.data.executedQty == btcQty) {
-//	    return true;
-	    return {"exec":true, "error": false};
-        }		
-
-}
-  catch(error) { 
-	  client.logger.error(error);
-
-	    return {"exec":true, "error": false};
-  }
-
-}
-/*
-async function getOrder(buyPrice, sellPrice, btcQty, orderRef, OrderPair) {
-    console.log("order reference global in get order  "+ orderRefGlobal);
-    console.log("order reference  in get order  "+ orderRef);
-	
-    console.log("selling price == "+ sellPrice);
-    let buyOrderRef = orderRef;
-    let Pair = 'BTCUSDT';
-    let Type = 'BUY';
-    let Price = buyPrice;
-    let Qty = btcQty;
-    let Status = 'Closed'; // buy order
-   try {
-	let response = await  client.marginOrder(
-        'BTCUSDT', // symbol
-        {
-            isIsolated: 'TRUE',
-            origClientOrderId: orderRef.toString(),
-        }
-    )
-        await addQueryOrder(response.data);
-        client.logger.log(response.data);
-        console.log("exec qty "+response.data.executedQty); 
-        console.log("exec order id == "+response.data.orderId);
-        //if (response.data.executedQty == btcQty) {
-        if (response.data.executedQty > 0) {
-	    return {"exec":true, "error": false};
-        }		
-   }
-  catch (error) {client.logger.error(error); 
-	    return {"exec":false, "error": true};
-  }
-}
-*/
-
-async function sellOrder(sellPrice, btcQty,  orderRefSell, OrderPair) {
-    console.log("kkkkkkkkkkkkk global ref ======" + orderRefGlobal);	
-    console.log("kkkkkkkkkkkkk local ref ======" + orderRefSell);	
-    let executedTrade = false;
-    let checkedCount = 0;
-    let Pair = 'BTCUSDT';
-    let Type = 'SELL';
-    let Price = sellPrice;
-    let Qty = btcQty;
-    let Status = 'Closed'; // buy order
-    try {
-        let respSell = await client.newMarginOrder(
-           'BTCUSDT', // symbol
-           'SELL',
-           'LIMIT',
-           {
-               quantity: btcQty,
-               isIsolated: 'TRUE',
-               price: sellPrice.toString(),
-               newClientOrderId: orderRefSell.toString(),
-               newOrderRespType: 'FULL',
-               timeInForce: 'GTC'
-           }
-           )
-	client.logger.log(respSell.data);
-
-        return { "resp": respSell.data, "error": false};
-    }
-    catch (error) {
-        client.logger.error(error);
-        return { "resp": null, "error": true};
-    }
-}
 
 
 function buildSQLInsertBuy(OrderRef, OrderPair, Pair, Type, Price, Qty, Status,
