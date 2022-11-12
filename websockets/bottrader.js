@@ -26,8 +26,8 @@ var totOrders = 0;
 var histId = 0;
 //var totOrderLimit = 100;
 var totOrderLimit = 1;
-//var btcQty = 0.0025;
-var btcQty = 0.005;
+var btcQty = 0.0025;
+//var btcQty = 0.005;
 require('dotenv').config();
 const { Spot } = require('@binance/connector')
 const apiSecret = process.env.API_SECRET;
@@ -344,7 +344,7 @@ console.log("percent change price " + percentChange);
 		      var orderRefVal = ran*ran2;
 		      console.log("order ref val === "+ orderRefVal);
 		      //await newMarginOrder(buyP, sellP, btcQty, orderRefGlobal);
-		      await newMarginOrder(buyP, sellP, btcQty, orderRefVal);
+		      await manageOrder(buyP, sellP, btcQty, orderRefVal);
 	      }
 	   }
            console.log("yyyyyyyyyyyyyyyyymmmmmmmmmmmmmmmmmm end mmmmmmmmmmmmm");
@@ -517,8 +517,8 @@ let sql = buildSQLInsertBuy(orderRef, OrderPair, Pair, Type, Price, Qty, Status,
 
 
 }
+async function manageOrder(buyPrice, sellPrice, btcQty, orderRef) {
 
-async function newMarginOrder(buyPrice, sellPrice, btcQty, orderRef) {
     totOrders++;
     sold = false;
     let OrderPair = orderRef;
@@ -534,12 +534,119 @@ async function newMarginOrder(buyPrice, sellPrice, btcQty, orderRef) {
     console.log("price order reference global " + orderRefGlobal);
     console.log("price str buy " + buyPriceStr);
     console.log("price str sell "+ sellPriceStr);
-    let executedTrade = false;
-    let checkedCount = 0;
+      let responseMargin = await newMarginOrder(buyPrice, sellPrice, btcQty, orderRef);
+
+      console.log("++++++++++ end of order +++++++++++++++");
+      console.log("json = "+ JSON.stringify(responseMargin));
+      if (responseMargin) {
+          if (!responseMargin["error"]) {
+
+	      let orderId = responseMargin.orderId;
+              let clientOrderId = responseMargin.orderId;
+              let priceRes = responseMargin.price;
+              let origQty = responseMargin.origQty;
+              let executedQty = responseMargin.executedQty;
+              let cummulativeQuoteQty = responseMargin.cummulativeQuoteQty;
+              let statusRes = responseMargin.status;
+              let timeInForce = responseMargin.timeInForce;
+              let typeRes = responseMargin.type;
+              let sideRes = responseMargin.side;
+          //  let stopPrice = response.data.stopPrice;
+          //  let icebergQty = response.data.icebergQty;
+         //   let timeRes = response.data.time;
+        //    let updateTime = response.data.updateTime;
+        //    let isWorking = response.data.isWorking;
+        //    let accountId = response.data.accountId;
+              let isIsolated = responseMargin.isIsolated;
+              let errorTrade = false;
+              let executedTrade = false;
+	      let checkedCount = 0;
+              while ((!executedTrade) && (checkedCount < 20) && (!errorTrade)) {
+                  checkedCount++;
+	//      return {"exec":true, "rtn": 0};
+	   	  console.log("nnnnnnn start getorder");
+                  let result = await getOrder(buyPrice, sellPrice, btcQty, orderRef, orderRef); // order ref = pair ref for order
+	          console.log("nnnnnnn end getorder");
+                  if (result) { // await not working correctly
+		       executedTrade = result["exec"];
+           	       errorTrade = result["error"];
+	          }
+              } // end of check for txn existance
+	
+              if (executedTrade) {
+                  console.log("------- sell order now, buy was done -------");
+                  console.log("????????????? global order ref before ???????????? " + orderRefGlobal );
+                  console.log("????????????? local order ref ???????????? " + orderRef );
+                  let orderRefSellVal = orderRef++; // global var
+                  console.log("????????????? global order ref after ??????????? " + orderRefGlobal );
+	          await sellOrder(sellPrice, btcQty, orderRefSellVal, OrderPair); // order ref for the buy is the ref for the order pair
+	          //insert buy order - do after sell to save time
+                  let sql = buildSQLInsertBuy(buyOrderRef, 
+	  	            OrderPair, Pair, Type, 
+		            Price, Qty, Status, orderId, clientOrderId, priceRes, origQty,
+                            executedQty, cummulativeQuoteQty, statusRes, timeInForce,
+                            typeRes, sideRes,
+		            //stopPrice, icebergQty, timeRes,
+                            //updateTime, isWorking, accountId, 
+		            isIsolated
+	                    );
+                   await insertOrder(sql) 
+                   ///getOrder(buyPrice, sellPrice, btcQty, orderRef, orderRef); // order ref = pair ref for order
+                   await addOpenOrder(responseMargin);
+              } else {
+                  if (!errorTrade) {
+	              await addCancelOrder(responseMargin);
+	              Status = 'Cancelled';
+	              console.log(" cancel orderid = " + orderId);
+	              //  console.log(" iceberg qty " + icebergQty);
+
+	              await cancelBuyOrder(orderId, orderRef, OrderPair, Pair, Type, Price, Qty, Status,
+                              orderId,
+                              clientOrderId,
+                              priceRes,
+                              origQty,
+                              executedQty,
+                              cummulativeQuoteQty,
+                              statusRes,
+                              timeInForce,
+                              typeRes,
+                              sideRes,
+                              //  stopPrice,
+                              //   icebergQty,
+                              //    timeRes,
+                              //    updateTime,
+                              //    isWorking,
+                              //    accountId,
+                              isIsolated
+	                      ); 
+                  }
+	      }
+          }
+      }	      
+}
+async function newMarginOrder(buyPrice, sellPrice, btcQty, orderRef) {
+    /*totOrders++;
+    sold = false;
+    let OrderPair = orderRef;
+    let buyOrderRef = orderRef;
+    let Pair = 'BTCUSDT';
+    let Type = 'BUY';
+    let Price = buyPrice;
+    let Qty = btcQty;
+    let Status = 'Closed'; // buy order
+    let buyPriceStr = buyPrice.toString();
+    let sellPriceStr = sellPrice.toString();
+    let orderRefStr = orderRef.toString();
+    */
+    //console.log("price order reference global " + orderRefGlobal);
+   // console.log("price str buy " + buyPriceStr);
+   // console.log("price str sell "+ sellPriceStr);
+   // let executedTrade = false;
+   // let checkedCount = 0;
     //process.exit()
     console.log("++++++++++++++++++++++++ margin order ++++++++++++++++++++++++++++++");	
  try {
-   let response = await client.newMarginOrder(
+   let resp = await client.newMarginOrder(
       'BTCUSDT', // symbol
       'BUY',
       'LIMIT',
@@ -552,7 +659,9 @@ async function newMarginOrder(buyPrice, sellPrice, btcQty, orderRef) {
         newOrderRespType: 'FULL',
         timeInForce: 'GTC' // FOK did not work in testing 
     })
-        console.log("++++++++++ end of order +++++++++++++++");
+        client.logger.log(resp.data);
+        return { "resp": resp.data, "error": false};
+/*	 console.log("++++++++++ end of order +++++++++++++++");
         client.logger.log(response.data);
       let orderId = response.data.orderId;
       let clientOrderId = response.data.orderId;
@@ -633,8 +742,12 @@ async function newMarginOrder(buyPrice, sellPrice, btcQty, orderRef) {
 	    ); 
            }		    
          }
+*/
  }
-    catch (error) {client.logger.error(error)}
+    catch (error) {
+	    client.logger.error(error);
+            return {"resp": null, "error": true};
+    }
 }
 /*async function newMarginOrder(buyPrice, sellPrice, btcQty, orderRef) {
 
