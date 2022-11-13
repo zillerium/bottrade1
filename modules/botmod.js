@@ -1,10 +1,13 @@
 class BotMod {
-  constructor(client, minSellPrice, maxBuyPrice 
+  constructor(client, minSellPrice, maxBuyPrice, tradeDiffLimit 
     )   
     {   
         this.client = client;
 	this.minSellPrice = minSellPrice; // safety price
 	this.maxBuyPrice = maxBuyPrice; // safety price
+	this.tradeDiffLimit = tradeDiffLimit; // bal of buys and sells ie not too many buys without selling
+	this.numberBuys = 0;
+	this.numberSells = 0;
     }
 
     getOrder = async (orderId, isIsolated) => {
@@ -25,6 +28,13 @@ class BotMod {
              throw(e);
          }
     }
+
+    isSafeTrade = () => {
+        let tradeDiff = Math.abs(numberBuys - numberSells);
+	   // console.log("differ = "+ tradeDiff);
+	if (tradeDiff > tradeDiffLimit) return false; else return true;
+
+    }	    
 
     isSafeSellPrice = (price) => {
         if (price < this.minSellPrice) return false; else return true;
@@ -67,6 +77,19 @@ class BotMod {
     newMarginOrder = async (price,  quantity, clientOrderId, timeInForce, orderType) => {
         if ((orderType == 'SELL') && (!this.isSafeSellPrice(price))) {this.client.logger.error("too low price - sale");return null};
         if ((orderType == 'BUY') && (!this.isSafeBuyPrice(price))) {this.client.logger.error("too high price - buy");return null};
+      //  this.client.logger.error(this.numberBuys);
+      //  this.client.logger.error(this.numberSells);
+      //  this.client.logger.error(this.tradeDiffLimit);
+	if (!this.isSafeTrade) {this.client.logger.error("trade not balanced");return null};
+
+        switch (orderType) {
+            case 'BUY':
+                this.numberBuys++; break;
+	    case 'SELL':		
+                this.numberSells++; break;
+	    default:
+		break;
+	}
 
 	let orderParams = {
             quantity: quantity,
