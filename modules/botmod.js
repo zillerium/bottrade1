@@ -1,8 +1,10 @@
 class BotMod {
-  constructor(client 
+  constructor(client, minSellPrice, maxBuyPrice 
     )   
     {   
         this.client = client;
+	this.minSellPrice = minSellPrice; // safety price
+	this.maxBuyPrice = maxBuyPrice; // safety price
     }
 
     getOrder = async (orderId, isIsolated) => {
@@ -22,11 +24,51 @@ class BotMod {
              this.client.logger.error(e);
              throw(e);
          }
-}
+    }
+
+    isSafeSellPrice = (price) => {
+        if (price < this.minSellPrice) return false; else return true;
+    }
+
+    isSafeBuyPrice = (price) => {
+        if (price > this.maxSellPrice) return false; else return true;
+    }
+// client.marginMyTrades('BTCUSDT', {endTime: d, limit: 3, isIsolated: 'TRUE' }).then(response => client.logger.log(response.data))
+
+    getTrades = async (assetPair, limit, isIsolated) => {
+
+        let queryParams = { limit: limit, isIsolated: isIsolated};
+
+	try {
+            return await this.client.marginMyTrades( assetPair, queryParams);
+	} catch (e) {
+            this.client.logger.error(e);
+            throw(e);
+	}
+
+    }
+
+
+//client.isolatedMarginAccountInfo({symbols: 'BTCUSDT'})
+
+    getAccountDetails = async (assetPair) => {
+
+	let queryParams = { symbols: assetPair }    
+        try {
+            return await this.client.isolatedMarginAccountInfo(queryParams); 
+        } catch (e) {
+            this.client.logger.error(e);
+            throw(e);
+        }
+    }
+
 
 // OrderType - 'BUY' or 'SELL'
     newMarginOrder = async (price,  quantity, clientOrderId, timeInForce, orderType) => {
-        let orderParams = {
+        if ((orderType == 'SELL') && (!this.isSafeSellPrice(price))) {this.client.logger.error("too low price - sale");return null};
+        if ((orderType == 'BUY') && (!this.isSafeBuyPrice(price))) {this.client.logger.error("too high price - buy");return null};
+
+	let orderParams = {
             quantity: quantity,
             isIsolated: 'TRUE',
 	//    stopPrice: stopPrice.toString(),	

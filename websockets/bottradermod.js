@@ -24,6 +24,8 @@ var prevClosePrice=0.00; // prev close price on a candlestick
 var prices = []; // prices from stream
 //var runCycle=400;
 var batchSize= 100;
+var minTradePrice = 10000; // safety
+var maxTradePrice = 25000; // safety
 var runCycle=20;
 var prevAvgPrice=0;
 var rsiPeriod=5;
@@ -49,7 +51,7 @@ const apiKey = process.env.API_KEY;
 const Pool = require("pg").Pool;
 const client = new Spot(apiKey, apiSecret)
 
-const bmod = new BotMod(client);
+const bmod = new BotMod(client, minTradePrice, maxTradePrice);
 
 
 console.log(client);
@@ -371,10 +373,52 @@ console.log("percent change price " + percentChange);
 		  //    console.log(JSON.stringify(jsonAccount.data));
 /*		     {"assets":[{"baseAsset":{"asset":"BTC","borrowEnabled":true,"borrowed":"0","free":"0.00118","interest":"0","locked":"0.185","netAsset":"0.18618","netAssetOfBtc":"0.18618","repayEnabled":true,"totalAsset":"0.18618"},"quoteAsset":{"asset":"USDT","borrowEnabled":true,"borrowed":"0","free":"613.96115522","interest":"0","locked":"0","netAsset":"613.96115522","netAssetOfBtc":"0.0364079","repayEnabled":true,"totalAsset":"613.96115522"},"symbol":"BTCUSDT","isolatedCreated":true,"marginLevel":"999","marginLevelStatus":"EXCESSIVE","marginRatio":"10","indexPrice":"16864.4880091","liquidatePrice":"0","liquidateRate":"0","tradeEnabled":true,"enabled":true}]}
  */
-		 //     let btcBal = parseFloat(jsonAccount.data["assets"][0]["baseAsset"]["free"]);
+		      let btcBal = parseFloat(jsonAccount.data["assets"][0]["baseAsset"]["free"]);
 		  //    console.log(" $$$$$$$$$$$$$$$$$$$$$$$$$$$$ bal = " + btcBal);
 		      console.log("%%%%%%%%%%%%%%%%%%%%%%% start of manage Order %%%%%%%%%%%%%%%%%%%%");
-		      await manageOrder(buyP, sellP, btcQty, orderRefVal);
+/*		     {
+    symbol: 'BTCUSDT',
+    id: 2172273050,
+    orderId: 15460065846,
+    price: '16784',
+    qty: '0.03618',
+    quoteQty: '607.24512',
+    commission: '0',
+    commissionAsset: 'BNB',
+    time: 1668326087439,
+    isBuyer: false,
+    isMaker: true,
+    isBestMatch: true,
+    isIsolated: true
+  }
+]
+*/
+                      let tradePrice = 0.00;
+		      if (btcBal > 0) {
+			  let tradelimit = 3;
+			  let isIsolatedMargin = 'TRUE';
+                          let trades = await bmod.getTrades(currencyPair, tradelimit, isIsolatedMargin);
+			  if (trades.data) {
+			      let j=tradelimit;
+			      do {
+                                  //console.log(trades.data[j])
+                                  j--;
+                                  console.log(trades.data[j])
+			          if (trades.data[j]["isMaker"] == true) {
+                                      // take last maker - sell - price
+				      console.log("match on price === " + j);
+					  tradePrice = parseFloat(trades.data[j]["price"]);
+                                   }
+                              } while ((j >0) && (trades.data == 0.00))
+                                //  console.log(array[i])
+			  }
+			  console.log(" ################## sale price = " + tradePrice);
+			  if (tradePrice > minTradePrice) {
+			      await bmod.newMarginOrder(tradePrice, btcBal, 'none', 'GTC', 'SELL');
+			  }
+		      }
+
+		    //  await manageOrder(buyP, sellP, btcQty, orderRefVal);
 		      console.log("%%%%%%%%%%%%%%%%%%%%%%% end of manage Order %%%%%%%%%%%%%%%%%%%%");
 	      }
 	   }
