@@ -63,12 +63,26 @@ console.log("total buy == " + grandtotbuy);
 })
   .catch(error => client.logger.error(error))
 */
- client.accountStatus()
+//client.marginPair(
+//  'BNBUSDT'
+//client.fundingWallet('BTC')
+//client.isolatedAccount('BTCUSDT')
+//client.isolatedMarginSymbol('BTCUSDT')
+//client.isolatedMarginAllSymbols()
+//client.isolatedMarginAccountInfo('BTCUSDT')
+
+//client.marginPair('BTCUSDT', {isIsolated: 'TRUE'}
+//client.marginAccount(/)
+client.isolatedMarginAccountInfo({symbols: 'BTCUSDT'})
+//client.marginAllAssets({symbol: 'BTCUSDT', isIsolated: 'TRUE'})
+ //     )
+
+//client.assetDetail({ asset: 'BTC', isIsolated: 'TRUE' })
  //client.isolatedMarginAccountInfo ({symbol:'BTCUSDT'})
 
 //client.marginAsset(
 //  'BTC' // asset
-.then(response => client.logger.log(response.data))
+.then(response => client.logger.log(JSON.stringify(response.data)))
   .catch(error => client.logger.error(error))
 
 /*

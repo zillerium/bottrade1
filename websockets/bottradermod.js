@@ -37,9 +37,8 @@ var orderRefGlobal = 99999;
 var sold = true;
 var totOrders = 0;
 var histId = 0;
-//var totOrderLimit = 100;
 var totOrderLimit = 1;
-var btcQty = 0.0025;
+var btcQty = 0.0015;
 //var btcQty = 0.005;
 require('dotenv').config();
 import {BotMod}  from './botmod.js';
@@ -311,11 +310,14 @@ ws.onmessage = async  (event) => {
        }
        let tvr = numberTxns/varPrice; // ratio => more txns more variation
 	   // max":20708.57,"avg":20707.585,"var":0.9850000000005821
-       let buyP = parseFloat(maxPrice - 2*varPrice).toFixed(2); // var taken from the average, so *2
+      //// check let buyP = parseFloat(maxPrice - 2*varPrice).toFixed(2); // var taken from the average, so *2
        // based on profit margin - let sellPx = parseFloat(profitMargin + capital)*parseFloat(buyP/capital)
        //let sellP = parseFloat(sellPx).toFixed(2);
-       let sellP=avgPrice.toFixed(2); // can also take max price - look at trend for previous 100 values
-       let pricevar = {"open":openPrice, "close": closePrice, "txns": numberTxns, 
+      ///check let sellP=avgPrice.toFixed(2); // can also take max price - look at trend for previous 100 values
+       let buyP = avgPrice.toFixed(2);
+	   let sellP = maxPrice.toFixed(2);
+
+	   let pricevar = {"open":openPrice, "close": closePrice, "txns": numberTxns, 
 	       "min":minPrice, "max":maxPrice, "avg":avgPrice, "var":varPrice, 
 	       "ratio": priceRatio, "rsi": rsi, "tvr": tvr, "buy": buyP, "sell": sellP
                };
@@ -356,12 +358,24 @@ console.log("percent change price " + percentChange);
            console.log("mmmmmmmmmmmmmmmmmm start mmmmmmmmmmmmm");
 	   if (Math.abs(percentChange < 0.005)) { 		   
               if (totOrders < totOrderLimit) {
+		      totOrders++;
 		      const ran=Math.floor(Math.random() * 1000)
 		      const ran2 = Math.floor(Math.random() * 1000)
 		      var orderRefVal = ran*ran2;
 		      console.log("order ref val === "+ orderRefVal);
 		      //await newMarginOrder(buyP, sellP, btcQty, orderRefGlobal);
+		      let currencyPair = 'BTCUSDT';
+		      console.log("======================%%%%%%%%%%%%%%%%%%%%%%% start of getaccount %%%%%%%%%%%%%%%%%%%%");
+                      let jsonAccount = await bmod.getAccountDetails(currencyPair);
+		      console.log("======================%%%%%%%%%%%%%%%%%%%%%%% end of getaccount %%%%%%%%%%%%%%%%%%%%");
+		  //    console.log(JSON.stringify(jsonAccount.data));
+/*		     {"assets":[{"baseAsset":{"asset":"BTC","borrowEnabled":true,"borrowed":"0","free":"0.00118","interest":"0","locked":"0.185","netAsset":"0.18618","netAssetOfBtc":"0.18618","repayEnabled":true,"totalAsset":"0.18618"},"quoteAsset":{"asset":"USDT","borrowEnabled":true,"borrowed":"0","free":"613.96115522","interest":"0","locked":"0","netAsset":"613.96115522","netAssetOfBtc":"0.0364079","repayEnabled":true,"totalAsset":"613.96115522"},"symbol":"BTCUSDT","isolatedCreated":true,"marginLevel":"999","marginLevelStatus":"EXCESSIVE","marginRatio":"10","indexPrice":"16864.4880091","liquidatePrice":"0","liquidateRate":"0","tradeEnabled":true,"enabled":true}]}
+ */
+		 //     let btcBal = parseFloat(jsonAccount.data["assets"][0]["baseAsset"]["free"]);
+		  //    console.log(" $$$$$$$$$$$$$$$$$$$$$$$$$$$$ bal = " + btcBal);
+		      console.log("%%%%%%%%%%%%%%%%%%%%%%% start of manage Order %%%%%%%%%%%%%%%%%%%%");
 		      await manageOrder(buyP, sellP, btcQty, orderRefVal);
+		      console.log("%%%%%%%%%%%%%%%%%%%%%%% end of manage Order %%%%%%%%%%%%%%%%%%%%");
 	      }
 	   }
            console.log("yyyyyyyyyyyyyyyyymmmmmmmmmmmmmmmmmm end mmmmmmmmmmmmm");
@@ -393,7 +407,7 @@ console.log("percent change price " + percentChange);
 
 
    }
- // console.log(" tot orders ==================== "+ totOrders);
+ // console.log(" tot orders ==================== "+ );
 //  console.log(" tot order limit ==================== "+ totOrderLimit);
 // add a check for open orders
   // if ((k>runCycle) || (totOrders >= totOrderLimit)) {
@@ -475,6 +489,16 @@ async function timetest1(buyPrice, sellPrice, btcQty, orderRef) {
 }
 async function manageOrder(buyPrice, sellPrice, btcQty, orderRef) {
 
+//    totOrders++;
+    if (totOrders > 5*totOrderLimit) {
+	    console.log("@@@@@@@@@@@@@@@ forced exit - loop @@@@@@@@@@@@@@@@");
+	    process.exit();
+    }
+    if (totOrders > totOrderLimit) {
+        console.log("@@@@@@@@@@@@@@@@@ loop alert @@@@@@@@@@@@@@@@ " + totOrders);
+	return 0;
+    }
+
     totOrders++;
     console.log("tot orders ---------> " + totOrders);
    
@@ -489,7 +513,7 @@ async function manageOrder(buyPrice, sellPrice, btcQty, orderRef) {
     
     //let orderType = 'FOK';
     //let orderType = 'IOC';
-    let timeInForce = 'IOC';
+    let timeInForce = 'GTC';
     let orderType = 'BUY';	
     let errorTrade = false;
       let responseMargin = await bmod.newMarginOrder(buyPrice, btcQty, orderRef, timeInForce, orderType);
@@ -573,11 +597,11 @@ async function manageOrder(buyPrice, sellPrice, btcQty, orderRef) {
                    ///getOrder(buyPrice, sellPrice, btcQty, orderRef, orderRef); // order ref = pair ref for order
                    await addOpenOrder(responseMargin);
               } else {
-                  if ((!errorTrade) 
-      		          && (orderType != 'FOK') 
-			  && (orderType != 'IOC') 
-//
-		  ) {
+                  //if ( 
+      		  //         (orderType != 'FOK') 
+//			  && (orderType != 'IOC') 
+//		  ) {
+
 	              await addCancelOrder(responseMargin);
 	              Status = 'Cancelled';
 	              console.log(" cancel orderid = " + orderId);
@@ -588,7 +612,7 @@ async function manageOrder(buyPrice, sellPrice, btcQty, orderRef) {
                       let sql = buildSQLGen(orderRef, OrderPair, Pair, Type, Price, Qty, Status, responseMargin);
                       await insertOrder(sql);
 
-                  }
+  //                }
 	      }
          // }
       }	      
