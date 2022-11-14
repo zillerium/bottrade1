@@ -73,7 +73,7 @@ console.log("total buy == " + grandtotbuy);
 
 //client.marginPair('BTCUSDT', {isIsolated: 'TRUE'}
 //client.marginAccount(/)
-client.isolatedMarginAccountInfo({symbols: 'BTCUSDT'})
+//client.isolatedMarginAccountInfo({symbols: 'BTCUSDT'})
 //client.marginAllAssets({symbol: 'BTCUSDT', isIsolated: 'TRUE'})
  //     )
 
@@ -82,22 +82,34 @@ client.isolatedMarginAccountInfo({symbols: 'BTCUSDT'})
 
 //client.marginAsset(
 //  'BTC' // asset
-.then(response => client.logger.log(JSON.stringify(response.data)))
-  .catch(error => client.logger.error(error))
+//let d = Date.now();
+//console.log("date ====== " + d);
+//let date1 = Date.now(d);
+//console.log("date reformatted == " + date1);
+//var unixTimestamp = Math.floor(d.getTime()/1000);
+//console.log(unixTimestamp);
+client.marginMyTrades('BTCUSDT', {limit: 10, isIsolated: 'TRUE' }).then(response => client.logger.log(response.data))
+//client.marginAllOrders('BTCUSDT', {endTime: d, limit: 10, isIsolated: 'TRUE' }).then(response => client.logger.log(response.data))
+
+
+//client.trades('BTCUSDT', { limit: 10 }).then(response => client.logger.log(response.data))
+//.then(response => client.logger.log(JSON.stringify(response.data)))
+//client.trades('BTCUSDT', { limit: 5 }).then(response => client.logger.log(response.data))
+//  .catch(error => client.logger.error(error))
 
 /*
 client.marginOrder(
                 'BTCUSDT', // symbol
             {
                 isIsolated: 'TRUE',
-               orderId: '15441526525'
+               orderId: '15475654645',
                 //origClientOrderId: orderRef.toString(),
             }
             ).then(response => {
          console.log(response.data) })
   .catch(error => client.logger.error(error))
-*/
-/*
+
+
 client.marginOrder(
         'BTCUSDT', // symbol
         {
