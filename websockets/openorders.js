@@ -1,3 +1,16 @@
+// Dependencies
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+
+import path from 'path';
+import {fileURLToPath} from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+
+// 👇️ "/home/john/Desktop/javascript"r
+const __dirname = path.dirname(__filename);
+
+
 require('dotenv').config();
 const { Spot } = require('@binance/connector')
 const apiSecret = process.env.API_SECRET;

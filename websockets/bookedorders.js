@@ -69,7 +69,7 @@ console.log("total buy == " + grandtotbuy);
 //client.isolatedAccount('BTCUSDT')
 //client.isolatedMarginSymbol('BTCUSDT')
 //client.isolatedMarginAllSymbols()
-//client.isolatedMarginAccountInfo('BTCUSDT')
+client.isolatedMarginAccountInfo('BTCUSDT')
 
 //client.marginPair('BTCUSDT', {isIsolated: 'TRUE'}
 //client.marginAccount(/)
@@ -88,7 +88,8 @@ console.log("total buy == " + grandtotbuy);
 //console.log("date reformatted == " + date1);
 //var unixTimestamp = Math.floor(d.getTime()/1000);
 //console.log(unixTimestamp);
-client.marginMyTrades('BTCUSDT', {limit: 10, isIsolated: 'TRUE' }).then(response => client.logger.log(response.data))
+//client.marginMyTrades('BTCUSDT', {limit: 10, isIsolated: 'TRUE' }).then(response => client.logger.log(response.data))
+.then(response => client.logger.log(response.data))
 //client.marginAllOrders('BTCUSDT', {endTime: d, limit: 10, isIsolated: 'TRUE' }).then(response => client.logger.log(response.data))
 
 

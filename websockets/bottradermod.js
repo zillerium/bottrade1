@@ -14,7 +14,7 @@ const __dirname = path.dirname(__filename);
 const WebSocket = require('ws');
 const ws = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@trade');
 var minTradeValue = 0.0012; // to sell left over coins
-var minTradingBalance = 300;
+var minTradingBalance = 100;
 var prevSecs = 0; // second value for streamed txn - streamed in millisecs
 var minPrice = 0.00; // min price in a candlestick
 var maxPrice = 0.00; // max price in a candlestick
@@ -28,7 +28,7 @@ var prices = []; // prices from stream
 var batchSize= 100;
 var minTradePrice = 10000; // safety
 var maxTradePrice = 25000; // safety
-var runCycle=20;
+var runCycle=15;
 var prevAvgPrice=0;
 var rsiPeriod=5;
 var rsiCurrentPeriod=0;
@@ -42,8 +42,8 @@ var sold = true;
 var totOrders = 0;
 var histId = 0;
 var totOrderLimit = 1;
-var btcQty = 0.0015;
-//var btcQty = 0.015;
+//var btcQty = 0.0015;
+var btcQty = 0.0030
 require('dotenv').config();
 import {BotMod}  from './botmod.js';
 const { Spot } = require('@binance/connector')
@@ -52,7 +52,7 @@ const apiKey = process.env.API_KEY;
 //const Spot = require('./binance-connector-node/src/spot')
 const Pool = require("pg").Pool;
 const client = new Spot(apiKey, apiSecret)
-var safeLimit = 3; // difference between buys and sells to stop a runaway bot buying
+var safeLimit = 10; // difference between buys and sells to stop a runaway bot buying
 const bmod = new BotMod(client, minTradePrice, maxTradePrice, safeLimit);
 
 
@@ -322,7 +322,8 @@ ws.onmessage = async  (event) => {
        // based on profit margin - let sellPx = parseFloat(profitMargin + capital)*parseFloat(buyP/capital)
        //let sellP = parseFloat(sellPx).toFixed(2);
       ///check let sellP=avgPrice.toFixed(2); // can also take max price - look at trend for previous 100 values
-       let buyP = avgPrice.toFixed(2);
+       let buyP =minPrice.toFixed(2);
+       //let buyP = avgPrice.toFixed(2);
 	   let sellP = maxPrice.toFixed(2);
 
 	   let pricevar = {"open":openPrice, "close": closePrice, "txns": numberTxns, 
@@ -376,6 +377,7 @@ console.log("percent change price " + percentChange);
 		      let currencyPair = 'BTCUSDT';
 		      console.log("======================%%%%%%%%%%%%%%%%%%%%%%% start of getaccount %%%%%%%%%%%%%%%%%%%%");
                       let jsonAccount = await bmod.getAccountDetails(currencyPair);
+		      console.log(JSON.stringify(jsonAccount.data));
 		      console.log("======================%%%%%%%%%%%%%%%%%%%%%%% end of getaccount %%%%%%%%%%%%%%%%%%%%");
 		      let btcBal = parseFloat(jsonAccount.data["assets"][0]["baseAsset"]["free"]);
 		      let freeBal = parseFloat(jsonAccount.data["assets"][0]["quoteAsset"]["free"]);
