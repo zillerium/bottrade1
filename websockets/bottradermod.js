@@ -15,7 +15,7 @@ const WebSocket = require('ws');
 const ws = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@trade');
 var minTradeValue = 0.0012; // to sell left over coins
 var minTradingBalance = 100;
-var k=0; // number of candlesticks processed
+//var k=0; // number of candlesticks processed
 //var prevClosePrice=0.00; // prev close price on a candlestick
 var prices = []; // prices from stream
 //var runCycle=400;
@@ -104,8 +104,8 @@ async function main() {
 	let rtnsum =await sqlmod.sumPrices();
 	var priceChgJson = sqlmod.getPriceJson();
         console.log("+++++++++++++++++++++++++++++ price change "+ JSON.stringify(priceChgJson));
-        var changePriceDB = parseFloat(priceChgJson["sum"]);
-        var avgPriceDB = parseFloat(priceChgJson["avg"]);
+        statsmod.setChangePriceDB(parseFloat(priceChgJson["sum"]));
+        statsmod.setAvgPriceDB(parseFloat(priceChgJson["avg"]));
 
 
 
@@ -135,111 +135,72 @@ ws.onmessage = async  (event) => {
   
    if (statsmod.getPrevSecs() == 0) {
        // first time
-       statsmod.setOpenPrice(parseFloat(statsmod.getCurrentPrice())); //reset for the new candletsick
-       statsmod.setClosePrice(parseFloat(statsmod.getCurrentPrice()));  // reset for the new candlestick
-       //prevPrice = parseFloat(price); // init prev close price for candlestick
-      // prevSecs = numberSecs; // sec value for candlestick
-       statsmod.setPrevSecsToNumber(); 
-       statsmod.setMinPrice(parseFloat(statsmod.getCurrentPrice())); // init min price
-       statsmod.setMaxPrice(parseFloat(statsmod.getCurrentPrice())); // init min price
-       statsmod.setPrevAvgPrice(parseFloat(statsmod.getCurrentPrice()));
-	//   prevAvgPrice = parseFloat(statsmod.getCurrentPrice());
-       statsmod.setNumberTxns(1); // initialize to 1	   
-       k++;
-       statsmod.incCycle();
+       statsmod.initializeTxns();
    }
        // data streams in millisecs - only take sec blocks	   
    if (statsmod.getNumberSecs() > statsmod.getPrevSecs()) {
        // new candlestick
-       statsmod.priceUpDown(statsmod.getClosePrice(), statsmod.getPrevClosePrice()); // [up, down] prices
-       statsmod.addPriceMove();
-       statsmod.calcAvgPrice();
-       statsmod.setVarPrice();
-       statsmod.calcPriceRatio();
-       statsmod.calcRSI();
+      console.log("************************************************************");
+       console.log("*              NEW CANDLESTICK                            *");
+       console.log("*              second count = " + statsmod.getNumberSecs() + "                 *");
+      console.log("************************************************************");
+      statsmod.newCandleStick();
 
-       statsmod.setTVR();	   
-       statsmod.setBuyPrice(); 
-       statsmod.setSellPrice(); 
-       statsmod.setPriceVars();
-
-       console.log("price data ===== array = " + JSON.stringify(statsmod.getPriceVars()));
-    
-	   let chgPrice = statsmod.getAvgPrice() - statsmod.getPrevAvgPrice();
-    
-	   statsmod.setPrevAvgPrice(statsmod.getAvgPrice());
-	avgPriceDB = (avgPriceDB + statsmod.getAvgPrice())/2;
-	changePriceDB =  (changePriceDB + chgPrice)/2;
-       let percentChange = parseFloat(changePriceDB/avgPriceDB);
-
-       console.log("avg price db " + avgPriceDB);
-       console.log("change price db " + changePriceDB);
-       console.log("percent change price " + percentChange);
-
-       let directionPrice = 0;
-       histId++;
+	   histId++;
        
-       if (chgPrice > 0) directionPrice = 1; else directionPrice = -1;
+      let datadb = d.toString().replace('GMT+0000 (Coordinated Universal Time)','');
+      sqlmod.buildSQLStats(statsmod.getAvgPrice(), orgTime, statsmod.getChgPrice(), statsmod.getDirectionPrice(), datadb);
+      await sqlmod.insertStats();
        
-	   let datadb = d.toString().replace('GMT+0000 (Coordinated Universal Time)','');
-       sqlmod.buildSQLStats(statsmod.getAvgPrice(), orgTime, chgPrice, directionPrice, datadb);
-       await sqlmod.insertStats();
-       
-	   let trade = true;
-           console.log("percent change = " + percentChange);
-           console.log("mmmmmmmmmmmmmmmmmm start mmmmmmmmmmmmm");
-	   if (Math.abs(percentChange < 0.005)) {
-		   console.log("gggggggggggggggg totOrders = " + totOrders);
-              if (totOrders < totOrderLimit) {
-		      totOrders++;
-		      const ran=Math.floor(Math.random() * 1000)
-		      const ran2 = Math.floor(Math.random() * 1000)
-		      var orderRefVal = ran*ran2;
-		      console.log("order ref val === "+ orderRefVal);
-		      //await newMarginOrder(buyP, sellP, btcQty, orderRefGlobal);
-		      let currencyPair = 'BTCUSDT';
-		      console.log("======================%%%%%%%%%%%%%%%%%%%%%%% start of getaccount %%%%%%%%%%%%%%%%%%%%");
-                      let jsonAccount = await bmod.getAccountDetails(currencyPair);
-		      console.log(JSON.stringify(jsonAccount.data));
-		      console.log("======================%%%%%%%%%%%%%%%%%%%%%%% end of getaccount %%%%%%%%%%%%%%%%%%%%");
-		      let btcBal = parseFloat(jsonAccount.data["assets"][0]["baseAsset"]["free"]);
-		      let freeBal = parseFloat(jsonAccount.data["assets"][0]["quoteAsset"]["free"]);
-		      console.log("%%%%%%%%%%%%%%%%%%%%%%% start of manage Order %%%%%%%%%%%%%%%%%%%%");
-                      let tradePrice = 0.00;
-                      let btcrtn = await btcBalCheck(btcBal, minTradeValue, currencyPair, minTradePrice);
-                      console.log(" ooooooo freeBal = " + freeBal);
-                      console.log(" ooooooo min trading balance = " + minTradingBalance);
-		      if (freeBal > minTradingBalance) {
-		          let rtnresp =  await manageOrder(statsmod.getBuyPrice(), statsmod.getSellPrice(), btcQty, orderRefVal);
-                      } else { 
-		          totOrders = totOrders+ 100; // pause processing
-		      }
-		      console.log("%%%%%%%%%%%%%%%%%%%%%%% end of manage Order %%%%%%%%%%%%%%%%%%%%");
-	        }
+      let trade = true;
+      console.log("percent change = " + statsmod.getPercentChange());
+      console.log("mmmmmmmmmmmmmmmmmm start mmmmmmmmmmmmm");
+      if (Math.abs(statsmod.getPercentChange() < 0.005)) {
+		   console.log("++++++++++++++ totOrders = " + totOrders + " ++++++++++++");
+          if (totOrders < totOrderLimit) {
+		  console.log("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
+		  console.log("+     NEW API CALL                                               +");
+		  console.log("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
+		  totOrders++;
+		  const ran=Math.floor(Math.random() * 1000)
+		  const ran2 = Math.floor(Math.random() * 1000)
+		  var orderRefVal = ran*ran2;
+		  console.log("order ref val === "+ orderRefVal);
+		  let currencyPair = 'BTCUSDT';
+                  let jsonAccount = await bmod.getAccountDetails(currencyPair);
+		  console.log(JSON.stringify(jsonAccount.data));
+		  let btcBal = parseFloat(jsonAccount.data["assets"][0]["baseAsset"]["free"]);
+		  let freeBal = parseFloat(jsonAccount.data["assets"][0]["quoteAsset"]["free"]);
+                  let tradePrice = 0.00;
+                  let btcrtn = await btcBalCheck(btcBal, minTradeValue, currencyPair, minTradePrice);
+                  console.log(" ooooooo freeBal = " + freeBal);
+                  console.log(" ooooooo min trading balance = " + minTradingBalance);
+		  if (freeBal > minTradingBalance) {
+		      let rtnresp =  await manageOrder(statsmod.getBuyPrice(), statsmod.getSellPrice(), btcQty, orderRefVal);
+                  } else { 
+		      totOrders = totOrders+ 100; // pause processing
+		  }
+		  console.log("************************************************");
+		  console.log("***** END OF API CALL ***************************");
+		  console.log("************************************************");
+	    }
 	   }
-           console.log("yyyyyyyyyyyyyyyyymmmmmmmmmmmmmmmmmm end mmmmmmmmmmmmm");
-	   //getId();    
-    //   }
-      // setTimeout(function() { console.log("waiting ...........");
-     //  }, 10000);
-       console.log("end wait ....");
+       console.log("mmmmmmmmmmmmmmmmmm end mmmmmmmmmmmmm");
+       
        //process.exit();
        if (statsmod.getMinPrice() > 0) {
-           prices.push(statsmod.getPriceVars());
-
+          // prices.push(statsmod.getPriceVars());
+           statsmod.setPrices();
        }
        console.log("==================================== new time in secs ===================================");
-       //prevSecs = numberSecs; // init current sec value
        statsmod.setPrevSecsToNumber();
-	   //prevClosePrice = statsmod.getClosePrice(); // save prev close price
-      statsmod.setPrevClosePrice(); 
+       statsmod.setPrevClosePrice(); 
        statsmod.setOpenPrice(parseFloat(statsmod.getCurrentPrice())); //reset for the new candletsick
        statsmod.setClosePrice(parseFloat(statsmod.getCurrentPrice()));  // reset for the new candlestick
        statsmod.setMinPrice(parseFloat(statsmod.getCurrentPrice())); // init min price
        statsmod.setMaxPrice(parseFloat(statsmod.getCurrentPrice())); // init min price
 
-	   statsmod.setNumberTxns(1);  // initialize number of txns	   
-       k++;
+       statsmod.setNumberTxns(1);  // initialize number of txns	   
        statsmod.incCycle();
    } else {
        statsmod.incNumberTxns();	   
@@ -250,10 +211,11 @@ ws.onmessage = async  (event) => {
    // if ((k>runCycle) || (totOrders >= totOrderLimit)) {
    //if ((k>runCycle)) {
    if (statsmod.getCycle()>runCycle) {
-       console.log("price data ===== array = " + prices);
-       for (let i=0;i < prices.length; i++) {
+       console.log("price data ===== array = " +JSON.stringify(statsmod.getPrices()));
+let priceArray = statsmod.getPrices();
+       for (let i=0;i < priceArray.length; i++) {
 	  //  {"open":20867.08,"close":20866.87,"txns":50,"min":20866.16,"max":20867.1,"avg":20866.629999999997,"var":0.47000000000116415,"ratio":0.00002252349392110855}
-          console.log("price data " + i + " " + JSON.stringify(prices[i]));
+          console.log("price data " + i + " " + JSON.stringify(priceArray[i]));
       }
       
       process.exit();

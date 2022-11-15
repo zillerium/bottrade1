@@ -25,9 +25,82 @@ class StatsMod {
         this.numberTxns= 0;
         this.numberSecs= 0;
         this.prevSecs= 0;
+        this.directionPrice= 0;
+        this.chgPrice= 0.00;
+        this.avgPriceDB= 0.00;
+        this.changePriceDB= 0.00;
+        this.percentChange= 0.00;
+        this.prices= [];
         this.priceVars= {};
     }
 
+    initializeTxns = () => {	
+      this.setOpenPrice(parseFloat(this.currentPrice)); //reset for the new candletsick
+      this.setClosePrice(parseFloat(this.currentPrice));  // reset for the new candlestick
+      this.setPrevSecsToNumber();
+      this.setMinPrice(parseFloat(this.currentPrice)); // init min price
+      this.setMaxPrice(parseFloat(this.currentPrice)); // init min price
+      this.setPrevAvgPrice(parseFloat(this.currentPrice));
+      this.setNumberTxns(1); // initialize to 1       
+      this.incCycle();
+    }
+
+
+     newCandleStick = () => {
+       this.priceUpDown(this.closePrice, this.prevClosePrice); // [up, down] prices
+       this.addPriceMove();
+       this.calcAvgPrice();
+       this.setVarPrice();
+       this.calcPriceRatio();
+       this.calcRSI();
+
+       this.setTVR();    
+       this.setBuyPrice(); 
+       this.setSellPrice(); 
+       this.setPriceVars();
+
+       console.log("price data ===== array = " + JSON.stringify(this.priceVars));
+    
+       this.setChgPrice();
+       this.setPrevAvgPrice(this.avgPrice);
+
+       this.addAvgPriceDB();
+       this.addChangePriceDB();
+       this.addPercentChange();
+
+       this.setDirectionPrice();
+
+     }
+
+     getAvgPriceDB = () => { return this.avgPriceDB; }
+     getChangePriceDB = () => { return this.changePriceDB; }
+     getPercentChange = () => { return this.percentChange; }
+     setAvgPriceDB = (avgPriceDB) => { this.avgPriceDB = avgPriceDB };
+     setChangePriceDB = (changePriceDB) => { this.changePriceDB = changePriceDB };
+     setPercentChange = (percentChange) => { this.percentChange = percentChange };
+
+     addAvgPriceDB = () => {
+	     console.log("00000000000 avgPrice db = " + this.avgPriceDB);
+	     console.log("00000000000 avgPrice  = " + this.avgPrice);
+	     this.avgPriceDB = (this.avgPriceDB + this.avgPrice)/2;
+     }
+
+     addChangePriceDB = () => {
+	     console.log("change price db = " + this.changePriceDB);
+	     console.log("change price = " + this.chgPrice);
+         this.changePriceDB = (this.changePriceDB + this.chgPrice)/2;
+
+     }
+     addPercentChange = () => {
+         this.percentChange = parseFloat(this.changePriceDB/this.avgPriceDB);
+     }
+
+
+     getPrices = () => { return this.prices; }
+     setPrices = () => { 
+        this.prices.push(this.priceVars);
+	     console.log("   prices mod === " + JSON.stringify(this.prices));
+     }
      getPriceVars = () => { return this.priceVars; }
      setPriceVars = () => { this.priceVars = 
               {"open":this.openPrice, "close": this.closePrice, "txns": this.numberTxns,
@@ -38,6 +111,17 @@ class StatsMod {
 
      }
 
+     getDirectionPrice = () => { return this.directionPrice; }
+     setDirectionPrice = () => {
+         if (this.chgPrice > 0) this.directionPrice = 1; else this.directionPrice = -1;
+
+     }
+     getChgPrice = () => { return this.chgPrice; }
+     setChgPrice = () => {
+	     console.log(" tttttt avg price == " + this.avgPrice);
+	     console.log(" prev avg price == " + this.prevAvgPrice);
+	     this.chgPrice = this.avgPrice - this.prevAvgPrice; }
+     
      getPrevClosePrice = () => { return this.prevClosePrice; }
      setPrevClosePrice = () => { this.prevClosePrice = this.closePrice; }
      getNumberSecs = () => { return this.numberSecs; }
