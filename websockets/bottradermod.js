@@ -47,6 +47,7 @@ var btcQty = 0.0015;
 require('dotenv').config();
 import {BotMod}  from './botmod.js';
 import {DBMod}  from './dbmod.js';
+import {SQLMod}  from './sqlmod.js';
 const { Spot } = require('@binance/connector')
 const apiSecret = process.env.API_SECRET;
 const apiKey = process.env.API_KEY;
@@ -56,6 +57,7 @@ const client = new Spot(apiKey, apiSecret)
 var safeLimit = 10; // difference between buys and sells to stop a runaway bot buying
 const bmod = new BotMod(client, minTradePrice, maxTradePrice, safeLimit);
 const dbmod = new DBMod();
+const sqlmod = new SQLMod();
 
 
 console.log(client);
@@ -67,6 +69,9 @@ const pool = new Pool({
   password: "password",
   port: 5432,
 });
+
+sqlmod.setPool(pool);
+
 const mongoose = require('mongoose');
 mongoose.connect('mongodb://127.0.0.1:27017/trade');
 
@@ -239,8 +244,8 @@ console.log("percent change price " + percentChange);
        
        if (chgPrice > 0) directionPrice = 1; else directionPrice = -1;
        let datadb = d.toString().replace('GMT+0000 (Coordinated Universal Time)','');
-       let statSQL = buildSQLStats(avgPrice, orgTime, chgPrice, directionPrice, datadb);
-       insertOrder(statSQL);
+       sqlmod.buildSQLStats(avgPrice, orgTime, chgPrice, directionPrice, datadb);
+       await sqlmod.insertStats();
        let trade = true;
 	   // Fri Nov 11 2022 07:23:40 GMT+0000 (Coordinated Universal Time)
 //function buildSQLStats(avgPrice, timePrice, chgPrice, directionPrice) {
@@ -457,7 +462,7 @@ console.log("isIsolated " + isIsolated);
     while ((!executedTrade) && (checkedCount < 10)) {
         checkedCount++;
         let result = await bmod.getOrder(orderId, isIsolated); // order ref = pair ref for order
-        let rtnresult = await dbmod.addQueryOrder(result.data);
+        // let rtnresult = await dbmod.addQueryOrder(result.data);
 	console.log("resuilt " + JSON.stringify(result.data));
 	if (result.data) {
             client.logger.log(result.data);
@@ -521,265 +526,39 @@ async function manageOrder(buyPrice, sellPrice, btcQty, orderRef) {
 	 // if (executedTrade) {
 	  if (purchasedQty >minTradeValue) {
 	      let respsell = await manageSellOrder(sellPrice, purchasedQty, orderRef++, OrderPair);
-	      let rtn1 = await dbmod.addOpenOrder(responseMargin.data);
+	      //let rtn1 = await dbmod.addOpenOrder(responseMargin.data);
+	      //let sqlx1 = buildSQLGen(buyOrderRef, OrderPair, 'BTCUSDT', 'BUY', buyPrice, purchasedQty, 'Closed', responseMargin);
+	      sqlmod.createSQL(buyOrderRef, OrderPair, 'BTCUSDT', 'BUY', buyPrice, purchasedQty, 'Closed', responseMargin);
+              //let sqlx1 = sqlmod.getSQL();
+		  let rtnx1 = await sqlmod.insertOrder();
 	      if ((btcQty - purchasedQty)>minTradeValue) {
 	          console.log(" cancel orderid = " + orderId);
 	          let respcancel = await bmod.cancelOrder(orderId, isIsolated);
 	          console.log(client.logger.log(respcancel.data));
-	          let rtn = await dbmod.addCancelOrder(respcancel.data);
+	         // let rtn = await dbmod.addCancelOrder(respcancel.data);
 	      }
 	  } else {
 
-	          let respcancel = await bmod.cancelOrder(orderId, isIsolated);
+	        //  let respcancel = await bmod.cancelOrder(orderId, isIsolated);
 	          console.log(client.logger.log(respcancel.data));
 	          let rtn = await dbmod.addCancelOrder(respcancel.data);
 	  }
-              // buy order
-	   //   let sql = buildSQLGen(buyOrderRef, OrderPair, 'BTCUSDT', 'BUY', buyPrice, btcQty, 'Closed', responseMargin);
-           //   let rtn = await insertOrder(sql);
-        //  } else {
-	      //let rtn = await addCancelOrder(responseMargin);
-	  //    console.log(" cancel orderid = " + orderId);
-	  //    let respcancel = await bmod.cancelOrder(orderId, isIsolated);
-	  //    console.log(client.logger.log(respcancel.data));
-          //    let sql = buildSQLGen(orderRef, OrderPair, 'BTCUSDT', 'BUY', buyPrice, btcQty,'Cancelled', responseMargin);
-          //    let rtn = await insertOrder(sql);
-             // rtn = await addOpenOrder(responseMargin);
-	//  }
      }	     
      return responseMargin;
 }
 
-function buildSQLGen(orderRef, OrderPair, Pair, Type, Price, Qty, Status, responseMargin) {
-     let orderId = responseMargin.data.orderId;
-              let clientOrderId = responseMargin.data.orderId;
-              let priceRes = responseMargin.data.price;
-              let origQty = responseMargin.data.origQty;
-              let executedQty = responseMargin.data.executedQty;
-              let cummulativeQuoteQty = responseMargin.data.cummulativeQuoteQty;
-              let statusRes = responseMargin.data.status;
-              let timeInForce = responseMargin.data.timeInForce;
-              let typeRes = responseMargin.data.type;
-              let sideRes = responseMargin.data.side;
-          //  let stopPrice = response.data.stopPrice;
-          //  let icebergQty = response.data.icebergQty;
-         //   let timeRes = response.data.time;
-        //    let updateTime = response.data.updateTime;
-        //    let isWorking = response.data.isWorking;
-        //    let accountId = response.data.accountId;
-              let isIsolated = responseMargin.data.isIsolated;
-     let sql = buildSQLInsertBuy(orderRef, OrderPair, 
-	     Pair, 
-	     Type, Price, Qty, Status,
-
-                            orderId,
-                            clientOrderId,
-                             priceRes,
-                   origQty,
-                   executedQty,
-                   cummulativeQuoteQty,
-                   statusRes,
-                   timeInForce,
-                   typeRes,
-                   sideRes,
-                //   stopPrice,
-               //    icebergQty,
-              //     timeRes,
-              //     updateTime,
-              //     isWorking,
-               //    accountId,
-                   isIsolated
-
-                          );
-	return sql;
-
-}
 
 async function manageSellOrder(sellPrice, btcQty, orderRefSellVal, OrderPair) {
     console.log("************************ sell order ***** = "+ orderRefSellVal );
     let rSell = await bmod.newMarginOrder(sellPrice, btcQty, orderRefSellVal, 'GTC', 'SELL');
     let executedTrade = false;
     if (rSell) {
-   	    let sql = buildSQLGen(orderRefSellVal, OrderPair, 'BTCUSDT', 'SELL', sellPrice, btcQty, 'Open', rSell);
-      
-	    let rtn= await insertOrder(sql);
+   	    //let sql = buildSQLGen(orderRefSellVal, OrderPair, 'BTCUSDT', 'SELL', sellPrice, btcQty, 'Open', rSell);
+   	    sqlmod.createSQL(orderRefSellVal, OrderPair, 'BTCUSDT', 'SELL', sellPrice, btcQty, 'Open', rSell);
+	    let rtn= await sqlmod.insertOrder();
        
     }
-// the sell orders can exec in parts and hence code below fails
-	/*
-	    let rtn = await addQueryOrder(rSell);
-        let orderId = rSell.data.orderId;
-        let clientOrderId = rSell.data.orderId;
-        let origQty = rSell.data.origQty;
-        let executedQty = rSell.data.executedQty;
-          let executedTradeJson = await proofExecution(executedQty, orderId, 'TRUE');
-          console.log("json exec = " + JSON.stringify(executedTradeJson));
-          // qty is updated when trade is confirmed
-	  if (executedTradeJson) {
-              btcQty = executedTradeJson["qty"];
-	      executedTrade = executedTradeJson["executedTrade"];
-	  }
-	    console.log("exec trade bool = " + executedTrade);
-        if (executedTrade) {
-            console.log("------- sold order now -------");
-	    let sql = buildSQLGen(orderRefSellVal, OrderPair, 'BTCUSDT', 'SELL', sellPrice, btcQty, 'Closed', rSell);
-            rtn = await insertOrder(sql) 
-
-        } else {
-
-   	    let sql = buildSQLGen(orderRefSellVal, OrderPair, 'BTCUSDT', 'SELL', sellPrice, btcQty, 'Open', rSell);
-            let rtn= await insertOrder(sql);
-	}
-    }*/
     return rSell;
-}
-
-
-
-
-function buildSQLInsertBuy(OrderRef, OrderPair, Pair, Type, Price, Qty, Status,
-                   orderId,
-                   clientOrderId,
-                   priceRes,
-                   origQty,
-                   executedQty,
-                   cummulativeQuoteQty,
-                   statusRes,
-                   timeInForce,
-                   typeRes,
-                   sideRes,
-                //   stopPrice,
-               //    icebergQty,
-               //    timeRes,
-               //    updateTime,
-               //    isWorking,
-               //    accountId,
-                   isIsolated
-) {
-
-  /*symbol: 'BTCUSDT',
-  orderId: 15302691247,
-  clientOrderId: '393',
-  price: '17180.29',
-  origQty: '0.0025',
-  executedQty: '0.0025',
-  cummulativeQuoteQty: '42.947475',
-  status: 'FILLED',
-  timeInForce: 'GTC',
-  type: 'LIMIT',
-  side: 'BUY',
-  stopPrice: '0',
-  icebergQty: '0',
-  time: 1668012106653,
-  updateTime: 1668012106653,
-  isWorking: true,
-  accountId: ,
-  isIsolated: true
-  */
-    var sql =
-    "insert into trade (orderref, orderpair, pair, type, price, qty, txndate, status, " +
-    "orderId, clientOrderId, priceRes, origQty, executedQty, cummulativeQuoteQty, " +
-    " statusRes, timeInForce, typeRes, sideRes," +
-		//stopPrice, icebergQty, timeRes, " +
-   // "updateTime, isWorking, accountId,
-		"isIsolated " +
-
-    ") values (" +
-    OrderRef + ", " + OrderPair + 
-    ",'" +
-    Pair + "','" + Type + "'," + Price + "," + Qty + "," + "NOW()" + ",'"+ Status + "'," +
-    
-                    + orderId + "," +
-                  "'"+ clientOrderId + "'," +
-                  "'" + priceRes +  "'," +
-                  "'" + origQty  + "'," +
-                   "'" + executedQty + "'," +
-                   "'" + cummulativeQuoteQty + "'," +
-                   "'" + statusRes + "'," +
-                   "'" + timeInForce + "'," +
-                   "'" + typeRes + "'," +
-                   "'" + sideRes + "'," +
-              //     "'" + stopPrice + "'," +
-               //    "'" + icebergQty + "'," +
-              //     timeRes + "," +
-             //      updateTime + "," +
-            //       isWorking + "," +
-            //       accountId + "," +
-                   isIsolated +
-  /*symbol: 'BTCUSDT',
-  orderId: 15302691247,
-  clientOrderId: '393',
-  price: '17180.29',
-  origQty: '0.0025',
-  executedQty: '0.0025',
-  cummulativeQuoteQty: '42.947475',
-  status: 'FILLED',
-  timeInForce: 'GTC',
-  type: 'LIMIT',
-  side: 'BUY',
-  stopPrice: '0',
-  icebergQty: '0',
-  time: 1668012106653,
-  updateTime: 1668012106653,
-  isWorking: true,
-  accountId: ,
-  isIsolated: true*/
-
-    ")";
-    console.log('sql ==== ' + sql);
-    return sql;
-
-}
-
-
-function buildSQLStats(avgPrice, timePrice, chgPrice, directionPrice, timeSecs) {
-
-    var sql =
-    "insert into tradehist (avg_Price, time_Price, chg_Price, direction_Price, time_secs ) values (" +
-        avgPrice + "," + timePrice + "," + chgPrice + ", " + directionPrice + ",'" + timeSecs + "')";
-
-    console.log('sql ==== ' + sql);
-    return sql;
-
-}
-function buildSQLInsert(OrderRef, OrderPair, Pair, Type, Price, Qty, Status) {
-
-    var sql =
-    "insert into trade (orderref, orderpair, pair, type, price, qty, txndate, status) values (" +
-    OrderRef + ", " + OrderPair + 
-    ",'" +
-    Pair + "','" + Type + "'," + Price + "," + Qty + "," + "NOW()" + ",'"+ Status + "'" +
-    ")";
-    console.log('sql ==== ' + sql);
-    return sql;
-
-}
-
-async function insertOrder(sql) {
-// need to add async await later into this db
-
-/*crypto=# CREATE TABLE TRADE(
-   ID SERIAL PRIMARY KEY,
-   ORDERREF INTEGER,
-   PAIR VARCHAR(8),
-   TYPE CHAR(4),
-   PRICE MONEY,
-   QTY NUMERIC(5,10),
-   TXNDATE TIMESTAMP,
-   STATUS VARCHAR(6)
-);
-*/
-
-  console.log("insert db   " + sql);
-  //  var sql = "select user_name from account where user_name = '" + userName +"' ";
-  var res;
-  try {
-   await  pool.query(sql);
-  //  pool.end;
-   // return res.rows;
-  } catch (err) {
-    console.log(err);
-  }
 }
 
 
