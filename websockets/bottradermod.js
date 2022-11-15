@@ -32,7 +32,6 @@ var runCycle=15;
 var prevAvgPrice=0;
 var rsiPeriod=5;
 var rsiCurrentPeriod=0;
-var priceMoves=[]; // open and closes - json format
 var RSIN=5; // period for RS
 var numberPeriods=0; // number of candlesticks
 var profitMargin = 0.005; // profit from the txn
@@ -48,6 +47,7 @@ require('dotenv').config();
 import {BotMod}  from './botmod.js';
 import {DBMod}  from './dbmod.js';
 import {SQLMod}  from './sqlmod.js';
+import {StatsMod}  from './statsmod.js';
 const { Spot } = require('@binance/connector')
 const apiSecret = process.env.API_SECRET;
 const apiKey = process.env.API_KEY;
@@ -58,6 +58,7 @@ var safeLimit = 10; // difference between buys and sells to stop a runaway bot b
 const bmod = new BotMod(client, minTradePrice, maxTradePrice, safeLimit);
 const dbmod = new DBMod();
 const sqlmod = new SQLMod();
+const statsmod = new StatsMod();
 
 
 console.log(client);
@@ -183,14 +184,16 @@ ws.onmessage = async  (event) => {
        // data streams in millisecs - only take sec blocks	   
    if (numberSecs > prevSecs) {
 	   // new candletick
-       let priceUDdef = { "up": 0.00, "down": 0.00};
- 
-       let priceUD = priceUpDown(closePrice, prevClosePrice); // [up, down] prices
-       if (priceMoves.length > RSIN) priceMoves.splice(0, 1); // remove first entry for that RS period
+       //let priceUDdef = { "up": 0.00, "down": 0.00};
+       
+        statsmod.priceUpDown(closePrice, prevClosePrice); // [up, down] prices
+
+       if (statsmod.getPriceMoves().length > RSIN) statsmod.removePriceMove(); // remove first entry for that RS period
        if (k>1)
-          priceMoves.push(priceUD);
+          statsmod.addPriceMove(statsmod.getPriceUD());
        else 
-	  priceMoves.push(priceUDdef);
+          statsmod.addPriceMove(statsmod.getPriceUDdef());
+       
 
        console.log("min price = " + minPrice);
        console.log("max price = " + maxPrice);
@@ -205,21 +208,14 @@ ws.onmessage = async  (event) => {
        
        }
        let rsi = 0.00;	   
-       if (priceMoves.length > RSIN) {
-           let avgP = SAMoves(priceMoves);
-           console.log("price moves data ===== array = " + JSON.stringify(priceMoves));
-	   console.log("avg prices rsi " + JSON.stringify(avgP));
-	   let rs = calcRS(avgP["upAvg"], avgP["downAvg"]);
-	   console.log("rs value = " + rs);
-	   rsi = calcRSI(rs);
-	   console.log("rsi value = " + rsi);
+       if (statsmod.getPriceMoves().length > RSIN) {
+           statsmod.SAMoves();
+	   let rs = statsmod.getJsonAvg().upAvg/statsmod.getJsonAvg().downAvg;
+	   rsi = 100 - 100/(1+rs);
+
+	   console.log("rsi valuexx = " + rsi);
        }
        let tvr = numberTxns/varPrice; // ratio => more txns more variation
-	   // max":20708.57,"avg":20707.585,"var":0.9850000000005821
-      //// check let buyP = parseFloat(maxPrice - 2*varPrice).toFixed(2); // var taken from the average, so *2
-       // based on profit margin - let sellPx = parseFloat(profitMargin + capital)*parseFloat(buyP/capital)
-       //let sellP = parseFloat(sellPx).toFixed(2);
-      ///check let sellP=avgPrice.toFixed(2); // can also take max price - look at trend for previous 100 values
        let buyP =minPrice.toFixed(2);
        //let buyP = avgPrice.toFixed(2);
 	   let sellP = maxPrice.toFixed(2);
@@ -251,11 +247,6 @@ console.log("percent change price " + percentChange);
        sqlmod.buildSQLStats(avgPrice, orgTime, chgPrice, directionPrice, datadb);
        await sqlmod.insertStats();
        let trade = true;
-	   // Fri Nov 11 2022 07:23:40 GMT+0000 (Coordinated Universal Time)
-//function buildSQLStats(avgPrice, timePrice, chgPrice, directionPrice) {
-    //  buyP = 17200.00;
-	   if (orderRefGlobal == 671) orderRefGlobal = 672;
-	   //if (sold) {
 	       numTries = 0; //reset when considering new orders
 	   console.log("order ref at invoke 111111111111111111111111111" + orderRefGlobal);
 	   orderRefGlobal++; // take into account the sell order    
@@ -381,52 +372,7 @@ async function btcBalCheck(btcBalLocal, minTradeValueLocal, currencyPairLocal, m
     return 0;
 			
 }
-function priceUpDown(priceCloseT, priceCloseT_1) {
-    let priceUp=0;
-    let priceDown=0;
-    let priceChange = priceCloseT - priceCloseT_1;
-    if (priceChange == 0) {
-        priceUp=0;
-        priceDown=0;
-    } else {
-        if (priceChange > 0) {
-            priceUp=priceChange;
-            priceDown=0;
-        } else {
-            priceUp=0; 
-            priceDown=Math.abs(priceChange);	  
-        }
-    }
-    let priceUD = { "up": priceUp, "down": priceDown};
-    return priceUD;
-}
 
-function SAMoves(udMoves) {
-
-    let sumUp=0;
-    let sumDown=0;
-    for (let i=0; i<udMoves.length;i++) {
-        let upP = udMoves[i]["up"];
-        let downP = udMoves[i]["down"];
-	sumUp += upP;
-	sumDown += downP;
-    }
-  //  upMoves.forEach(p => {sumUp += p;});
-  //  downMoves.forEach(p => {sumDown += p;});
-    let avgUp = sumUp/udMoves.length;
-    let avgDown = sumDown/udMoves.length;
-    let jsonAvg = {"upAvg": avgUp, "downAvg": avgDown};
-    return jsonAvg; 	
-}
-
-function calcRS(avgUp, avgDown) {
-    return avgUp/avgDown;
-}
-
-function calcRSI(RS) {
-    let RSIval = 100 - 100/(1+RS);
-    return RSIval;
-}
 
 async function timetest1() {
       sold=false;
