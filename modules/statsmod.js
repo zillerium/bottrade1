@@ -9,15 +9,54 @@ class StatsMod {
         this.cycle = 0;
         this.RSIN = 0;
         this.RSI = 0;
+        this.minPrice= 0.00; // for a candlestick
+        this.maxPrice= 0.00; // for a candlestick
+        this.openPrice= 0.00; // for a candlestick
+        this.closePrice= 0.00; // for a candlestick
+        this.currentPrice= 0.00; // current price
+        this.avgPrice= 0.00; // current price
+        this.priceRatio= 0.00;
     }
 
      getRSI = () => { return this.RSI; }
+     getOpenPrice = () => { return this.openPrice; }
+     setOpenPrice = (openPrice) => { this.openPrice=openPrice; }
+     getClosePrice = () => { return this.closePrice; }
+     setClosePrice = (closePrice) => { this.closePrice=closePrice; }
+     getMinPrice = () => { return this.minPrice; }
+     setMinPrice = (minPrice) => { this.minPrice=minPrice; }
+     getMaxPrice = () => { return this.maxPrice; }
+     setMaxPrice = (maxPrice) => { this.maxPrice=maxPrice; }
+     getCurrentPrice = () => { return this.currentPrice; }
+     setCurrentPrice = (currentPrice) => { this.currentPrice=currentPrice; }
+
+
      getJsonAvg = () => { return this.jsonAvg; }
      getCycle = () => { return this.cycle; }
      setCycle = (cycle) => {this.cycle=cycle; }
      incCycle = () => {this.cycle++; }
      getRSIN = () => { return this.RSIN; }
      setRSIN = (rsin) => {this.RSIN=rsin; }
+
+     getAvgPrice = () => { return this.avgPrice; }
+     calcAvgPrice = () => {
+        this.avgPrice=(this.minPrice+this.maxPrice)/2;
+     }
+
+     getPriceRatio = () => { return this.priceRatio; }
+     calcPriceRatio = () => {
+          if (this.maxPrice > 0) {
+               this.priceRatio = (this.maxPrice-this.avgPrice)/this.maxPrice;
+
+           }
+
+     }
+
+     setMinMaxPrices = () => {
+       if (this.currentPrice < this.getMinPrice())  this.minPrice = parseFloat(this.currentPrice);
+       if (this.currentPrice > this.getMaxPrice())  this.maxPrice = parseFloat(this.currentPrice);
+
+     }
 
      calcRSI = () => {
        if (this.getPriceMoves().length > this.getRSIN()) {

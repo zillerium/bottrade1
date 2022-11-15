@@ -16,12 +16,12 @@ const ws = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@trade');
 var minTradeValue = 0.0012; // to sell left over coins
 var minTradingBalance = 100;
 var prevSecs = 0; // second value for streamed txn - streamed in millisecs
-var minPrice = 0.00; // min price in a candlestick
-var maxPrice = 0.00; // max price in a candlestick
+//var minPrice = 0.00; // min price in a candlestick
+//var maxPrice = 0.00; // max price in a candlestick
 var k=0; // number of candlesticks processed
 var numberTxns=0; // number txns in a candlestick
-var openPrice=0.00; // open price on a candlestick
-var closePrice=0.00; // close price on a candlestick
+///var openPrice=0.00; // open price on a candlestick
+//var closePrice=0.00; // close price on a candlestick
 var prevClosePrice=0.00; // prev close price on a candlestick
 var prices = []; // prices from stream
 //var runCycle=400;
@@ -153,7 +153,7 @@ ws.onmessage = async  (event) => {
  //  console.log(JSON.stringify(obj));
 
 // get the price 
-   let price = parseFloat(obj.p).toFixed(2); // price
+   statsmod.setCurrentPrice(parseFloat(obj.p).toFixed(2)); // price
 //   console.log("price = " +price);
 
 // Calc the sec value for the candlestick
@@ -170,13 +170,14 @@ ws.onmessage = async  (event) => {
 
    if (prevSecs == 0) {
        // first time
-       openPrice = parseFloat(price); // first price for candlestick
-       closePrice = parseFloat(price); // init close price for candlestick
+       statsmod.setOpenPrice(parseFloat(statsmod.getCurrentPrice())); //reset for the new candletsick
+       statsmod.setClosePrice(parseFloat(statsmod.getCurrentPrice()));  // reset for the new candlestick
        //prevPrice = parseFloat(price); // init prev close price for candlestick
        prevSecs = numberSecs; // sec value for candlestick
-       minPrice = parseFloat(price); // initialize to defaults
-       maxPrice = parseFloat(price);
-       prevAvgPrice = parseFloat(price);
+       
+     statsmod.setMinPrice(parseFloat(statsmod.getCurrentPrice())); // init min price
+     statsmod.setMaxPrice(parseFloat(statsmod.getCurrentPrice())); // init min price
+	   prevAvgPrice = parseFloat(statsmod.getCurrentPrice());
        numberTxns=1; // initialize to 1	   
        k++;
    statsmod.incCycle();
@@ -187,45 +188,44 @@ ws.onmessage = async  (event) => {
 	   // new candletick
        //let priceUDdef = { "up": 0.00, "down": 0.00};
        
-        statsmod.priceUpDown(closePrice, prevClosePrice); // [up, down] prices
+        statsmod.priceUpDown(statsmod.getClosePrice(), prevClosePrice); // [up, down] prices
         statsmod.addPriceMove();
 
-       console.log("min price = " + minPrice);
-       console.log("max price = " + maxPrice);
-       let totPrice=parseFloat(minPrice)+parseFloat(maxPrice);
-       console.log("tot price = " + totPrice);
-       let avgPrice = totPrice/2;
-       let varPrice=maxPrice-avgPrice;
-       console.log("avg price = " + avgPrice);
-       let priceRatio = 0;
-       if (maxPrice > 0) { 	   
-           priceRatio = (maxPrice-avgPrice)/maxPrice;
-       
-       }
+       console.log("min price = " + statsmod.getMinPrice());
+       console.log("max price = " + statsmod.getMaxPrice());
+       //let totPrice=parseFloat(statsmod.getMinPrice())+parseFloat(statsmod.getMaxPrice());
+       statsmod.calcAvgPrice();
 
+//console.log("tot price = " + totPrice);
+       //let avgPrice = totPrice/2;
+       let varPrice=statsmod.getMaxPrice()-statsmod.getAvgPrice();
+       console.log("avg price = " + statsmod.getAvgPrice());
+    
+       statsmod.calcPriceRatio();
        statsmod.calcRSI();
 
        let tvr = numberTxns/varPrice; // ratio => more txns more variation
-       let buyP =minPrice.toFixed(2);
+       let buyP =statsmod.getMinPrice().toFixed(2);
        //let buyP = avgPrice.toFixed(2);
-	   let sellP = maxPrice.toFixed(2);
+	   let sellP = statsmod.getMaxPrice().toFixed(2);
 
-	   let pricevar = {"open":openPrice, "close": closePrice, "txns": numberTxns, 
-	       "min":minPrice, "max":maxPrice, "avg":avgPrice, "var":varPrice, 
-	       "ratio": priceRatio, "rsi": statsmod.getRSI(), "tvr": tvr, "buy": buyP, "sell": sellP
+	   let pricevar = {"open":statsmod.getOpenPrice(), "close": statsmod.getClosePrice(), "txns": numberTxns, 
+	       "min":statsmod.getMinPrice(), "max":statsmod.getMaxPrice(), "avg":statsmod.getAvgPrice(), "var":varPrice, 
+	       "ratio": statsmod.getPriceRatio(), "rsi": statsmod.getRSI(), "tvr": tvr, "buy": buyP, "sell": sellP
                };
        console.log("price data ===== array = " + JSON.stringify(pricevar));
        //let orderRef = 1;
        console.log("start wait ....");
        //prevAvgPrice = praseFloat(price);
-       let chgPrice = avgPrice - prevAvgPrice;
-       prevAvgPrice = avgPrice;
+       let chgPrice = statsmod.getAvgPrice() - prevAvgPrice;
+       prevAvgPrice = statsmod.getAvgPrice();
 //sumPriceDB, avgPriceDB
 // avgPrice
-	avgPriceDB = (avgPriceDB + avgPrice)/2;
+	avgPriceDB = (avgPriceDB + statsmod.getAvgPrice())/2;
 	changePriceDB =  (changePriceDB + chgPrice)/2;
        let percentChange = parseFloat(changePriceDB/avgPriceDB);
-console.log("avg price db " + avgPriceDB);
+
+       console.log("avg price db " + avgPriceDB);
 console.log("change price db " + changePriceDB);
 console.log("percent change price " + percentChange);
 
@@ -234,7 +234,7 @@ console.log("percent change price " + percentChange);
        
        if (chgPrice > 0) directionPrice = 1; else directionPrice = -1;
        let datadb = d.toString().replace('GMT+0000 (Coordinated Universal Time)','');
-       sqlmod.buildSQLStats(avgPrice, orgTime, chgPrice, directionPrice, datadb);
+       sqlmod.buildSQLStats(statsmod.getAvgPrice(), orgTime, chgPrice, directionPrice, datadb);
        await sqlmod.insertStats();
        let trade = true;
 	       numTries = 0; //reset when considering new orders
@@ -280,55 +280,51 @@ console.log("percent change price " + percentChange);
      //  }, 10000);
        console.log("end wait ....");
        //process.exit();
-       if (minPrice > 0) {
+       if (statsmod.getMinPrice() > 0) {
            prices.push(pricevar);
 
        }
        console.log("==================================== new time in secs ===================================");
        prevSecs = numberSecs; // init current sec value
-       prevClosePrice = closePrice; // save prev close price
-       minPrice = parseFloat(price); // init min price
-       minPrice = parseFloat(price); // init min price
-       maxPrice = parseFloat(price); // init max price
-       openPrice = parseFloat(price); //reset for the new candletsick
-       closePrice=parseFloat(price);  // reset for the new candlestick
-       numberTxns=1;  // initialize number of txns	   
+       prevClosePrice = statsmod.getClosePrice(); // save prev close price
+       
+     // minPrice = parseFloat(price); // init min price
+     //  maxPrice = parseFloat(price); // init max price
+       statsmod.setOpenPrice(parseFloat(statsmod.getCurrentPrice())); //reset for the new candletsick
+       statsmod.setClosePrice(parseFloat(statsmod.getCurrentPrice()));  // reset for the new candlestick
+       
+     statsmod.setMinPrice(parseFloat(statsmod.getCurrentPrice())); // init min price
+     statsmod.setMaxPrice(parseFloat(statsmod.getCurrentPrice())); // init min price
+       //openPrice = parseFloat(price); //reset for the new candletsick
+      // closePrice=parseFloat(price);  // reset for the new candlestick
+
+	   numberTxns=1;  // initialize number of txns	   
        k++;
        statsmod.incCycle();
    } else {
        numberTxns++;	   
-       closePrice=parseFloat(price);	   
-       if (price < minPrice) minPrice =parseFloat(price);
-       if (price > maxPrice) maxPrice = parseFloat(price);
+       statsmod.setClosePrice(parseFloat(statsmod.getCurrentPrice()));
+       statsmod.setMinMaxPrices();
+  //     if (price < statsmod.getMinPrice())  statsmod.setMinPrice(parseFloat(price));
+  //     if (price > statsmod.getMaxPrice())  statsmod.setMaxPrice(parseFloat(price));
 
 
    }
- // console.log(" tot orders ==================== "+ );
-//  console.log(" tot order limit ==================== "+ totOrderLimit);
-// add a check for open orders
-  // if ((k>runCycle) || (totOrders >= totOrderLimit)) {
+
+   // if ((k>runCycle) || (totOrders >= totOrderLimit)) {
    //if ((k>runCycle)) {
    if (statsmod.getCycle()>runCycle) {
-      // let pricevar = {"min":minPrice, "max":maxPrice};
-     //  prices.push(pricevar);
        console.log("price data ===== array = " + prices);
-      let priceUp=0;
-      let priceDown=0;
-      let priceUpTot=0;
-      let priceDownTot=0;
-      let priceChange=0;
-      for (let i=0;i < prices.length; i++) {
+       for (let i=0;i < prices.length; i++) {
 	  //  {"open":20867.08,"close":20866.87,"txns":50,"min":20866.16,"max":20867.1,"avg":20866.629999999997,"var":0.47000000000116415,"ratio":0.00002252349392110855}
           console.log("price data " + i + " " + JSON.stringify(prices[i]));
       }
       
       process.exit();
    }
-   //console.log("min price = " + minPrice);
-   //console.log("max price = " + maxPrice);
 
 }
-
+//********************* end main loop processing 
 async function btcBalCheck(btcBalLocal, minTradeValueLocal, currencyPairLocal, minTradePriceLocal) {
     let tradePrice = 0.0;
     if (btcBalLocal > minTradeValueLocal) {
