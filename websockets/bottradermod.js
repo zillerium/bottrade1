@@ -101,10 +101,12 @@ function sleep(ms) {
 
 async function main() {
 
-orderRefGlobal = await getId();
+let rtnsql = await sqlmod.getId();
+	orderRefGlobal = sqlmod.getLastVal();
 	if (orderRefGlobal == 4287) orderRefGlobal = 4289;
 	if (orderRefGlobal == 4423) orderRefGlobal = 4430;
-histId = await getHistId();
+let rtnhist =  await sqlmod.setHistId();
+	histId = sqlmod.getHistId();
 console.log("histid == " + histId);
 console.log("orderRefGlobal == " + orderRefGlobal);
 	//.rder
@@ -127,8 +129,10 @@ if (lastId > 2*batchSize) firstId = lastId - batchSize;
 // add async later
 let priceSQL = "select avg(avg_price), sum(chg_price) from tradehist where id between " + firstId + " and " + lastId;
 console.log("price sql = " + priceSQL);
-var priceChgJson =await sumPrices(priceSQL);
-console.log("price change "+ JSON.stringify(priceChgJson));
+sqlmod.setPriceSQL(priceSQL);
+	let rtnsum =await sqlmod.sumPrices();
+	var priceChgJson = sqlmod.getPriceJson();
+console.log("+++++++++++++++++++++++++++++ price change "+ JSON.stringify(priceChgJson));
 var changePriceDB = parseFloat(priceChgJson["sum"]);
 var avgPriceDB = parseFloat(priceChgJson["avg"]);
 //console.log("price rows = " + JSON.stringify(priceRows));
@@ -539,9 +543,9 @@ async function manageOrder(buyPrice, sellPrice, btcQty, orderRef) {
 	      }
 	  } else {
 
-	        //  let respcancel = await bmod.cancelOrder(orderId, isIsolated);
+	          let respcancel = await bmod.cancelOrder(orderId, isIsolated);
 	          console.log(client.logger.log(respcancel.data));
-	          let rtn = await dbmod.addCancelOrder(respcancel.data);
+	       //   let rtn = await dbmod.addCancelOrder(respcancel.data);
 	  }
      }	     
      return responseMargin;
@@ -563,70 +567,9 @@ async function manageSellOrder(sellPrice, btcQty, orderRefSellVal, OrderPair) {
 
 
 
-async function getHistId() {
-        console.log("test history");
-//sql = "select currval('trade_id_seq')";
-let sql = "select last_value from tradehist_id_seq";
 
-//sql = "select * from trade";
-try {
-        let res=await pool.query(sql)
- //       .then((data) => {console.log(" hist ref " + JSON.stringify(data));
-let histIdlocal = parseInt(res.rows[0]["last_value"]);
-//	 console.log("histid llllllll = "+ histId);
-//	 console.log("last val llllllll = "+parseInt(data["rows"][0]["last_value"]) );
-		//orderRef++;
-//	return data})
-return histIdlocal;
-} catch (err) {
-        console.log(err);
-        return 0;
-}
 
-}
-async function sumPrices(sql) {
-        console.log("test price");
-//sql = "select currval('trade_id_seq')";
 
-try {
-        let res=await pool.query(sql)
-        //.then((data) => {console.log(" data returned " + JSON.stringify(data));
-	 //orderRef++;
-        console.log("res == " + JSON.stringify(res));
-	//priceRows = res.rows;
-	let sum= parseFloat(res.rows[0]["sum"]);
-	let avg=parseFloat(res.rows[0]["avg"]);
-	let priceJson = {"sum": sum, "avg": avg};
-	//return res.rows})
-	return priceJson;
-
-} catch (err) {
-        console.log(err);
-        return 0;
-}
-}
-async function getId() {
-        console.log("test");
-//sql = "select currval('trade_id_seq')";
-let sql = "select last_value from trade_id_seq";
-
-//sql = "select * from trade";
-try {
-        let res=await pool.query(sql)
-       // .then((data) => {console.log(" order ref " + JSON.stringify(data));
-        console.log("res == " + JSON.stringify(res));
-	let orderRefGlobalLocal = parseInt(res.rows[0]["last_value"]);
-//	console.log("order ref == "+ orderRefGlobal);
-	 //orderRef++;
-	//return data})
-	return orderRefGlobalLocal;
-
-} catch (err) {
-        console.log(err);
-        return 0;
-}
-
-}
 
 //ws.on('message', function incoming(data) {
 //    console.log(data);

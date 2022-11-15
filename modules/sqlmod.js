@@ -2,15 +2,25 @@ class SQLMod {
   constructor( 
     )   
     {   
+        this.lastVal = null;
         this.sql = null;
+        this.histId = 0;
         this.statsSQL = null;
         this.pool = null;
+        this.priceJson = {};
+        this.priceSQL = null;
     }
 
+     getHistId = () => { return this.histId }
      getSQL = () => { return this.sql }
+     getPriceJson = () => { return this.priceJson }
+     getPriceSQL = () => { return this.priceSQL }
      getStatsSQL = () => { return this.statsSQL }
      getPool = () => { return this.pool }
      setPool = (pool) => { this.pool = pool; }
+     getLastVal = () => { return this.lastVal }
+     setLastVal = (lastVal) => { this.lastVal = lastVal; }
+     setPriceSQL = (sql) => { this.priceSQL = sql; }
 
      insertOrder = async () => {
          try {
@@ -138,6 +148,41 @@ class SQLMod {
 
 
     }
+    getId = async() => {
+       let sql = "select last_value from trade_id_seq";
+
+       try {
+	       let pool = this.pool;
+           let res=await pool.query(sql)
+           this.lastVal = parseInt(res.rows[0]["last_value"]);
+
+       } catch (err) { throw(err);
+       }
+
+     }
+     sumPrices = async () => {
+
+         try {
+            let pool = this.pool;
+            let res=await pool.query(this.priceSQL);
+            let sum= parseFloat(res.rows[0]["sum"]);
+            let avg=parseFloat(res.rows[0]["avg"]);
+            this.priceJson = {"sum": sum, "avg": avg};
+
+         } catch (err) { throw(err);
+         }
+      }
+     setHistId = async () => {
+          let sql = "select last_value from tradehist_id_seq";
+          try {
+	      let pool = this.pool;
+              let res=await pool.query(sql)
+              this.histId = parseInt(res.rows[0]["last_value"]);
+          } catch (err) { throw(err);
+          }
+
+        }
+
 
 
 }
