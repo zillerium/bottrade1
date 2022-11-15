@@ -42,10 +42,11 @@ var sold = true;
 var totOrders = 0;
 var histId = 0;
 var totOrderLimit = 1;
-//var btcQty = 0.0015;
-var btcQty = 0.0030
+var btcQty = 0.0015;
+//var btcQty = 0.0030
 require('dotenv').config();
 import {BotMod}  from './botmod.js';
+import {DBMod}  from './dbmod.js';
 const { Spot } = require('@binance/connector')
 const apiSecret = process.env.API_SECRET;
 const apiKey = process.env.API_KEY;
@@ -54,6 +55,7 @@ const Pool = require("pg").Pool;
 const client = new Spot(apiKey, apiSecret)
 var safeLimit = 10; // difference between buys and sells to stop a runaway bot buying
 const bmod = new BotMod(client, minTradePrice, maxTradePrice, safeLimit);
+const dbmod = new DBMod();
 
 
 console.log(client);
@@ -67,135 +69,22 @@ const pool = new Pool({
 });
 const mongoose = require('mongoose');
 mongoose.connect('mongodb://127.0.0.1:27017/trade');
-//
-/*{
-  orderId: '15332223862',
-  symbol: 'BTCUSDT',
-  origClientOrderId: '422',
-  clientOrderId: 'itEIHMvGHrjk9McY34OXFx',
-  price: '16725.2',
-  origQty: '0.0025',
-  executedQty: '0',
-  cummulativeQuoteQty: '0',
-  status: 'CANCELED',
-  timeInForce: 'GTC',
-  type: 'LIMIT',
-  side: 'BUY',
-  isIsolated: true
-}
-*/
 
-var cancelSchema = new mongoose.Schema({
-  orderId : { type: String, default: null},
-  symbol : {type: String, default: null},
-  origClientOrderId : {type: String, default: null},  
-  clientOrderId : {type: String, default: null},
-  price : {type: String, default: null},
-  origQty : {type: String, default: null},
-  executedQty : {type: String, default: null},
-  cummulativeQuoteQty : {type: String, default: null},
-  status : {type: String, default: null},
-  timeInForce : {type: String, default: null},
-  type : {type: String, default: null},
-  side : {type: String, default: null},
-  isIsolated : {type: Boolean, default: null}
-});
+ dbmod.cancelJsonSet();
+ dbmod.openOrderSet();
+ dbmod.queryJsonSet();
 
-/*
-  symbol: 'BTCUSDT',
-  orderId: 15332223130,
-  clientOrderId: '421',
-  transactTime: 1668060352219,
-  price: '16728.89',
-  origQty: '0.0025',
-  executedQty: '0.0025',
-  cummulativeQuoteQty: '41.8179',
-  status: 'FILLED',
-  timeInForce: 'GTC',
-  type: 'LIMIT',
-  side: 'BUY',
-  fills: [
-    {
-      price: '16727.16',
-      qty: '0.0025',
-      commission: '0',
-      commissionAsset: 'BNB'
-    }
-  ],
-  isIsolated: true
-}
-*/
+var queryOrderSchema = new mongoose.Schema(dbmod.openOrderGet());
+var openOrderSchema = new mongoose.Schema(dbmod.cancelJsonGet());
+var cancelOrderSchema = new mongoose.Schema(dbmod.queryJsonGet());
 
-var openOrderSchema = new mongoose.Schema({
-  orderId : { type: Number, default: null},
-  symbol : {type: String, default: null},
-  clientOrderId : {type: String, default: null},
-  transactTime : {type: Number, default: null},
-  price : {type: String, default: null},
-  origQty : {type: String, default: null},
-  executedQty : {type: String, default: null},
-  cummulativeQuoteQty : {type: String, default: null},
-  status : {type: String, default: null},
-  timeInForce : {type: String, default: null},
-  type : {type: String, default: null},
-  side : {type: String, default: null},
-  isIsolated : {type: Boolean, default: null},
-  fills: [
-	  {
-	      price: {type:String, default: null},
-              qty: {type:String, default: null},
-              commission: {type:String, default: null},
-              commissionAsset: {type:String, default: null},
-	  }
-  ]
-});
-
-
-/*  symbol: 'BTCUSDT',
-  orderId: 15332222142,
-  clientOrderId: '420',
-  price: '16729.81',
-  origQty: '0.0025',
-  executedQty: '0.0025',
-  cummulativeQuoteQty: '41.825325',
-  status: 'FILLED',
-  timeInForce: 'GTC',
-  type: 'LIMIT',
-  side: 'SELL',
-  stopPrice: '0',
-  icebergQty: '0',
-  time: 1668060350580,
-  updateTime: 1668060350580,
-  isWorking: true,
-  accountId: 33,
-  isIsolated: true
-}
-*/
-
-var queryOrderSchema = new mongoose.Schema({
-  orderId : { type: Number, default: null},
-  symbol : {type: String, default: null},
-  clientOrderId : {type: String, default: null},
-  price : {type: String, default: null},
-  origQty : {type: String, default: null},
-  executedQty : {type: String, default: null},
-  cummulativeQuoteQty : {type: String, default: null},
-  status : {type: String, default: null},
-  timeInForce : {type: String, default: null},
-  type : {type: String, default: null},
-  side : {type: String, default: null},
-  //stopPrice : {type: String, default: null},
- // icebergQty : {type: String, default: null},
-//  time : {type: Number, default: null},
-//  updateTime : {type: Number, default: null},
-//  isWorking : {type: Boolean, default: null},
-//  accountId : {type: Number, default: null},
-  isIsolated : {type: Boolean, default: null},
-});
-
-var  cancelModel = mongoose.model("cancelModel", cancelSchema);
+var  cancelModel = mongoose.model("cancelModel", cancelOrderSchema);
 var  openOrderModel = mongoose.model("openOrderModel", openOrderSchema);
 var  queryOrderModel = mongoose.model("queryOrderModel", queryOrderSchema);
+
+dbmod.queryModelSet(queryOrderModel);
+dbmod.openModelSet(openOrderModel);
+dbmod.cancelModelSet(cancelModel);
 
 pool.connect();
 
@@ -568,7 +457,8 @@ console.log("isIsolated " + isIsolated);
     while ((!executedTrade) && (checkedCount < 10)) {
         checkedCount++;
         let result = await bmod.getOrder(orderId, isIsolated); // order ref = pair ref for order
-       console.log("resuilt " + JSON.stringify(result.data));
+        let rtnresult = await dbmod.addQueryOrder(result.data);
+	console.log("resuilt " + JSON.stringify(result.data));
 	if (result.data) {
             client.logger.log(result.data);
             qty = parseFloat(result.data.executedQty);
@@ -631,15 +521,18 @@ async function manageOrder(buyPrice, sellPrice, btcQty, orderRef) {
 	 // if (executedTrade) {
 	  if (purchasedQty >minTradeValue) {
 	      let respsell = await manageSellOrder(sellPrice, purchasedQty, orderRef++, OrderPair);
+	      let rtn1 = await dbmod.addOpenOrder(responseMargin.data);
 	      if ((btcQty - purchasedQty)>minTradeValue) {
 	          console.log(" cancel orderid = " + orderId);
 	          let respcancel = await bmod.cancelOrder(orderId, isIsolated);
 	          console.log(client.logger.log(respcancel.data));
+	          let rtn = await dbmod.addCancelOrder(respcancel.data);
 	      }
 	  } else {
 
 	          let respcancel = await bmod.cancelOrder(orderId, isIsolated);
 	          console.log(client.logger.log(respcancel.data));
+	          let rtn = await dbmod.addCancelOrder(respcancel.data);
 	  }
               // buy order
 	   //   let sql = buildSQLGen(buyOrderRef, OrderPair, 'BTCUSDT', 'BUY', buyPrice, btcQty, 'Closed', responseMargin);
@@ -955,32 +848,7 @@ try {
 }
 
 }
-//var  cancelModel = mongoose.model("cancelModel", cancelSchema);
-//166 var  openOrderModel = mongoose.model("openOrderModel", openOrderSchema);
-//167 var  queryOrderModel = mongoose.model("queryOrderModel", queryOrderSchema);
-//168 
 
-async function addOpenOrder(jsonOpenResponse) {
-  var openOrderRec = new openOrderModel( jsonOpenResponse);
-    await openOrderRec.save(function(err, doc){
-        if(err) throw err;
-         console.log("open order db done" + jsonOpenResponse);
-      });
-}
-async function addCancelOrder(jsonCancelResponse) {
-  var cancelRec = new cancelModel( jsonCancelResponse);
-    await cancelRec.save(function(err, doc){
-        if(err) throw err;
-         console.log("cancel order db done" + jsonCancelResponse);
-      });
-}
-async function addQueryOrder(jsonQueryResponse) {
-  var queryRec = new queryOrderModel( jsonQueryResponse);
-   await queryRec.save(function(err, doc){
-        if(err) throw err;
-         console.log("query order db done" + jsonQueryResponse);
-      });
-}
 //ws.on('message', function incoming(data) {
 //    console.log(data);
 //})
