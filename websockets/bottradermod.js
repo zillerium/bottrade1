@@ -27,8 +27,8 @@ const RSIN=5; // period for RS
 var totOrders = 0;
 var histId = 0;
 var totOrderLimit = 1;
-var btcQty = 0.0015;
-//var btcQty = 0.0030
+//var btcQty = 0.0015;
+var btcQty = 0.0030
 require('dotenv').config();
 import {BotMod}  from './botmod.js';
 import {DBMod}  from './dbmod.js';
@@ -314,7 +314,7 @@ console.log("isIsolated " + isIsolated);
 	    console.log("exec trade in loop " + executedTrade);
         }
 	console.log("end of loop");
-    } // end of check for txn existance
+    } // end of check for txn existance/manage
 	// orders can ne partially sold
     let json =  { "executedTrade": executedTrade, "qty": qty };
     console.log("json out " + JSON.stringify(json));
@@ -365,7 +365,10 @@ async function manageOrder(buyPrice, sellPrice, btcQty, orderRef) {
 	      //let sqlx1 = buildSQLGen(buyOrderRef, OrderPair, 'BTCUSDT', 'BUY', buyPrice, purchasedQty, 'Closed', responseMargin);
 	      sqlmod.createSQL(buyOrderRef, OrderPair, 'BTCUSDT', 'BUY', buyPrice, purchasedQty, 'Closed', responseMargin);
               //let sqlx1 = sqlmod.getSQL();
-		  let rtnx1 = await sqlmod.insertOrder();
+//		  let rtnx1 = await sqlmod.insertOrder();
+		  let profit = parseFloat(sellPrice - buyPrice)*purchasedQty;
+		  sqlmod.createProfitSQL(buyPrice,sellPrice, purchasedQty, profit);
+		  let rtnprofit = await sqlmod.insertOrder();
 	      if ((btcQty - purchasedQty)>minTradeValue) {
 	          console.log(" cancel orderid = " + orderId);
 	          let respcancel = await bmod.cancelOrder(orderId, isIsolated);

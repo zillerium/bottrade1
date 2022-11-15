@@ -42,6 +42,15 @@ class SQLMod {
              }
      }
 
+
+     createProfitSQL = (buyPrice, sellPrice, qty, profit) => {
+
+      this.sql =
+          "insert into profit (buyPrice, sellPrice, qty, profit, txnDate) " +
+          " values " +
+          "( " + buyPrice + "," + sellPrice + "," + qty + "," + profit + "," + "NOW()" + ")";
+
+     }
      createSQL = (orderRef, OrderPair, Pair, Type, Price, Qty, Status, responseMargin) => {
         let orderId = responseMargin.data.orderId;
         let clientOrderId = responseMargin.data.orderId;

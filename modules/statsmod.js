@@ -99,7 +99,7 @@ class StatsMod {
      getPrices = () => { return this.prices; }
      setPrices = () => { 
         this.prices.push(this.priceVars);
-	     console.log("   prices mod === " + JSON.stringify(this.prices));
+	    // console.log("   prices mod === " + JSON.stringify(this.prices));
      }
      getPriceVars = () => { return this.priceVars; }
      setPriceVars = () => { this.priceVars = 
