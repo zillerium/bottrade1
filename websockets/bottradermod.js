@@ -15,21 +15,15 @@ const WebSocket = require('ws');
 const ws = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@trade');
 var minTradeValue = 0.0012; // to sell left over coins
 var minTradingBalance = 100;
-var prevSecs = 0; // second value for streamed txn - streamed in millisecs
 var k=0; // number of candlesticks processed
-var prevClosePrice=0.00; // prev close price on a candlestick
+//var prevClosePrice=0.00; // prev close price on a candlestick
 var prices = []; // prices from stream
 //var runCycle=400;
 var batchSize= 100;
 var minTradePrice = 10000; // safety
 var maxTradePrice = 25000; // safety
 var runCycle=15;
-var rsiPeriod=5;
-var rsiCurrentPeriod=0;
-var RSIN=5; // period for RS
-var numberPeriods=0; // number of candlesticks
-var profitMargin = 0.005; // profit from the txn
-var capital = 100; // capital available for the trade
+const RSIN=5; // period for RS
 var totOrders = 0;
 var histId = 0;
 var totOrderLimit = 1;
@@ -52,7 +46,7 @@ const dbmod = new DBMod();
 const sqlmod = new SQLMod();
 const statsmod = new StatsMod();
 statsmod.setRSIN(RSIN);
-
+statsmod.setPrevSecs(0); // initial Value
 console.log(client);
 const pool = new Pool({
   user: "postgres",
@@ -93,99 +87,87 @@ function sleep(ms) {
 
 async function main() {
 
-    let rtnsql = await sqlmod.getId();
+        let rtnsql = await sqlmod.getId();
     
 	let rtnhist =  await sqlmod.setHistId();
 	histId = sqlmod.getHistId();
-console.log("histid == " + histId);
-	//.rder
+        console.log("histid == " + histId);
 
 	let firstId = 3;
-let lastId = histId;
-console.log("oooooooooo histId = " + histId);
-if (lastId > 2*batchSize) firstId = lastId - batchSize;
-// add async later
-let priceSQL = "select avg(avg_price), sum(chg_price) from tradehist where id between " + firstId + " and " + lastId;
-console.log("price sql = " + priceSQL);
-sqlmod.setPriceSQL(priceSQL);
+        let lastId = histId;
+        console.log("oooooooooo histId = " + histId);
+        if (lastId > 2*batchSize) firstId = lastId - batchSize;
+        // add async later
+        let priceSQL = "select avg(avg_price), sum(chg_price) from tradehist where id between " + firstId + " and " + lastId;
+        console.log("price sql = " + priceSQL);
+        sqlmod.setPriceSQL(priceSQL);
 	let rtnsum =await sqlmod.sumPrices();
 	var priceChgJson = sqlmod.getPriceJson();
-console.log("+++++++++++++++++++++++++++++ price change "+ JSON.stringify(priceChgJson));
-var changePriceDB = parseFloat(priceChgJson["sum"]);
-var avgPriceDB = parseFloat(priceChgJson["avg"]);
+        console.log("+++++++++++++++++++++++++++++ price change "+ JSON.stringify(priceChgJson));
+        var changePriceDB = parseFloat(priceChgJson["sum"]);
+        var avgPriceDB = parseFloat(priceChgJson["avg"]);
 
 
 
 ws.onmessage = async  (event) => {
 
-// get the streamed data	
+   // get the streamed data	
    let obj = JSON.parse(event.data); // data stream of prices
- //  console.log(JSON.stringify(obj));
+   //  console.log(JSON.stringify(obj));
 
-// get the price 
+   // get the price 
    statsmod.setCurrentPrice(parseFloat(obj.p).toFixed(2)); // price
-//   console.log("price = " +price);
+   //   console.log("price = " +price);
 
-// Calc the sec value for the candlestick
+   // Calc the sec value for the candlestick
 
    let orgTime = parseInt(obj.E); // time - in millisecs
    let tradeTime = parseInt(obj.E/1000);
-//   console.log("trade time = " + tradeTime);
+   //   console.log("trade time = " + tradeTime);
 
    let d = new Date(orgTime);
-//   console.log("local time in date - " + d);
+   //   console.log("local time in date - " + d);
    //let timeCheck = d.setUTCSeconds(orgTime);
    let numberSecs = (d.getTime() - d.getMilliseconds())/1000; // number of secs for that candlestick
-//   console.log("local time in secs - " + numberSecs);
-
-   if (prevSecs == 0) {
+   //var rsiCurrentPeriod=0;
+   //   console.log("local time in secs - " + numberSecs);
+   statsmod.setNumberSecs(numberSecs);
+  
+   if (statsmod.getPrevSecs() == 0) {
        // first time
        statsmod.setOpenPrice(parseFloat(statsmod.getCurrentPrice())); //reset for the new candletsick
        statsmod.setClosePrice(parseFloat(statsmod.getCurrentPrice()));  // reset for the new candlestick
        //prevPrice = parseFloat(price); // init prev close price for candlestick
-       prevSecs = numberSecs; // sec value for candlestick
-       
+      // prevSecs = numberSecs; // sec value for candlestick
+       statsmod.setPrevSecsToNumber(); 
        statsmod.setMinPrice(parseFloat(statsmod.getCurrentPrice())); // init min price
        statsmod.setMaxPrice(parseFloat(statsmod.getCurrentPrice())); // init min price
        statsmod.setPrevAvgPrice(parseFloat(statsmod.getCurrentPrice()));
 	//   prevAvgPrice = parseFloat(statsmod.getCurrentPrice());
        statsmod.setNumberTxns(1); // initialize to 1	   
        k++;
-   statsmod.incCycle();
-       rsiCurrentPeriod=1; // start of rsi period
+       statsmod.incCycle();
    }
        // data streams in millisecs - only take sec blocks	   
-   if (numberSecs > prevSecs) {
-       statsmod.priceUpDown(statsmod.getClosePrice(), prevClosePrice); // [up, down] prices
+   if (statsmod.getNumberSecs() > statsmod.getPrevSecs()) {
+       // new candlestick
+       statsmod.priceUpDown(statsmod.getClosePrice(), statsmod.getPrevClosePrice()); // [up, down] prices
        statsmod.addPriceMove();
-       console.log("min price = " + statsmod.getMinPrice());
-       console.log("max price = " + statsmod.getMaxPrice());
        statsmod.calcAvgPrice();
        statsmod.setVarPrice();
-       console.log("avg price = " + statsmod.getAvgPrice());
-    
        statsmod.calcPriceRatio();
        statsmod.calcRSI();
 
        statsmod.setTVR();	   
-    //   let buyP =statsmod.getMinPrice().toFixed(2);
-    //   let sellP = statsmod.getMaxPrice().toFixed(2);
        statsmod.setBuyPrice(); 
        statsmod.setSellPrice(); 
-	  statsmod.setPriceVars();
+       statsmod.setPriceVars();
 
-    //   let pricevar = {"open":statsmod.getOpenPrice(), "close": statsmod.getClosePrice(), "txns": statsmod.getNumberTxns(), 
-//	       "min":statsmod.getMinPrice(), "max":statsmod.getMaxPrice(), "avg":statsmod.getAvgPrice(), "var":statsmod.getVarPrice(), 
-//	       "ratio": statsmod.getPriceRatio(), "rsi": statsmod.getRSI(), "tvr": statsmod.getTVR(), "buy": statsmod.getBuyPrice(), "sell": statsmod.getSellPrice()
-  //             };
        console.log("price data ===== array = " + JSON.stringify(statsmod.getPriceVars()));
-       //let orderRef = 1;
-       console.log("start wait ....");
-       //prevAvgPrice = praseFloat(price);
-       let chgPrice = statsmod.getAvgPrice() - statsmod.getPrevAvgPrice();
-       statsmod.setPrevAvgPrice(statsmod.getAvgPrice());
-//sumPriceDB, avgPriceDB
-// avgPrice
+    
+	   let chgPrice = statsmod.getAvgPrice() - statsmod.getPrevAvgPrice();
+    
+	   statsmod.setPrevAvgPrice(statsmod.getAvgPrice());
 	avgPriceDB = (avgPriceDB + statsmod.getAvgPrice())/2;
 	changePriceDB =  (changePriceDB + chgPrice)/2;
        let percentChange = parseFloat(changePriceDB/avgPriceDB);
@@ -204,8 +186,6 @@ ws.onmessage = async  (event) => {
        await sqlmod.insertStats();
        
 	   let trade = true;
-	   console.log("order ref at invoke 111111111111111111111111111" );
-	   console.log("order ref at invoke 000000000000000000000000000" );
            console.log("percent change = " + percentChange);
            console.log("mmmmmmmmmmmmmmmmmm start mmmmmmmmmmmmm");
 	   if (Math.abs(percentChange < 0.005)) {
@@ -249,9 +229,10 @@ ws.onmessage = async  (event) => {
 
        }
        console.log("==================================== new time in secs ===================================");
-       prevSecs = numberSecs; // init current sec value
-       prevClosePrice = statsmod.getClosePrice(); // save prev close price
-       
+       //prevSecs = numberSecs; // init current sec value
+       statsmod.setPrevSecsToNumber();
+	   //prevClosePrice = statsmod.getClosePrice(); // save prev close price
+      statsmod.setPrevClosePrice(); 
        statsmod.setOpenPrice(parseFloat(statsmod.getCurrentPrice())); //reset for the new candletsick
        statsmod.setClosePrice(parseFloat(statsmod.getCurrentPrice()));  // reset for the new candlestick
        statsmod.setMinPrice(parseFloat(statsmod.getCurrentPrice())); // init min price
@@ -452,11 +433,6 @@ async function manageSellOrder(sellPrice, btcQty, orderRefSellVal, OrderPair) {
     }
     return rSell;
 }
-
-
-
-
-
 
 
 //ws.on('message', function incoming(data) {
