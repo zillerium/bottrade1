@@ -6,13 +6,40 @@ class StatsMod {
         this.priceUDdef = { "up": 0.00, "down": 0.00};
         this.priceMoves = [];
         this.jsonAvg = {};
+        this.cycle = 0;
+        this.RSIN = 0;
+        this.RSI = 0;
     }
 
+     getRSI = () => { return this.RSI; }
      getJsonAvg = () => { return this.jsonAvg; }
+     getCycle = () => { return this.cycle; }
+     setCycle = (cycle) => {this.cycle=cycle; }
+     incCycle = () => {this.cycle++; }
+     getRSIN = () => { return this.RSIN; }
+     setRSIN = (rsin) => {this.RSIN=rsin; }
+
+     calcRSI = () => {
+       if (this.getPriceMoves().length > this.getRSIN()) {
+           this.SAMoves();
+           let rs = this.getJsonAvg().upAvg/this.getJsonAvg().downAvg;
+           this.RSI= 100 - 100/(1+rs);
+
+       }
+
+     }
      getPriceMoves = () => { return this.priceMoves; }
      removePriceMove = () => { this.priceMoves.splice(0, 1); }
-     addPriceMove = (priceMove) => { this.priceMoves.push(priceMove); }
-     
+     addPriceMoveItem = (priceMove) => { this.priceMoves.push(priceMove); }
+   
+     addPriceMove = () => {
+    
+	if (this.getPriceMoves().length > this.RSIN) this.removePriceMove(); // remove first entry for that RS period
+        if (this.cycle>1)
+            this.addPriceMoveItem(this.getPriceUD());
+        else
+            this.addPriceMoveItem(this.getPriceUDdef());
+     }
 
 	getPriceUD = () => { return this.priceUD; }
 	getPriceUDdef = () => { return this.priceUDdef; }

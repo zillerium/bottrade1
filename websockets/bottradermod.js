@@ -59,7 +59,7 @@ const bmod = new BotMod(client, minTradePrice, maxTradePrice, safeLimit);
 const dbmod = new DBMod();
 const sqlmod = new SQLMod();
 const statsmod = new StatsMod();
-
+statsmod.setRSIN(RSIN);
 
 console.log(client);
 var numTries=0;
@@ -179,6 +179,7 @@ ws.onmessage = async  (event) => {
        prevAvgPrice = parseFloat(price);
        numberTxns=1; // initialize to 1	   
        k++;
+   statsmod.incCycle();
        rsiCurrentPeriod=1; // start of rsi period
    }
        // data streams in millisecs - only take sec blocks	   
@@ -187,13 +188,7 @@ ws.onmessage = async  (event) => {
        //let priceUDdef = { "up": 0.00, "down": 0.00};
        
         statsmod.priceUpDown(closePrice, prevClosePrice); // [up, down] prices
-
-       if (statsmod.getPriceMoves().length > RSIN) statsmod.removePriceMove(); // remove first entry for that RS period
-       if (k>1)
-          statsmod.addPriceMove(statsmod.getPriceUD());
-       else 
-          statsmod.addPriceMove(statsmod.getPriceUDdef());
-       
+        statsmod.addPriceMove();
 
        console.log("min price = " + minPrice);
        console.log("max price = " + maxPrice);
@@ -207,14 +202,9 @@ ws.onmessage = async  (event) => {
            priceRatio = (maxPrice-avgPrice)/maxPrice;
        
        }
-       let rsi = 0.00;	   
-       if (statsmod.getPriceMoves().length > RSIN) {
-           statsmod.SAMoves();
-	   let rs = statsmod.getJsonAvg().upAvg/statsmod.getJsonAvg().downAvg;
-	   rsi = 100 - 100/(1+rs);
 
-	   console.log("rsi valuexx = " + rsi);
-       }
+       statsmod.calcRSI();
+
        let tvr = numberTxns/varPrice; // ratio => more txns more variation
        let buyP =minPrice.toFixed(2);
        //let buyP = avgPrice.toFixed(2);
@@ -222,7 +212,7 @@ ws.onmessage = async  (event) => {
 
 	   let pricevar = {"open":openPrice, "close": closePrice, "txns": numberTxns, 
 	       "min":minPrice, "max":maxPrice, "avg":avgPrice, "var":varPrice, 
-	       "ratio": priceRatio, "rsi": rsi, "tvr": tvr, "buy": buyP, "sell": sellP
+	       "ratio": priceRatio, "rsi": statsmod.getRSI(), "tvr": tvr, "buy": buyP, "sell": sellP
                };
        console.log("price data ===== array = " + JSON.stringify(pricevar));
        //let orderRef = 1;
@@ -304,6 +294,7 @@ console.log("percent change price " + percentChange);
        closePrice=parseFloat(price);  // reset for the new candlestick
        numberTxns=1;  // initialize number of txns	   
        k++;
+       statsmod.incCycle();
    } else {
        numberTxns++;	   
        closePrice=parseFloat(price);	   
@@ -316,7 +307,8 @@ console.log("percent change price " + percentChange);
 //  console.log(" tot order limit ==================== "+ totOrderLimit);
 // add a check for open orders
   // if ((k>runCycle) || (totOrders >= totOrderLimit)) {
-   if ((k>runCycle)) {
+   //if ((k>runCycle)) {
+   if (statsmod.getCycle()>runCycle) {
       // let pricevar = {"min":minPrice, "max":maxPrice};
      //  prices.push(pricevar);
        console.log("price data ===== array = " + prices);
