@@ -1,0 +1,9 @@
+[Unit]
+Description=bot service
+After=network.target
+
+[Service]
+ExecStart=/bin/bash /home/ubuntu/binance/runbot.sh
+EnvironmentFile=/home/ubuntu/binance/.env
+[Install]
+WantedBy=multi-user.target
