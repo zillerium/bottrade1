@@ -13,8 +13,23 @@ const __dirname = path.dirname(__filename);
 
 const WebSocket = require('ws');
 const ws = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@trade');
+//var log4js = require("log4js");
+import pkg from 'log4js';
+const { configure, getLogger } = pkg;
+configure({
+    appenders: {
+        out: { type: 'stdout' },
+	bot: { type: 'file', filename: 'bot.log' },
+    },
+    categories: { default: { appenders: ['bot', 'out'], level: "info"}},	
+})
+
+
+const logger = getLogger();
+//var logger = log4js.getLogger("bot");
 var minTradeValue = 0.0012; // to sell left over coins
 var minTradingBalance = 100;
+const checkLimitOrder= 3; // number of attempts to confirm buy order
 //var k=0; // number of candlesticks processed
 //var prevClosePrice=0.00; // prev close price on a candlestick
 var prices = []; // prices from stream
@@ -27,8 +42,8 @@ const RSIN=5; // period for RS
 var totOrders = 0;
 var histId = 0;
 var totOrderLimit = 1;
-//var btcQty = 0.0015;
-var btcQty = 0.0030
+var btcQty = 0.0015;
+//var btcQty = 0.0030
 require('dotenv').config();
 import {BotMod}  from './botmod.js';
 import {DBMod}  from './dbmod.js';
@@ -161,6 +176,7 @@ ws.onmessage = async  (event) => {
 		  console.log("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
 		  console.log("+     NEW API CALL                                               +");
 		  console.log("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
+		  logger.info("loop order - new api call ");
 		  totOrders++;
 		  const ran=Math.floor(Math.random() * 1000)
 		  const ran2 = Math.floor(Math.random() * 1000)
@@ -228,6 +244,7 @@ async function btcBalCheck(btcBalLocal, minTradeValueLocal, currencyPairLocal, m
     if (btcBalLocal > minTradeValueLocal) {
         let tradelimit = 10;
 	let isIsolatedMargin = "TRUE";
+		  logger.info("api check order");
 	let trades = await bmod.getTrades(currencyPairLocal, tradelimit, isIsolatedMargin);
 	console.log("response == " + JSON.stringify(trades.data));
 	if (trades.data) {
@@ -246,6 +263,7 @@ async function btcBalCheck(btcBalLocal, minTradeValueLocal, currencyPairLocal, m
         }
 	console.log(" ################## sale price = " + tradePrice);
 	if (tradePrice > minTradePriceLocal) {
+		logger.info("api new order - check sale");
             let responseorder = await bmod.newMarginOrder(
                 tradePrice,
                 btcBalLocal,
@@ -294,8 +312,9 @@ console.log("isIsolated " + isIsolated);
     }	   
     console.log("loop");
     let checkedCount = 0;
-    while ((!executedTrade) && (checkedCount < 10)) {
+    while ((!executedTrade) && (checkedCount < checkLimitOrder)) {
         checkedCount++;
+		logger.info("api check sale");
         let result = await bmod.getOrder(orderId, isIsolated); // order ref = pair ref for order
         // let rtnresult = await dbmod.addQueryOrder(result.data);
 	console.log("resuilt " + JSON.stringify(result.data));
@@ -338,7 +357,8 @@ async function manageOrder(buyPrice, sellPrice, btcQty, orderRef) {
     let OrderPair = orderRef;
     let isIsolated = 'TRUE';    
     let buyOrderRef = orderRef;
-    
+   
+	logger.info("api new order - buy ");
       let responseMargin = await bmod.newMarginOrder(buyPrice, btcQty, orderRef, 'GTC','BUY');
       let executedTrade = false;
       console.log("++++++++++ end of order +++++++++++++++");
@@ -371,12 +391,14 @@ async function manageOrder(buyPrice, sellPrice, btcQty, orderRef) {
 		  let rtnprofit = await sqlmod.insertOrder();
 	      if ((btcQty - purchasedQty)>minTradeValue) {
 	          console.log(" cancel orderid = " + orderId);
+		  logger.info("api cancel order");
 	          let respcancel = await bmod.cancelOrder(orderId, isIsolated);
 	          console.log(client.logger.log(respcancel.data));
 	         // let rtn = await dbmod.addCancelOrder(respcancel.data);
 	      }
 	  } else {
 
+		  logger.info("api cancel order");
 	          let respcancel = await bmod.cancelOrder(orderId, isIsolated);
 	          console.log(client.logger.log(respcancel.data));
 	       //   let rtn = await dbmod.addCancelOrder(respcancel.data);
@@ -388,6 +410,7 @@ async function manageOrder(buyPrice, sellPrice, btcQty, orderRef) {
 
 async function manageSellOrder(sellPrice, btcQty, orderRefSellVal, OrderPair) {
     console.log("************************ sell order ***** = "+ orderRefSellVal );
+	logger.info("api new order - sell ");
     let rSell = await bmod.newMarginOrder(sellPrice, btcQty, orderRefSellVal, 'GTC', 'SELL');
     let executedTrade = false;
     if (rSell) {
