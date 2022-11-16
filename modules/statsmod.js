@@ -20,11 +20,17 @@ class StatsMod {
         this.varPrice= 0.00; 
         this.buyPrice= 0.00; // buying price for trade
         this.sellPrice= 0.00; 
+        this.highSellPrice= 0.00; 
+        this.buyQty= 0.00; 
+        this.sellQty= 0.00; 
+        this.highSellQty= 0.00; 
+        this.qtyFactor= 0.500; // how to split the qtys for low and high buys 
         this.tvr= 0.00; 
         this.priceRatio= 0.00;
         this.numberTxns= 0;
         this.numberSecs= 0;
         this.prevSecs= 0;
+        this.highProfitFactor= 10.00;
         this.directionPrice= 0;
         this.chgPrice= 0.00;
         this.avgPriceDB= 0.00;
@@ -57,6 +63,7 @@ class StatsMod {
        this.setTVR();    
        this.setBuyPrice(); 
        this.setSellPrice(); 
+       this.setHighSellPrice(this.sellPrice - this.buyPrice); 
        this.setPriceVars();
 
        console.log("price data ===== array = " + JSON.stringify(this.priceVars));
@@ -132,9 +139,29 @@ class StatsMod {
      getRSI = () => { return this.RSI; }
      getBuyPrice= () => { return this.buyPrice; }
      setBuyPrice = () => { this.buyPrice = this.minPrice.toFixed(2); }
+     getHighProfitFactor= () => { return this.highProfitFactor; }
      getSellPrice= () => { return this.sellPrice; }
-
+     getHighSellPrice= () => { return this.highSellPrice; }
+     setQtys = () => {
+         this.sellQty = this.buyQty * this.qtyFactor;
+	 this.highSellQty = this.buyQty * (1-this.qtyFactor);
+     }
+     getBuyQty =( ) => {return this.buyQty; }
+     getSellQty =( ) => {return this.sellQty; }
+     getHighSellQty =( ) => {return this.highSellQty; }
+     getHighProfitFactor =( ) => {return this.highProfitFactor; }
+     setBuyQty = (qty) => { this.buyQty = qty; }
+     setSellQty = (qty) => { this.sellQty = qty; }
+     setHighSellQty = (qty) => { this.highSellQty = qty; }
+     setHighProfitFactor = (factor) => { this.highProfitFactor = factor; }
      setSellPrice = () => { this.sellPrice = this.maxPrice.toFixed(2); }
+     setHighSellPrice = (lowProfit) => {
+	     let lp = parseFloat(lowProfit);
+	     let sp = parseFloat(this.sellPrice);
+	     let hpfactor = parseFloat(this.highProfitFactor);
+	     let hsp = sp + (lp*hpfactor);
+	     this.highSellPrice = hsp.toFixed(2);
+     }
      getOpenPrice = () => { return this.openPrice; }
      setOpenPrice = (openPrice) => { this.openPrice=openPrice; }
      getClosePrice = () => { return this.closePrice; }

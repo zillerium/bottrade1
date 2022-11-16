@@ -19,7 +19,7 @@ const { configure, getLogger } = pkg;
 configure({
     appenders: {
         out: { type: 'stdout' },
-	bot: { type: 'file', filename: 'bot.log' },
+	bot: { type: 'file', filename: '/home/ubuntu/binance/bot.log' },
     },
     categories: { default: { appenders: ['bot', 'out'], level: "info"}},	
 })
@@ -28,7 +28,7 @@ configure({
 const logger = getLogger();
 //var logger = log4js.getLogger("bot");
 var minTradeValue = 0.0012; // to sell left over coins
-var minTradingBalance = 100;
+var minTradingBalance = 20;
 const checkLimitOrder= 3; // number of attempts to confirm buy order
 //var k=0; // number of candlesticks processed
 //var prevClosePrice=0.00; // prev close price on a candlestick
@@ -42,8 +42,8 @@ const RSIN=5; // period for RS
 var totOrders = 0;
 var histId = 0;
 var totOrderLimit = 1;
-var btcQty = 0.0015;
-//var btcQty = 0.0030
+//var btcQty = 0.0015;
+var btcQty = 0.0030
 require('dotenv').config();
 import {BotMod}  from './botmod.js';
 import {DBMod}  from './dbmod.js';
@@ -60,6 +60,7 @@ const bmod = new BotMod(client, minTradePrice, maxTradePrice, safeLimit);
 const dbmod = new DBMod();
 const sqlmod = new SQLMod();
 const statsmod = new StatsMod();
+statsmod.setBuyQty(btcQty);
 statsmod.setRSIN(RSIN);
 statsmod.setPrevSecs(0); // initial Value
 console.log(client);
@@ -191,8 +192,13 @@ ws.onmessage = async  (event) => {
                   let btcrtn = await btcBalCheck(btcBal, minTradeValue, currencyPair, minTradePrice);
                   console.log(" ooooooo freeBal = " + freeBal);
                   console.log(" ooooooo min trading balance = " + minTradingBalance);
-		  if (freeBal > minTradingBalance) {
-		      let rtnresp =  await manageOrder(statsmod.getBuyPrice(), statsmod.getSellPrice(), btcQty, orderRefVal);
+		  // avoid when profit is zero
+		  // add two sell prices - one at max candlestick and one at x10 candlestick - 50% split.
+		  let profitprojected = statsmod.getSellPrice() - statsmod.getBuyPrice();
+		 console.log("--------------> profit projected == " + profitprojected);
+		  if ((freeBal > minTradingBalance) && (profitprojected > 0)) {
+		      let rtnresp =  await manageOrder(statsmod.getBuyPrice(), statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
+		      totOrders = totOrders+ 100; // pause processing
                   } else { 
 		      totOrders = totOrders+ 100; // pause processing
 		  }
@@ -379,23 +385,43 @@ async function manageOrder(buyPrice, sellPrice, btcQty, orderRef) {
 	      // partial orders
 	    console.log("exec trade bool = " + executedTrade);
 	 // if (executedTrade) {
-	  if (purchasedQty >minTradeValue) {
-	      let respsell = await manageSellOrder(sellPrice, purchasedQty, orderRef++, OrderPair);
+	 if (purchasedQty > minTradeValue) {
+	      statsmod.setBuyQty(purchasedQty);
+	      statsmod.setQtys();
+	      console.log(" buy price ==================== " + statsmod.getBuyPrice());
+	      console.log(" sell price ==================== " + statsmod.getSellPrice());
+	      console.log(" sell high price ==================== " + statsmod.getHighSellPrice());
+	      console.log(" buy qty ==================== " + statsmod.getBuyQty());
+	      console.log(" sell qty ==================== " + statsmod.getSellQty());
+	      console.log(" sell high qty ==================== " + statsmod.getHighSellQty());
+         }
+	      let sellOrderRef = orderRef++;
+	      let highSellOrderRef = sellOrderRef++;
+
+	  if ((purchasedQty >minTradeValue) && (statsmod.getSellQty() > minTradeValue) && (statsmod.getHighSellQty() > minTradeValue)) {
+	      let respsell = await manageSellOrder(statsmod.getSellPrice(), statsmod.getSellQty(), sellOrderRef, OrderPair);
+	      let respsell2 = await manageSellOrder(statsmod.getHighSellPrice(), statsmod.getHighSellQty(), highSellOrderRef, OrderPair);
 	      //let rtn1 = await dbmod.addOpenOrder(responseMargin.data);
 	      //let sqlx1 = buildSQLGen(buyOrderRef, OrderPair, 'BTCUSDT', 'BUY', buyPrice, purchasedQty, 'Closed', responseMargin);
 	      sqlmod.createSQL(buyOrderRef, OrderPair, 'BTCUSDT', 'BUY', buyPrice, purchasedQty, 'Closed', responseMargin);
               //let sqlx1 = sqlmod.getSQL();
 //		  let rtnx1 = await sqlmod.insertOrder();
-		  let profit = parseFloat(sellPrice - buyPrice)*purchasedQty;
-		  sqlmod.createProfitSQL(buyPrice,sellPrice, purchasedQty, profit);
-		  let rtnprofit = await sqlmod.insertOrder();
-	      if ((btcQty - purchasedQty)>minTradeValue) {
-	          console.log(" cancel orderid = " + orderId);
-		  logger.info("api cancel order");
-	          let respcancel = await bmod.cancelOrder(orderId, isIsolated);
-	          console.log(client.logger.log(respcancel.data));
+	      let profit = parseFloat(statsmod.getSellPrice() - buyPrice)*statsmod.getSellQty();
+	      logger.warn("profit =", profit);
+              sqlmod.createProfitSQL(buyPrice,statsmod.getSellPrice(), statsmod.getSellQty(), profit);
+              let rtnprofit = await sqlmod.insertOrder();
+	      profit = parseFloat(statsmod.getHighSellPrice() - buyPrice)*statsmod.getHighSellQty();
+	      logger.warn("profit 2 =", profit);
+              sqlmod.createProfitSQL(buyPrice,statsmod.getHighSellPrice(), statsmod.getHighSellQty(), profit);
+              rtnprofit = await sqlmod.insertOrder();
+
+	 //     if ((btcQty - purchasedQty)>minTradeValue) {
+	 //         console.log(" cancel orderid = " + orderId);
+//		  logger.info("api cancel order");
+//	          let respcancel = await bmod.cancelOrder(orderId, isIsolated);
+//	          console.log(client.logger.log(respcancel.data));
 	         // let rtn = await dbmod.addCancelOrder(respcancel.data);
-	      }
+	   //   }
 	  } else {
 
 		  logger.info("api cancel order");
