@@ -32,6 +32,18 @@ class SQLMod {
              }
      }
 
+     exSQL = async () => {
+	     
+         try {
+             let pool = this.pool;		 
+             let rtn = await  pool.query(this.sql
+	     );
+             //  pool.end;
+            // return res.rows;
+             } catch (err) { throw(err);
+             }
+     }
+
      insertStats = async () => {
          try {
              let pool = this.pool;		 
@@ -43,12 +55,36 @@ class SQLMod {
      }
 
 
+     deleteCurrentPriceSQL = (timeprice) => {
+
+         this.sql =
+             "delete from currprice where timeprice < " + timeprice ;
+    //     console.log(this.sql); 
+     }
+     createCurrentPriceSQL = (price, timeprice) => {
+
+         this.sql =
+             "insert into currprice (txndate, price, timeprice) " +
+             " values " +
+             "( NOW()," + price + "," + timeprice + ")";
+//         console.log(this.sql); 
+     }
+
+     createPriceSQL = (price, timeprice) => {
+
+          this.sql =
+              "insert into price (txndate, price, timeprice) " +
+              " values " +
+              "( NOW()," + price + "," + timeprice +  ")";
+  //        console.log(this.sql);
+     }
+
      createProfitSQL = (buyPrice, sellPrice, qty, profit) => {
 
-      this.sql =
-          "insert into profit (buyPrice, sellPrice, qty, profit, txnDate) " +
-          " values " +
-          "( " + buyPrice + "," + sellPrice + "," + qty + "," + profit + "," + "NOW()" + ")";
+          this.sql =
+              "insert into profit (buyPrice, sellPrice, qty, profit, txnDate) " +
+              " values " +
+              "( " + buyPrice + "," + sellPrice + "," + qty + "," + profit + "," + "NOW()" + ")";
 
      }
      createSQL = (orderRef, OrderPair, Pair, Type, Price, Qty, Status, responseMargin) => {

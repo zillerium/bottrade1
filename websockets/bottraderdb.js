@@ -210,7 +210,8 @@ async function newCandleStickManager(orgTime, d) {
        console.log("************************************************************");
 }
 
-
+//************* read prices from the db in real-time
+// this allows for additional analysis
 async function main() {
 
         let rtnsql = await sqlmod.getId();
@@ -235,7 +236,7 @@ async function main() {
 
 
 
-ws.onmessage = async  (event) => {
+//ws.onmessage = async  (event) => {
 
    // get the streamed data	
    let obj = JSON.parse(event.data); // data stream of prices
@@ -325,7 +326,7 @@ let priceArray = statsmod.getPrices();
       }
       
       process.exit();
-   }
+//   }
 
 }
 
