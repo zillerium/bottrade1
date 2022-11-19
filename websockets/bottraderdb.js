@@ -265,12 +265,20 @@ async function main() {
     	       if (itemPrice > parseFloat(stats[minInd]["max"])) {
     	           stats[minInd]["max"] = itemPrice;
 	       }
-	       stats[minInd]["avg"] = (parseFloat(stats[minInd]["avg"])+ itemPrice)/2
+	       stats[minInd]["sum"] += itemPrice;
+	       stats[minInd]["itemNum"]++;
+
+		       stats[minInd]["close"] = itemPrice;
+//	       stats[minInd]["avg"] = (parseFloat(stats[minInd]["avg"])+ itemPrice)/2
             } else {
-    	       if (prevMin > 0) stats[minInd]["close"] = itemPrice;
+		    console.log("************** item min =========== "+ itemMin + " open price " + itemPrice +  " item int " + itemInt);
+    	       if (prevMin > 0) {
+                       stats[minInd]["avg"] = parseFloat(stats[minInd]["sum"])/parseFloat(stats[minInd]["itemNum"])
+	       }
                prevMin = itemMin;
 		    minInd++;
-	       let json = { min: itemPrice, max: itemPrice, open: itemPrice, avg: itemPrice, close: itemPrice}
+	       let json = { min: itemPrice, max: itemPrice, open: itemPrice, avg: itemPrice, close: itemPrice,
+		       timemin: itemMin, sum: itemPrice, itemNum: 1}
     	   //    stats[itemMin]["min"] = itemPrice;
     	   //    stats[itemMin]["max"] = itemPrice;
     	  //     stats[itemMin]["open"] = itemPrice;
@@ -280,10 +288,24 @@ async function main() {
 	       stats.push(json);	    
            }
 	}
+                       stats[minInd]["avg"] = parseFloat(stats[minInd]["sum"])/parseFloat(stats[minInd]["itemNum"])
 	// key === {"id":3372361,"price":"16633.8200000000","timeprice":"1668853546"}
 
 	console.log(JSON.stringify(stats));
-
+         minInd=stats.length-1;
+	console.log(" mindind before = " + minInd);
+	console.log(" mindind len before = " + stats.length);
+	for (var key in stats) {
+		console.log("minind = " + minInd );
+		if (minInd > 0) {
+                   statsmod.priceUpDown(stats[minInd]["close"], stats[minInd-1]["close"]);
+                   let priceUD = statsmod.getPriceUD();
+                   minInd--;
+                   statsmod.addPriceMoveItem(priceUD);
+		}
+	}
+        let priceMoves = statsmod.getPriceMoves();
+	console.log(" price moves " + JSON.stringify(priceMoves));
 
 }
 async function processData() {
@@ -328,16 +350,12 @@ async function checkData() {
             console.log("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&");     
   	    cycleCount++;
 	    console.log("++++++++++++++++++++++++++++++++++++++++++++++++++++****** ======= cycle count " + cycleCount + " ");
-	    console.log("AAAAAAAAAAAAAAAAAAAA start");
 	    let rtn1 = await newCandleStickManager();
-	    console.log("BBBBBBBBBBBBBBBBBBBBBBBBBBBb end");
             console.log("***** price moves = " + JSON.stringify(statsmod.getPriceMoves()) + " ****");
            if (Math.abs(statsmod.getPercentChange() < 0.005)) {
 	       console.log("++++++++++++++ totOrders = " + totOrders + " ++++++++++++");
                if (totOrders < totOrderLimit) {
-	           console.log("CCCCCCCCCCCCCCCCCCCC start");
 	           let rtn = await processOrder();
-	           console.log("DDDDDDDDDDDDDDDDDDDDDDD start");
 	       }
 	   }
        

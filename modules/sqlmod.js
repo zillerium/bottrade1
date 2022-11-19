@@ -87,7 +87,7 @@ class SQLMod {
      }
 
      selectCurrMins = async(id) => {
-       let sql = "select id, price, timeprice from currprice order by id ";
+       let sql = "select id, price, timeprice from currprice order by timeprice desc, id desc";
 //console.log(sql);
        try {
 	       let pool = this.pool;
