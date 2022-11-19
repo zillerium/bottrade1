@@ -292,21 +292,25 @@ async function main() {
 	// key === {"id":3372361,"price":"16633.8200000000","timeprice":"1668853546"}
 
 	console.log(JSON.stringify(stats));
-         minInd=stats.length-1;
+         minInd=0;
 	console.log(" mindind before = " + minInd);
 	console.log(" mindind len before = " + stats.length);
 	for (var key in stats) {
 		console.log("minind = " + minInd );
-		if (minInd > 0) {
-                   statsmod.priceUpDown(stats[minInd]["close"], stats[minInd-1]["close"]);
+		if (minInd < (stats.length -1)) {
+                   statsmod.priceUpDown(stats[minInd]["close"], stats[minInd+1]["close"]);
                    let priceUD = statsmod.getPriceUD();
-                   minInd--;
+                   minInd++;
                    statsmod.addPriceMoveItem(priceUD);
 		}
 	}
         let priceMoves = statsmod.getPriceMoves();
 	console.log(" price moves " + JSON.stringify(priceMoves));
-
+        statsmod.calcRSI();
+	console.log("rsi ======= " + statsmod.getRSI() + " ");
+	while (statsmod.getCycle()<runCycle) {
+            await processData();
+	}
 }
 async function processData() {
 // load the last 15 mins of data from the table into statsmod.priceMoves
@@ -341,9 +345,9 @@ async function priceProcess() {
 
 async function checkData() {
    if (statsmod.getNumberSecs() > statsmod.getPrevSecs())  {
-	   console.log("$$$$$$$$$$$$$$$$$$$ furst if met");
- loggerp.error("cond if get nums ", statsmod.getNumberSecs(), statsmod.getNumberSecs()/60, " prev " , statsmod.getPrevSecs());
-           statsmod.setPrevSecsToNumber();
+       console.log("$$$$$$$$$$$$$$$$$$$ furst if met");
+       loggerp.error("cond if get nums ", statsmod.getNumberSecs(), statsmod.getNumberSecs()/60, " prev " , statsmod.getPrevSecs());
+       statsmod.setPrevSecsToNumber();
        if (getMod(statsmod.getNumberSecs(), 60)==0) {
             console.log("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&");     
             console.log("& start of main loop &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&");     
@@ -365,8 +369,8 @@ async function checkData() {
                statsmod.setPrices();
            }
            console.log("==================================== new time in secs ===================================");
-         setValues();
-	       console.log("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&");     
+           setValues();
+	   console.log("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&");     
            console.log("& end of main loop &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&");     
            console.log("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&");     
        } else {
