@@ -99,6 +99,13 @@ dbmod.cancelModelSet(cancelModel);
 
 pool.connect();
 var lastPrevRec = 0;
+
+   var d1 = new Date();
+   //   console.log("local time in date - " + d);
+   //let timeCheck = d.setUTCSeconds(orgTime);
+   var initTime = (d1.getTime() - d1.getMilliseconds())/1000; // number of secs for that candlestick
+   var lastMin = parseInt(initTime/60);
+   var keepMin = 1440; // stop the price table getting too large, delete all recs, later move to sharding and retain historical recs
 main();
 
 
@@ -115,13 +122,13 @@ ws.onmessage = async  (event) => {
 
    // get the price 
    let price = parseFloat(obj.p).toFixed(2); // price
-   console.log("price = " +price);
+ //  console.log("price = " +price);
 
    // Calc the sec value for the candlestick
 
    let orgTime = parseInt(obj.E); // time - in millisecs
    let tradeTime = parseInt(obj.E/1000);
-      console.log("trade time = " + tradeTime);
+   //   console.log("trade time = " + tradeTime);
 
    let d = new Date(orgTime);
    //   console.log("local time in date - " + d);
@@ -141,10 +148,16 @@ ws.onmessage = async  (event) => {
 
    let currMin = parseInt(numberSecs/60);
 	       // logger.warn("min ===  ", currMin);
-   let lastRec = (currMin -3)*60; // conv to ms, hold 15 mins data
+   let lastRec = (currMin -15)*60; // conv to ms, hold 15 mins data
   // console.log("%%%%%%%%% curreMin == " + currMin);
  //  console.log(" last rec == " + lastRec);
  //  console.log(" last prev rec == " + lastPrevRec);
+   if (currMin> (lastMin + keepMin)) {
+       lastMin = currMin - keepMin;
+       logger.error = ("delete ", currMin);
+       sqlmod.deletePriceSQL(lastMin*60);
+       await sqlmod.exSQL();
+   }
    if (lastRec == lastPrevRec) {
        } else {
 	    //   logger.error("delete ", lastRec);

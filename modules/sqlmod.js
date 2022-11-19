@@ -3,6 +3,7 @@ class SQLMod {
     )   
     {  
 	    this.lastIdCurrPrice=0;
+        this.dbRes ={};
         this.lastVal = null;
         this.lastPriceRow= null;
         this.sql = null;
@@ -15,6 +16,7 @@ class SQLMod {
         this.lastCurrPriceTime = 0;
     }
 
+     getDbRes = () => { return this.dbRes }
      getLastIdCurrPriceVar = () => { return this.lastIdCurrPrice }
      getLastCurrPrice = () => { return this.lastCurrPrice }
      getLastCurrPriceTime = () => { return this.lastCurrPriceTime }
@@ -82,6 +84,23 @@ class SQLMod {
              " values " +
              "( NOW()," + price + "," + timeprice + ")";
 //         console.log(this.sql); 
+     }
+
+     selectCurrMins = async(id) => {
+       let sql = "select id, price, timeprice from currprice order by id ";
+//console.log(sql);
+       try {
+	       let pool = this.pool;
+           let res=await pool.query(sql)
+	   if ((res) && (res.rowCount>0)) {
+          //    console.log(JSON.stringify(res));
+		 this.dbRes = res;
+           //   this.lastCurrPrice = parseFloat(res.rows[0]["price"]);
+           //   this.lastCurrPriceTime = parseInt(res.rows[0]["timeprice"]);
+	   }
+           //pool.end();
+       } catch (err) { throw(err);
+       }
      }
 
      selectPriceRec = async(id) => {
