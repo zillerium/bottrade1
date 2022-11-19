@@ -7,7 +7,7 @@ class StatsMod {
         this.priceMoves = [];
         this.jsonAvg = {};
         this.cycle = 0;
-        this.RSIN = 0;
+        this.RSIN = 14;
         this.RSI = 0;
         this.minPrice= 0.00; // for a candlestick
         this.maxPrice= 0.00; // for a candlestick
@@ -239,9 +239,9 @@ class StatsMod {
             this.addPriceMoveItem(this.getPriceUDdef());
      }
 
-	getPriceUD = () => { return this.priceUD; }
-	getPriceUDdef = () => { return this.priceUDdef; }
-    priceUpDown =  (priceCloseT, priceCloseT_1) => {
+     getPriceUD = () => { return this.priceUD; }
+     getPriceUDdef = () => { return this.priceUDdef; }
+     priceUpDown =  (priceCloseT, priceCloseT_1) => {
         let priceUp=0;
         let priceDown=0;
         let priceChange = priceCloseT - priceCloseT_1;

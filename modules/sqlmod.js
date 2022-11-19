@@ -1,16 +1,23 @@
 class SQLMod {
   constructor( 
     )   
-    {   
+    {  
+	    this.lastIdCurrPrice=0;
         this.lastVal = null;
+        this.lastPriceRow= null;
         this.sql = null;
         this.histId = 0;
         this.statsSQL = null;
         this.pool = null;
         this.priceJson = {};
         this.priceSQL = null;
+	this.lastCurrPrice =0.00; 
+        this.lastCurrPriceTime = 0;
     }
 
+     getLastIdCurrPriceVar = () => { return this.lastIdCurrPrice }
+     getLastCurrPrice = () => { return this.lastCurrPrice }
+     getLastCurrPriceTime = () => { return this.lastCurrPriceTime }
      getHistId = () => { return this.histId }
      getSQL = () => { return this.sql }
      getPriceJson = () => { return this.priceJson }
@@ -18,6 +25,7 @@ class SQLMod {
      getStatsSQL = () => { return this.statsSQL }
      getPool = () => { return this.pool }
      setPool = (pool) => { this.pool = pool; }
+     getLastPriceRow = () => { return this.lastPriceRow }
      getLastVal = () => { return this.lastVal }
      setLastVal = (lastVal) => { this.lastVal = lastVal; }
      setPriceSQL = (sql) => { this.priceSQL = sql; }
@@ -27,7 +35,7 @@ class SQLMod {
              let pool = this.pool;		 
              let rtn = await  pool.query(this.sql);
              //  pool.end;
-            // return res.rows;
+            ////// return res.rows;
              } catch (err) { throw(err);
              }
      }
@@ -55,6 +63,12 @@ class SQLMod {
      }
 
 
+     deletePriceSQL = (timeprice) => {
+
+         this.sql =
+             "delete from price where timeprice < " + timeprice ;
+         console.log(this.sql); 
+     }
      deleteCurrentPriceSQL = (timeprice) => {
 
          this.sql =
@@ -70,6 +84,41 @@ class SQLMod {
 //         console.log(this.sql); 
      }
 
+     selectPriceRec = async(id) => {
+       let sql = "select price, timeprice from currprice where id = " + id;
+//console.log(sql);
+       try {
+	       let pool = this.pool;
+           let res=await pool.query(sql)
+	   if ((res) && (res.rowCount>0)) {
+           //   console.log(JSON.stringify(res));
+              this.lastCurrPrice = parseFloat(res.rows[0]["price"]);
+              this.lastCurrPriceTime = parseInt(res.rows[0]["timeprice"]);
+	   }
+           //pool.end();
+       } catch (err) { throw(err);
+       }
+
+     }
+ //    sumPrices = async () => {
+     getLastIdCurrPrice = async() => {
+       let sql = "select last_value from currprice_id_seq";
+
+       try {
+	       //console.log("start qiuery");
+	       let pool = this.pool;
+           let res=await pool.query(sql);
+
+	       //console.log("start qiuery 33");
+	       //console.log(res);
+           this.lastIdCurrPrice = parseInt(res.rows[0]["last_value"]);
+          // console.log(" last -- " + this.lastPriceRow);
+	  //    pool.end();
+       } catch (err) { throw(err);
+       }
+
+     }
+ //    sumPrices = async () => {
      createPriceSQL = (price, timeprice) => {
 
           this.sql =
