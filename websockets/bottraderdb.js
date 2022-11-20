@@ -308,26 +308,64 @@ async function main() {
 	console.log(" price moves " + JSON.stringify(priceMoves));
         statsmod.calcRSI();
 	console.log("rsi ======= " + statsmod.getRSI() + " ");
-	while (statsmod.getCycle()<runCycle) {
-            await processData();
-	}
+            await processData(stats);
 }
-async function processData() {
-// load the last 15 mins of data from the table into statsmod.priceMoves
-	// then update on new iterations
+async function processData(stats) {
     await sqlmod.getLastIdCurrPrice(); // set instance var
     let id  = sqlmod.getLastIdCurrPriceVar();
-    await sqlmod.selectPriceRec(id);
-//	getLastIdCurrPrice	
-  //  console.log("  ****************** id val === "+ id);
-    await priceProcess()	
+    await sqlmod.selectPriceRec(id); // loop here to get a full min into stats and priceMoves
+    // this updates the current stats when the db is mid-way in a min candlestick    
+	let minInd = 0;     
+	while (statsmod.getCycle()<runCycle) {
+           stats = await processStats(sqlmod.getLastCurrPrice(), minInd, parseInt(sqlmod.getLastCurrPriceTime()));
+	// calc rsi
+           await priceProcess()	
+	   stats=shuffleStats(stats, sqlmod.getLastCurrPrice(), parseInt(sqlmod.getLastCurrPriceTime()/60))
+        }
 }
+
+async function processStats(itemPrice, minInd, currentMin) {
+// update a new mins recs
+	
+       while (stats[minInd]["timemin"] == currentMin) {
+         if (itemPrice < parseFloat(stats[minInd]["min"])) {
+           stats[minInd]["min"] = itemPrice;
+         }
+         if (itemPrice > parseFloat(stats[minInd]["max"])) {
+           stats[minInd]["max"] = itemPrice;
+         }
+         stats[minInd]["sum"] += itemPrice;
+         stats[minInd]["itemNum"]++;
+
+         stats[minInd]["close"] = itemPrice;
+               await sqlmod.getLastIdCurrPrice(); // set instance var
+               let id  = sqlmod.getLastIdCurrPriceVar();
+               await sqlmod.selectPriceRec(id); // loop here to get a full min into stats and priceMoves
+               itemPrice =  sqlmod.getLastCurrPrice();
+       } 	
+        stats[minInd]["avg"] = parseFloat(stats[minInd]["sum"])/parseFloat(stats[minInd]["itemNum"]);
+// calc rsi
+	return stats;
+}
+
+function shuffleStats(stats, itemPrice, itemMin) {
+
+    for (let i=stats.length-1;i<1;i--) {
+        stats[i-1] = stats[i];
+    }
+
+    stats[0]= { min: itemPrice, max: itemPrice, open: itemPrice, avg: itemPrice, close: itemPrice,
+		       timemin: itemMin, sum: itemPrice, itemNum: 1}
+    return stats;
+}
+
 
 async function priceProcess() {
    // await sqlmod.selectPriceRec(id);
-    let currprice =  await  sqlmod.getLastCurrPrice();
-    let numberSecs = await sqlmod.getLastCurrPriceTime();
- 
+    let currprice =  sqlmod.getLastCurrPrice();
+    let numberSecs = sqlmod.getLastCurrPriceTime();
+    let numberMins = parseInt(numberSecs/60);
+
     statsmod.setCurrentPrice(currprice); // price
     statsmod.setNumberSecs(numberSecs);
 
@@ -335,11 +373,11 @@ async function priceProcess() {
        // first time
        statsmod.initializeTxns();
     }
-   cycleCount++;
+    cycleCount++;
   //.. console.log("****** ======= cycle count " + cycleCount + " ");
   // console.log("****** ======= number secs " + statsmod.getNumberSecs() + " ");
  //  console.log("****** ======= number prev secs " + statsmod.getPrevSecs() + " ");
-  await checkData();
+    await checkData();
 	// data streams in millisecs - only take sec blocks	   
 }
 
