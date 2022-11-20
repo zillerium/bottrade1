@@ -38,6 +38,7 @@ class StatsMod {
         this.percentChange= 0.00;
         this.prices= [];
         this.priceVars= {};
+        this.stats= [];
     }
 
     initializeTxns = () => {	
@@ -83,6 +84,8 @@ class StatsMod {
      getChangePriceDB = () => { return this.changePriceDB; }
      getPercentChange = () => { return this.percentChange; }
      setAvgPriceDB = (avgPriceDB) => { this.avgPriceDB = avgPriceDB };
+     getStats = () => {return this.stats };
+     setStats = (stats) => { this.stats = stats };
      setChangePriceDB = (changePriceDB) => { this.changePriceDB = changePriceDB };
      setPercentChange = (percentChange) => { this.percentChange = percentChange };
 

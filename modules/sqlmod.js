@@ -8,6 +8,7 @@ class SQLMod {
         this.lastPriceRow= null;
         this.sql = null;
         this.histId = 0;
+        this.currId = 0;
         this.statsSQL = null;
         this.pool = null;
         this.priceJson = {};
@@ -21,6 +22,8 @@ class SQLMod {
      getLastCurrPrice = () => { return this.lastCurrPrice }
      getLastCurrPriceTime = () => { return this.lastCurrPriceTime }
      getHistId = () => { return this.histId }
+     getCurrId = () => { return this.currId }
+     setCurrId = (id) => { this.currId = id; }
      getSQL = () => { return this.sql }
      getPriceJson = () => { return this.priceJson }
      getPriceSQL = () => { return this.priceSQL }
