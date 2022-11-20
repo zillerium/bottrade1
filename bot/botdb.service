@@ -1,0 +1,9 @@
+[Unit]
+Description=bot db service
+After=network.target
+
+[Service]
+ExecStart=/bin/bash /home/ubuntu/binance/botdb.sh
+EnvironmentFile=/home/ubuntu/binance/.env
+[Install]
+WantedBy=multi-user.target

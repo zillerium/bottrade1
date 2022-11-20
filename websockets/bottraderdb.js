@@ -21,14 +21,17 @@ configure({
         out: { type: 'stdout' },
 	bot: { type: 'file', filename: '/home/ubuntu/binance/bot.log' },
 	price: { type: 'file', filename: '/home/ubuntu/binance/price.log' },
+	db: { type: 'file', filename: '/home/ubuntu/binance/db.log' },
     },
     categories: { default: { appenders: ['bot', 'out'], level: "info"},	
-      price: { appenders: ['price', 'out'], level: "info"}},	
+      price: { appenders: ['price', 'out'], level: "info"},
+      db: { appenders: ['db', 'out'], level: "info"},
+      },	
 })
 
 
 const logger = getLogger();
-const loggerp = getLogger("price");
+const loggerp = getLogger("db");
 //var logger = log4js.getLogger("bot");
 var minTradeValue = 0.0012; // to sell left over coins
 var minTradingBalance = 2000;
@@ -48,27 +51,18 @@ var totOrderLimit = 1;
 var btcQty = 0.003;
 //var btcQty = 0.01;
 require('dotenv').config();
-import {BotMod}  from './botmod.js';
-import {DBMod}  from './dbmod.js';
 import {SQLMod}  from './sqlmod.js';
 import {StatsMod}  from './statsmod.js';
-const { Spot } = require('@binance/connector')
-const apiSecret = process.env.API_SECRET;
-const apiKey = process.env.API_KEY;
 //const Spot = require('./binance-connector-node/src/spot')
 const Pool = require("pg").Pool;
 //const {Client} = require("pg");
-const client = new Spot(apiKey, apiSecret)
 var safeLimit = 10; // difference between buys and sells to stop a runaway bot buying
-const bmod = new BotMod(client, minTradePrice, maxTradePrice, safeLimit);
-const dbmod = new DBMod();
 const sqlmod = new SQLMod();
 const statsmod = new StatsMod();
 var cycleCount = 0;
 statsmod.setBuyQty(btcQty);
 statsmod.setRSIN(RSIN);
 statsmod.setPrevSecs(0); // initial Value
-console.log(client);
 const pool = new Pool({
   user: "postgres",
   host: "localhost",
@@ -79,24 +73,6 @@ const pool = new Pool({
 //client.connect();
 sqlmod.setPool(pool);
 
-const mongoose = require('mongoose');
-mongoose.connect('mongodb://127.0.0.1:27017/trade');
-
- dbmod.cancelJsonSet();
- dbmod.openOrderSet();
- dbmod.queryJsonSet();
-
-var queryOrderSchema = new mongoose.Schema(dbmod.openOrderGet());
-var openOrderSchema = new mongoose.Schema(dbmod.cancelJsonGet());
-var cancelOrderSchema = new mongoose.Schema(dbmod.queryJsonGet());
-
-var  cancelModel = mongoose.model("cancelModel", cancelOrderSchema);
-var  openOrderModel = mongoose.model("openOrderModel", openOrderSchema);
-var  queryOrderModel = mongoose.model("queryOrderModel", queryOrderSchema);
-
-dbmod.queryModelSet(queryOrderModel);
-dbmod.openModelSet(openOrderModel);
-dbmod.cancelModelSet(cancelModel);
 
 pool.connect();
 
@@ -110,106 +86,8 @@ function getMod(n, m) {
     return ((n % m) + m) % m;
 }
 
-async function btcBalCheck(btcBalLocal, minTradeValueLocal, currencyPairLocal, minTradePriceLocal) {
-    let tradePrice = 0.0;
-    if (btcBalLocal > minTradeValueLocal) {
-        let tradelimit = 10;
-	let isIsolatedMargin = "TRUE";
-		  logger.info("api check order");
-	let trades = await bmod.getTrades(currencyPairLocal, tradelimit, isIsolatedMargin);
-	console.log("response == " + JSON.stringify(trades.data));
-	if (trades.data) {
-	    let j = tradelimit;
-	    do {
-	      //console.log(trades.data[j])
-	        j--;
-	        console.log(trades.data[j]);
-	        if (trades.data[j]["isMaker"] == true) {
-                    // take last maker - sell - price
-                    console.log("match on price === " + j);
-                    tradePrice = parseFloat(trades.data[j]["price"]);
-	        }
-	    } while ((j > 0) && (tradePrice == 0.0));
-	    //  console.log(array[i])
-        }
-	console.log(" ################## sale price = " + tradePrice);
-	if (tradePrice > minTradePriceLocal) {
-		logger.info("api new order - check sale");
-            let responseorder = await bmod.newMarginOrder(
-                tradePrice,
-                btcBalLocal,
-                "none",
-                "GTC",
-                "SELL"
-                );
-        }
-    }
-    return 0;
-}			
-async function processOrder() {
-
-		  console.log("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
-		  console.log("+     NEW API CALL                                               +");
-		  console.log("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
-		  logger.info("loop order - new api call ");
-		  totOrders++;
-		  const ran=Math.floor(Math.random() * 1000)
-		  const ran2 = Math.floor(Math.random() * 1000)
-		  var orderRefVal = ran*ran2;
-		  console.log("order ref val === "+ orderRefVal);
-		  let currencyPair = 'BTCUSDT';
-                  let jsonAccount = await bmod.getAccountDetails(currencyPair);
-		  console.log(JSON.stringify(jsonAccount.data));
-		  let btcBal = parseFloat(jsonAccount.data["assets"][0]["baseAsset"]["free"]);
-		  let freeBal = parseFloat(jsonAccount.data["assets"][0]["quoteAsset"]["free"]);
-                  let tradePrice = 0.00;
-                  let btcrtn = await btcBalCheck(btcBal, minTradeValue, currencyPair, minTradePrice);
-                  console.log(" ooooooo freeBal = " + freeBal);
-                  console.log(" ooooooo min trading balance = " + minTradingBalance);
-		  // avoid when profit is zero
-		  // add two sell prices - one at max candlestick and one at x10 candlestick - 50% split.
-		  let profitprojected = statsmod.getSellPrice() - statsmod.getBuyPrice();
-		 console.log("--------------> profit projected == " + profitprojected);
-		  if ((freeBal > minTradingBalance) && (profitprojected > 0) && (statsmod.RSI<30)) {
-	//	      let rtnresp =  await manageOrder(statsmod.getBuyPrice(), statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
-	//	      totOrders = totOrders+ 100; // pause processing
-                  } else { 
-	//	      totOrders = totOrders+ 100; // pause processing
-		  }
-		  console.log("************************************************");
-		  console.log("***** END OF API CALL ***************************");
-		  console.log("************************************************");
-
-}
-
-async function newCandleStickManager() {
-
-       // new candlestick
-       console.log("************************************************************");
-       console.log("*              NEW CANDLESTICK                            *");
-       console.log("*              second count = " + statsmod.getNumberSecs() + "                 *");
-       console.log("************************************************************");
-       
 
 
-	statsmod.newCandleStick();
-       console.log("nnnnnnnn = "+ JSON.stringify(statsmod.getPriceVars()) + "  *** "); 
-       histId++;
-
-  //    let datadb = d.toString().replace('GMT+0000 (Coordinated Universal Time)','');
-  //    sqlmod.buildSQLStats(statsmod.getAvgPrice(), orgTime, statsmod.getChgPrice(), statsmod.getDirectionPrice(), datadb);
-  //    let rtn = await sqlmod.insertStats();
-      
-	let delim = ",";
-      loggerp.warn(delim, statsmod.getNumberSecs(), delim, statsmod.getBuyPrice(), delim, statsmod.getSellPrice()); 
-      let trade = true;
-      console.log("percent change = " + statsmod.getPercentChange());
-
-       console.log("************************************************************");
-       console.log("*              END CANDLESTICK                            *");
-       console.log("*              second count = " + statsmod.getNumberSecs() + "                 *");
-       console.log("************************************************************");
-}
 
 //************* read prices from the db in real-time
 // this allows for additional analysi
@@ -313,7 +191,8 @@ async function main() {
         await processData(prevSecs);
 }
 async function processData() {
-    await sqlmod.getLastIdCurrPrice(); // set instance var
+     let firstTime = true;
+	await sqlmod.getLastIdCurrPrice(); // set instance var
     let id  = sqlmod.getLastIdCurrPriceVar();
     //let currId = id;
     sqlmod.setCurrId(id);
@@ -321,14 +200,39 @@ async function processData() {
     // this updates the current stats when the db is mid-way in a min candlestick    
     while (statsmod.getCycle()<runCycle) {
         await processStats()
-	    loggerp.error("new stats rec ");
-	console.log(JSON.stringify(statsmod.getStats()));
+	    //loggerp.error("new stats rec ");
+	//console.log(JSON.stringify(statsmod.getStats()));
 	// calc rsi
 	// store in a db - use just current rec except first time, then insert entire 15 recs - need to ensure full min (first one)
 	    // is inserted - initial select from db will not guarantee that
         //   await priceProcess()	
+	 let stats = statsmod.getStats();
+	    if (firstTime) {
+	        firstTime = false;	    
+// insert the entire json obj
+                     //loggerp.error("stats len error === ", stats.length);    
+	//	for (let i=stats.length-1;i<0;i--) {
+		    let i = stats.length-1;
+                     //loggerp.error("stats len error === ", stats.length, i);    
+	       while (i>=0) {		
+                     //loggerp.error("loop error === ", i);    
+	             sqlmod.createStatsSQL(stats[i]["min"], stats[i]["max"], stats[i]["open"],stats[i]["avg"],stats[i]["close"],
+		                                 stats[i]["timemin"], stats[i]["sum"], stats[i]["itemNum"]);
+	             await sqlmod.exSQL();
+		     i--;  
+		}
+	    } else {
+                     //loggerp.error("loop error === 0 ");    
+	         sqlmod.createStatsSQL(stats[0]["min"], stats[0]["max"], stats[0]["open"],stats[0]["avg"],stats[0]["close"],
+		 stats[0]["timemin"], stats[0]["sum"], stats[0]["itemNum"]);
+	             await sqlmod.exSQL();
+	    }
         shuffleStats(sqlmod.getLastCurrPrice(), parseInt(sqlmod.getLastCurrPriceTime()/60));
 	statsmod.incCycle();
+//{"min":16683.59,"max":16687.24,"open":16685.52,"avg":16685.498238172957,"close":16686.56,"timemin":27815465,"sum":20456420.840000045,"itemNum":1226},{
+//     createStatsSQL = (minprice, maxprice, openprice, avgprice, closeprice, sumprice, timemin, itemnum) => {
+
+
     }
 }
 
@@ -340,10 +244,10 @@ async function processStats() {
        var id = sqlmod.getCurrId();
        var currId = id;
        let stats = statsmod.getStats();	
-	       loggerp.warn("orginal ====== current min "+ currentMin);
+	     //  loggerp.warn("orginal ====== current min "+ currentMin);
        while (stats[minInd]["timemin"] == currentMin) {
 	 console.log(" current min " + currentMin);
-	       loggerp.warn("current min "+ currentMin);
+	       //loggerp.warn("current min "+ currentMin);
          if (itemPrice < parseFloat(stats[minInd]["min"])) {
            stats[minInd]["min"] = itemPrice;
          }
@@ -364,13 +268,13 @@ async function processStats() {
 	    //loggerp.error("id loop = " + id);
 	 }
 	 currId = id;
-	 loggerp.error("curr id = " + currId);
-	 loggerp.error("id = " + id);
+	 //loggerp.error("curr id = " + currId);
+	 //loggerp.error("id = " + id);
          itemPrice =  sqlmod.getLastCurrPrice();
 	       
          let numberSecs =  sqlmod.getLastCurrPriceTime();
 	 currentMin = parseInt(numberSecs/60); 
-	 loggerp.warn("number secs - ", numberSecs);      
+	 //loggerp.warn("number secs - ", numberSecs);      
        } 	
         stats[minInd]["avg"] = parseFloat(stats[minInd]["sum"])/parseFloat(stats[minInd]["itemNum"]);
 // calc rsi
@@ -391,246 +295,8 @@ async function shuffleStats(itemPrice, itemMin) {
 }
 
 
-async function priceProcess() {
-   // await sqlmod.selectPriceRec(id);
-    let currprice =  sqlmod.getLastCurrPrice();
-    let numberSecs = sqlmod.getLastCurrPriceTime();
-    let numberMins = parseInt(numberSecs/60);
-
-    statsmod.setCurrentPrice(currprice); // price
-    statsmod.setNumberSecs(numberSecs);
-
-    if (statsmod.getPrevSecs() == 0) {
-       // first time
-       statsmod.initializeTxns();
-    }
-    cycleCount++;
-  //.. console.log("****** ======= cycle count " + cycleCount + " ");
-  // console.log("****** ======= number secs " + statsmod.getNumberSecs() + " ");
- //  console.log("****** ======= number prev secs " + statsmod.getPrevSecs() + " ");
-    await checkData();
-	// data streams in millisecs - only take sec blocks	   
-}
-
-async function checkData() {
-   if (statsmod.getNumberSecs() > statsmod.getPrevSecs())  {
-       console.log("$$$$$$$$$$$$$$$$$$$ furst if met");
-       loggerp.error("cond if get nums ", statsmod.getNumberSecs(), statsmod.getNumberSecs()/60, " prev " , statsmod.getPrevSecs());
-       statsmod.setPrevSecsToNumber();
-       if (getMod(statsmod.getNumberSecs(), 60)==0) {
-            console.log("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&");     
-            console.log("& start of main loop &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&");     
-            console.log("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&");     
-  	    cycleCount++;
-	    console.log("++++++++++++++++++++++++++++++++++++++++++++++++++++****** ======= cycle count " + cycleCount + " ");
-	    let rtn1 = await newCandleStickManager();
-            console.log("***** price moves = " + JSON.stringify(statsmod.getPriceMoves()) + " ****");
-           if (Math.abs(statsmod.getPercentChange() < 0.005)) {
-	       console.log("++++++++++++++ totOrders = " + totOrders + " ++++++++++++");
-               if (totOrders < totOrderLimit) {
-	           let rtn = await processOrder();
-	       }
-	   }
-       
-          //process.exit();
-           if (statsmod.getMinPrice() > 0) {
-          // prices.push(statsmod.getPriceVars());
-               statsmod.setPrices();
-           }
-           console.log("==================================== new time in secs ===================================");
-           setValues();
-	   console.log("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&");     
-           console.log("& end of main loop &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&");     
-           console.log("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&");     
-       } else {
-	   // min change
-           statsmod.incNumberTxns();	   
-           statsmod.setClosePrice(parseFloat(statsmod.getCurrentPrice()));
-           statsmod.setMinMaxPrices();
-       } 
-    } else {
-
-    }
-}
-function setValues() {
-
-         //  statsmod.setPrevSecsToNumber();
-           statsmod.setPrevClosePrice(); 
-           statsmod.setOpenPrice(parseFloat(statsmod.getCurrentPrice())); //reset for the new candletsick
-           statsmod.setClosePrice(parseFloat(statsmod.getCurrentPrice()));  // reset for the new candlestick
-           statsmod.setMinPrice(parseFloat(statsmod.getCurrentPrice())); // init min price
-           statsmod.setMaxPrice(parseFloat(statsmod.getCurrentPrice())); // init min price
-
-           statsmod.setNumberTxns(1);  // initialize number of txns	   
-           statsmod.incCycle();
-}
-async function timetest1() {
-      console.log("****************************** first new order ***********************");	
-      setTimeout(function() { console.log("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&& waiting ...........");
-       }, 5000);
-      console.log("****************************** second new order ***********************");	
-}
-
-function isExecuted(executedQty, timeInForce) {
-     if (timeInForce == 'FOK') {
-             if (executedQty > 0) return true;
-     } else {
-                  if (timeInForce == 'IOC') {
-                      btcQty = executedQty;
-                  }
-              }
 
 
-}
-
-async function proofExecution (orderQty, executedQty, orderId, isIsolated) {
-    console.log("********************* checking poe ============= " + orderId);
-console.log("order qty " + orderQty);
-	
-console.log("exc qty " + executedQty);
-console.log("order id " + orderId);
-console.log("isIsolated " + isIsolated);
-    let executedTrade = false;
-    let qty = parseFloat(executedQty);
-    let orgQty = parseFloat(orderQty);
-    if (qty == orgQty) {
-	    executedTrade = true;
-    }	   
-    console.log("loop");
-    let checkedCount = 0;
-    while ((!executedTrade) && (checkedCount < checkLimitOrder)) {
-        checkedCount++;
-		logger.info("api check sale");
-        let result = await bmod.getOrder(orderId, isIsolated); // order ref = pair ref for order
-        // let rtnresult = await dbmod.addQueryOrder(result.data);
-	console.log("resuilt " + JSON.stringify(result.data));
-	if (result.data) {
-            client.logger.log(result.data);
-            qty = parseFloat(result.data.executedQty);
-            orgQty = parseFloat(result.data.origQty);
-           // let rtnval = await addQueryOrder(result.data);
-	    console.log("qty val = " + qty);
-	    console.log("org qty val = " + orgQty);
-	
-            if (qty == orgQty ) {
-	      console.log("if statement met ");
-              executedTrade = true;
-            }
-	    console.log("exec trade in loop " + executedTrade);
-        }
-	console.log("end of loop");
-    } // end of check for txn existance/manage
-	// orders can ne partially sold
-    let json =  { "executedTrade": executedTrade, "qty": qty };
-    console.log("json out " + JSON.stringify(json));
-    return json;
-}
-async function manageOrder(buyPrice, sellPrice, btcQty, orderRef) {
-
-//    totOrders++;
-    if (totOrders > 5*totOrderLimit) {
-	    console.log("@@@@@@@@@@@@@@@ forced exit - loop @@@@@@@@@@@@@@@@");
-	    process.exit();
-    }
-    if (totOrders > totOrderLimit) {
-        console.log("@@@@@@@@@@@@@@@@@ loop alert @@@@@@@@@@@@@@@@ " + totOrders);
-	return 0;
-    }
-
-    totOrders++;
-    console.log("tot orders ---------> " + totOrders);
-   
-    let OrderPair = orderRef;
-    let isIsolated = 'TRUE';    
-    let buyOrderRef = orderRef;
-   
-	logger.info("api new order - buy ");
-      let responseMargin = await bmod.newMarginOrder(buyPrice, btcQty, orderRef, 'GTC','BUY');
-      let executedTrade = false;
-      console.log("++++++++++ end of order +++++++++++++++");
-      if (responseMargin) {
-	  client.logger.log(responseMargin.data);
-	  let orderId = responseMargin.data.orderId;
-          let clientOrderId = responseMargin.data.orderId;
-          let executedQty = responseMargin.data.executedQty;
-          let statusRes = responseMargin.data.status;
-          //btcQty = executedQty;
-          let executedTradeJson = await proofExecution(btcQty, executedQty, orderId, isIsolated);
-          console.log("json exec = " + JSON.stringify(executedTradeJson));
-	      // qty is updated when trade is confirmed
-	 // if (executedTradeJson) {
-             let purchasedQty = executedTradeJson["qty"];
-	      executedTrade = executedTradeJson["executedTrade"];
-	 // }
-	      // partial orders
-	    console.log("exec trade bool = " + executedTrade);
-	 // if (executedTrade) {
-	 if (purchasedQty > minTradeValue) {
-	      statsmod.setBuyQty(purchasedQty);
-	      statsmod.setQtys();
-	      console.log(" buy price ==================== " + statsmod.getBuyPrice());
-	      console.log(" sell price ==================== " + statsmod.getSellPrice());
-	      console.log(" sell high price ==================== " + statsmod.getHighSellPrice());
-	      console.log(" buy qty ==================== " + statsmod.getBuyQty());
-	      console.log(" sell qty ==================== " + statsmod.getSellQty());
-	      console.log(" sell high qty ==================== " + statsmod.getHighSellQty());
-         }
-	      let sellOrderRef = orderRef++;
-	      let highSellOrderRef = sellOrderRef++;
-
-	  if ((purchasedQty >minTradeValue) && (statsmod.getSellQty() > minTradeValue) && (statsmod.getHighSellQty() > minTradeValue)) {
-	      let respsell = await manageSellOrder(statsmod.getSellPrice(), statsmod.getSellQty(), sellOrderRef, OrderPair);
-	      let respsell2 = await manageSellOrder(statsmod.getHighSellPrice(), statsmod.getHighSellQty(), highSellOrderRef, OrderPair);
-	      //let rtn1 = await dbmod.addOpenOrder(responseMargin.data);
-	      //let sqlx1 = buildSQLGen(buyOrderRef, OrderPair, 'BTCUSDT', 'BUY', buyPrice, purchasedQty, 'Closed', responseMargin);
-	      sqlmod.createSQL(buyOrderRef, OrderPair, 'BTCUSDT', 'BUY', buyPrice, purchasedQty, 'Closed', responseMargin);
-              //let sqlx1 = sqlmod.getSQL();
-//		  let rtnx1 = await sqlmod.insertOrder();
-	      let profit = parseFloat(statsmod.getSellPrice() - buyPrice)*statsmod.getSellQty();
-	      logger.warn("profit =", profit);
-              sqlmod.createProfitSQL(buyPrice,statsmod.getSellPrice(), statsmod.getSellQty(), profit);
-              let rtnprofit = await sqlmod.insertOrder();
-	      profit = parseFloat(statsmod.getHighSellPrice() - buyPrice)*statsmod.getHighSellQty();
-	      logger.warn("profit 2 =", profit);
-              sqlmod.createProfitSQL(buyPrice,statsmod.getHighSellPrice(), statsmod.getHighSellQty(), profit);
-              rtnprofit = await sqlmod.insertOrder();
-
-	 //     if ((btcQty - purchasedQty)>minTradeValue) {
-	 //         console.log(" cancel orderid = " + orderId);
-//		  logger.info("api cancel order");
-//	          let respcancel = await bmod.cancelOrder(orderId, isIsolated);
-//	          console.log(client.logger.log(respcancel.data));
-	         // let rtn = await dbmod.addCancelOrder(respcancel.data);
-	   //   }
-	  } else {
-
-		  logger.info("api cancel order");
-	          let respcancel = await bmod.cancelOrder(orderId, isIsolated);
-	          console.log(client.logger.log(respcancel.data));
-	       //   let rtn = await dbmod.addCancelOrder(respcancel.data);
-	  }
-     }	     
-     return responseMargin;
-}
 
 
-async function manageSellOrder(sellPrice, btcQty, orderRefSellVal, OrderPair) {
-    console.log("************************ sell order ***** = "+ orderRefSellVal );
-	logger.info("api new order - sell ");
-    let rSell = await bmod.newMarginOrder(sellPrice, btcQty, orderRefSellVal, 'GTC', 'SELL');
-    let executedTrade = false;
-    if (rSell) {
-   	    //let sql = buildSQLGen(orderRefSellVal, OrderPair, 'BTCUSDT', 'SELL', sellPrice, btcQty, 'Open', rSell);
-   	    sqlmod.createSQL(orderRefSellVal, OrderPair, 'BTCUSDT', 'SELL', sellPrice, btcQty, 'Open', rSell);
-	    let rtn= await sqlmod.insertOrder();
-       
-    }
-    return rSell;
-}
 
-
-//ws.on('message', function incoming(data) {
-//    console.log(data);
-//})
-
-//}
