@@ -169,12 +169,12 @@ async function main() {
         stats[minInd]["avg"] = parseFloat(stats[minInd]["sum"])/parseFloat(stats[minInd]["itemNum"])
 	// key === {"id":3372361,"price":"16633.8200000000","timeprice":"1668853546"}
 
-	console.log(JSON.stringify(stats));
+	//console.log(JSON.stringify(stats));
         minInd=0;
-	console.log(" mindind before = " + minInd);
-	console.log(" mindind len before = " + stats.length);
+//	console.log(" mindind before = " + minInd);
+//	console.log(" mindind len before = " + stats.length);
 	for (var key in stats) {
-		console.log("minind = " + minInd );
+		//console.log("minind = " + minInd );
 		if (minInd < (stats.length -1)) {
                    statsmod.priceUpDown(stats[minInd]["close"], stats[minInd+1]["close"]);
                    let priceUD = statsmod.getPriceUD();
@@ -183,12 +183,12 @@ async function main() {
 		}
 	}
         let priceMoves = statsmod.getPriceMoves();
-	console.log(" price moves " + JSON.stringify(priceMoves));
+	//console.log(" price moves " + JSON.stringify(priceMoves));
         statsmod.calcRSI();
-	console.log("rsi ======= " + statsmod.getRSI() + " ");
+	//console.log("rsi ======= " + statsmod.getRSI() + " ");
 	let prevSecs = 0;
 	statsmod.setStats(stats);
-        await processData(prevSecs);
+        await processData();
 }
 async function processData() {
      let firstTime = true;
@@ -228,7 +228,7 @@ async function processData() {
 	             await sqlmod.exSQL();
 	    }
         shuffleStats(sqlmod.getLastCurrPrice(), parseInt(sqlmod.getLastCurrPriceTime()/60));
-	statsmod.incCycle();
+//	statsmod.incCycle(); inf loop
 //{"min":16683.59,"max":16687.24,"open":16685.52,"avg":16685.498238172957,"close":16686.56,"timemin":27815465,"sum":20456420.840000045,"itemNum":1226},{
 //     createStatsSQL = (minprice, maxprice, openprice, avgprice, closeprice, sumprice, timemin, itemnum) => {
 
@@ -246,7 +246,7 @@ async function processStats() {
        let stats = statsmod.getStats();	
 	     //  loggerp.warn("orginal ====== current min "+ currentMin);
        while (stats[minInd]["timemin"] == currentMin) {
-	 console.log(" current min " + currentMin);
+	 //console.log(" current min " + currentMin);
 	       //loggerp.warn("current min "+ currentMin);
          if (itemPrice < parseFloat(stats[minInd]["min"])) {
            stats[minInd]["min"] = itemPrice;
@@ -284,9 +284,16 @@ async function processStats() {
 async function shuffleStats(itemPrice, itemMin) {
 
     let stats = statsmod.getStats();	
-    for (let i=stats.length-1;i<1;i--) {
-        stats[i-1] = stats[i];
+      let i = stats.length;
+        while (i>1) {
+        stats[i] = stats[i-1];
+        i--;
     }
+
+
+//	for (let i=stats.length-1;i>1;i--) {
+//        stats[i] = stats[i-1];
+//    }
 
     stats[0]= { min: itemPrice, max: itemPrice, open: itemPrice, avg: itemPrice, close: itemPrice,
 		       timemin: itemMin, sum: itemPrice, itemNum: 1}

@@ -216,6 +216,114 @@ async function newCandleStickManager() {
 //
 // s
 async function main() {
+// 21      getStatsDb = () => { return this.statsDB }
+    await sqlmod.selectStatsDB(15); // get 15 rows - initial load
+    let stats = sqlmod.getStatsDb();
+    let lastId = stats[0]["id"];
+    console.log("sql === " + JSON.stringify(stats));
+    //statsmod.setStatsDb(rows);    
+  /*  for (let i=0;i<rows.length;i++)
+    {
+        let id = rows[i]["id"];
+        let minprice = rows[i]["minprice"];
+        let maxprice = rows[i]["maxprice"];
+        let openprice = rows[i]["openprice"];
+        let closeprice = rows[i]["closeprice"];
+        let avgprice = rows[i]["avgprice"];
+        let sumprice = rows[i]["sumprice"];
+        let timemin = rows[i]["timemin"];
+        let itemnum = rows[i]["itemnum"];
+	statsmod.setStatsDb(rows);    
+    }*/
+        statsmod.setStats(stats); 
+	calcRSI();
+	
+	let conProcess = true;
+	while (conProcess) {
+            await processNextRec(lastId);
+	    calcRSI();
+            lastId = statsmod.getStats()[0]["id"];
+            console.log(JSON.stringify(statsmod.getStats()));
+	}
+/*	[{"id":139,"minprice":"16654.7800000000","maxprice":"16662.4200000000","openprice":"16656.9400000000","closeprice":"16655.8900000000","avgprice":"16657.6850728700","sumprice":"29717310.1700000600","timemin":"27815676","itemnum":1784},
+*/
+}
+
+async function calcRSI() {
+        let stats = statsmod.getStats();
+	//console.log("rsi ==== " + JSON.stringify(stats));
+        let minInd=0;
+	for (var key in stats) {
+		if (minInd < (stats.length -1)) {
+                   statsmod.priceUpDown(stats[minInd]["closeprice"], stats[minInd+1]["closeprice"]);
+                   let priceUD = statsmod.getPriceUD();
+                   minInd++;
+                   statsmod.addPriceMoveItem(priceUD);
+		}
+	}
+        let priceMoves = statsmod.getPriceMoves();
+	console.log(" price moves " + JSON.stringify(priceMoves));
+        statsmod.calcRSI();
+	console.log("rsi ======= " + statsmod.getRSI() + " ");
+	let prevSecs = 0;
+	statsmod.setStats(stats);
+//	console.log(" price moves json " + JSON.stringify(statsmod.getStats()));
+	
+}
+
+async function processNextRec(lastId) {
+        let newstats = []; 
+	let dbId = lastId;
+//	    console.log("` &&&&&&&& db id start == " + lastId);	
+	while (dbId == lastId) {
+
+            await sqlmod.selectStatsDB(1); // get 15 rows - initial load
+            newstats = sqlmod.getStatsDb();
+       // loggerp.error(" len newstats ==== ", newstats.length);
+		dbId = newstats[0]["id"];
+	   // loggerp.error(" db id === ", dbId);
+	}
+//	loggerp.error("***** end of loop xx *");
+        shuffleJson(newstats);
+//	calcRSI(statsmod.getStats());
+
+	// add new rec and delete old rec
+	// calc rsi again
+}
+
+async function shuffleJson(newstats) {
+    let stats = statsmod.getStats();
+  //  console.log("newstat &&&&&&&&&&&&&&&&&&&&&&&&&&&");
+  //  console.log("newstat ======= " + JSON.stringify(newstats[0]));
+ //   console.log("before &&&&&&&&&&&&&&&&&&&&&&&&&&&");
+ //   console.log("before &&&&&&&&&&&&&&&&&&&&&&&&&&&");
+ //   console.log("before &&&&&&&&&&&&&&&&&&&&&&&&&&&");
+ //   console.log("before &&&&&&&&&&&&&&&&&&&&&&&&&&&");
+ //   console.log("before ======= " + JSON.stringify(stats));
+  //  for (let i=stats.length-1;i>1;i--) {
+    let i = stats.length-1;
+    while (i>0) {
+//	console.log("------i ---- "+ i);
+//	console.log("------stats[i] ----b "+ JSON.stringify(stats[i]));
+//	console.log("------stats[i-1] ----b "+ JSON.stringify(stats[i-1]));
+        stats[i] = stats[i-1];
+//	console.log("------stats[i] ----a "+ JSON.stringify(stats[i]));
+//	console.log("------stats[i-1] ----a "+ JSON.stringify(stats[i-1]));
+	i--;
+    }
+
+    stats[0]= newstats[0];
+
+  //  console.log("after &&&&&&&&&&&&&&&&&&&&&&&&&&&");
+  //  console.log("after &&&&&&&&&&&&&&&&&&&&&&&&&&&");
+ //   console.log("after &&&&&&&&&&&&&&&&&&&&&&&&&&&");
+ //   console.log("after &&&&&&&&&&&&&&&&&&&&&&&&&&&");
+ //   console.log("after ======= " + JSON.stringify(stats));
+    statsmod.setStats(stats);
+}
+
+
+async function main1() {
 
 
         let rtnsql = await sqlmod.getId();
@@ -380,8 +488,8 @@ async function processStats() {
 async function shuffleStats(itemPrice, itemMin) {
 
     let stats = statsmod.getStats();	
-    for (let i=stats.length-1;i<1;i--) {
-        stats[i-1] = stats[i];
+    for (let i=stats.length-1;i>1;i--) {
+        stats[i] = stats[i-1];
     }
 
     stats[0]= { min: itemPrice, max: itemPrice, open: itemPrice, avg: itemPrice, close: itemPrice,
