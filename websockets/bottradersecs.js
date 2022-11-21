@@ -46,7 +46,7 @@ const RSIN=14; // period for RS
 var totOrders = 0;
 var histId = 0;
 var totOrderLimit = 2;
-var btcQty = 0.003;
+var btcQty = 0.00125;
 //var btcQty = 0.01;
 require('dotenv').config();
 import {BotMod}  from './botmod.js';
@@ -192,21 +192,34 @@ async function processOrder() {
                                  allFilledOrders[k1] = apiAllOrders.data[j];
 			     }
 			 }
+			  console.log("£££££££££££££££££££££££££££££££££££")
+			  console.log("££  all filled orders £££££££££££££££££££££££££££££££££")
+			  console.log("£££££££££££££££££££££££££££££££££££")
+			  loggerp.error("found json rec = all ");
+			  console.log("filled == "+ JSON.stringify(allFilledOrders));
+			  console.log("£££££££££££££££££££££££££££££££££££")
 			 for (let j=0;j<allFilledOrders.length;j++) {
 			     let clientorderid = allFilledOrders[j]["clientOrderId"];
+				 let statuss = isNumber(clientorderid);
+				 console.log("status ==== " + statuss);
 		             if ((isNumber(clientorderid)) && (allFilledOrders[j]["side"]=='BUY')) {
                                  let clientorderidNum = parseInt(clientorderid);
 				 let buyclientid = clientorderidNum;
 				 clientorderidNum++;
-                                 let soldOrder = sellOrderFound(allFilledOrders, clientorderNum);
+                                 let soldOrder = sellOrderFound(allFilledOrders, clientorderidNum);
+				     console.log("sold ord £££££ - " + soldOrder);
 			         if (!soldOrder) {
 				      await sqlmod.selectPriceOrderRec(buyclientid);
 			              let priceRec = sqlmod.getPriceOrderRec();
 			              let sellPriceLocal = parseFloat(priceRec[0]["exitprice"])
 	   	                      let buyPriceLocal = parseFloat(allFilledOrders[j]["price"]);
-	   	                      let qtyLocal = parseInt(allFilledOrders[j]["executedQty"]);
+	   	                      let qtyLocal = parseFloat(allFilledOrders[j]["executedQty"]);
+				     console.log("sold ord £££££ - " + JSON.stringify(priceRec));
+				     console.log(" sellprice local - " + sellPriceLocal);
+				     console.log(" buyprice local - " + buyPriceLocal);
+				     console.log(" qty local - " + qtyLocal);
 			              await mainSellOrder(buyPriceLocal, 
-				            sellPriceLocal, qtyLocal, clientorderNum);
+				            sellPriceLocal, qtyLocal, clientorderidNum);
 				 }
 			     }
 			 }
@@ -227,8 +240,8 @@ async function processOrder() {
 			 if (openBuyOrders.length > openOrderLimit) {
                             //unsold orders - do not buy more until it has sold
 			 } else {
-	   	               await mainBuyOrder(statsmod.getBuyPrice(), 
-				    statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
+	   	       //        await mainBuyOrder(statsmod.getBuyPrice(), 
+		//		    statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
 
 			 }
 	//	         let rtnresp =  await manageOrder(statsmod.getBuyPrice(), statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
@@ -244,13 +257,14 @@ async function processOrder() {
 //[{"symbol":"BTCUSDT","orderId":15104494125,"clientOrderId":"web_1e3d4378460b4bc88627c6a89cc18ae9","price":"21451.43","origQty":"0.025","executedQty":"0","cummulativeQuoteQty":"0","status":"NEW","timeInForce":"GTC","type":"LIMIT","side":"SELL","stopPrice":"0","icebergQty":"0","time":1667623112373,"updateTime":1667623112373,"isWorking":true,"isIsolated":true},{"symbol":"BTCUSDT","orderId":15146549389,"clientOrderId":"web_4ce92a216f074d8a92395edc668345e2","price":"21400","origQty":"0.025","executedQty":"0","cummulativeQuoteQty":"0","status":"NEW","timeInForce":"GTC","type":"LIMIT","side":"SELL","stopPrice":"0","icebergQty":"0","time":1667750973187,"updateTime":1667750973187,"isWorking":true,"isIsolated":true},{"symbol":"BTCUSDT","orderId":15219009686,"clientOrderId":"web_71d8ab2bb11e4ec1960c2ed2c4390e75","price":"21000","origQty":"0.025","executedQty":"0","cummulativeQuoteQty":"0","status":"NEW","timeInForce":"GTC","type":"LIMIT","side":"SELL","stopPrice":"0","icebergQty":"0","time":1667891070682,"updateTime":1667891070682,"isWorking":true,"isIsolated":true},{"symbol":"BTCUSDT","orderId":15294480358,"clientOrderId":"web_d4f829d960ba426a9cc53bee33289ed2","price":"20000","origQty":"0.01","executedQty":"0","cummulativeQuoteQty":"0","status":"NEW","timeInForce":"GTC","type":"LIMIT","side":"SELL","stopPrice":"0","icebergQty":"0","time":1668001474606,"updateTime":1668001474606,"isWorking":true,"isIsolated":true},{"symbol":"BTCUSDT","orderId":15367707769,"clientOrderId":"4020","price":"18142.46","origQty":"0.1","executedQty":"0","cummulativeQuoteQty":"0","status":"NEW","timeInForce":"GTC","type":"LIMIT","side":"SELL","stopPrice":"0","icebergQty":"0","time":1668114024599,"updateTime":1668114024599,"isWorking":true,"isIsolated":true}]
 
 function isNumber(val) {
-    return !isNaN(val) && parseFloat(Number(val)) === val && !isNaN(parseInt(val, 10));
+    return !isNaN(val);
+	//&& parseFloat(Number(val)) === val && !isNaN(parseInt(val, 10));
 }
 
 function sellOrderFound(allFilledOrders, clientorderNum) {
 
        for (let n=0;n<allFilledOrders.length;n++) {
-           if (allFilledOrders.data[n]["clientOrderid"] == clientorderNum) {
+           if (allFilledOrders[n]["clientOrderid"] == clientorderNum) {
                return true;
            }
        }
@@ -479,6 +493,10 @@ async function mainSellOrder(buyPrice, sellPrice, btcQty, orderRef) {
 
 async function mainBuyOrder(buyPrice, sellPrice, btcQty, orderRef) {
 
+        console.log("@@@@@@@@@@@@@@@@@ loop alert @@@@@@@@@@@@@@@@ " + totOrders);
+        console.log("@@@@@@@@@@@@@@@@@ loop alert @@@@@@@@@@@@@@@@ " + totOrders);
+        console.log("@@@@@@@@@@@@@@@@@ loop alert @@@@@@@@@@@@@@@@ " + totOrders);
+        console.log("@@@@@@@@@@@@@@@@@ loop alert @@@@@@@@@@@@@@@@ " + totOrders);
 //    totOrders++;
     if (totOrders > 5*totOrderLimit) {
 	    console.log("@@@@@@@@@@@@@@@ forced exit - loop @@@@@@@@@@@@@@@@");

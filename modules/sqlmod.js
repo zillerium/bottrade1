@@ -102,9 +102,10 @@ class SQLMod {
 // id | txndate | clientorderid | price | qty | ordertype | exitprice 
 
      selectPriceOrderRec = async(clientorderid) => {
-       let sql = "select id,clientorderid, price, qty, ordertype, exitprice from priceorder where clientordeid =    " + clientorderid;
+       let sql = "select id,clientorderid, price, qty, ordertype, exitprice" +
+		     " from priceorder where clientorderid =    " + parseInt(clientorderid);
 
-
+ console.log("sql==" + sql);
 //console.log(sql);
        try {
 	       let pool = this.pool;
