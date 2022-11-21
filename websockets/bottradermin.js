@@ -217,6 +217,7 @@ async function newCandleStickManager() {
 // s
 async function main() {
 // 21      getStatsDb = () => { return this.statsDB }
+        statsmod.setCycle(14);
     await sqlmod.selectStatsDB(15); // get 15 rows - initial load
     let stats = sqlmod.getStatsDb();
     let lastId = stats[0]["id"];
@@ -242,11 +243,17 @@ async function main() {
 	while (conProcess) {
             await processNextRec(lastId);
 	    calcRSI();
+	    await RSIDB();
             lastId = statsmod.getStats()[0]["id"];
-            console.log(JSON.stringify(statsmod.getStats()));
+            //console.log(JSON.stringify(statsmod.getStats()));
 	}
 /*	[{"id":139,"minprice":"16654.7800000000","maxprice":"16662.4200000000","openprice":"16656.9400000000","closeprice":"16655.8900000000","avgprice":"16657.6850728700","sumprice":"29717310.1700000600","timemin":"27815676","itemnum":1784},
 */
+}
+async function RSIDB() {
+
+	sqlmod.createRSISQL(statsmod.getStats()[0]["timemin"], statsmod.getRSI());
+	await sqlmod.exSQL();
 }
 
 async function calcRSI() {
@@ -256,9 +263,8 @@ async function calcRSI() {
 	for (var key in stats) {
 		if (minInd < (stats.length -1)) {
                    statsmod.priceUpDown(stats[minInd]["closeprice"], stats[minInd+1]["closeprice"]);
-                   let priceUD = statsmod.getPriceUD();
                    minInd++;
-                   statsmod.addPriceMoveItem(priceUD);
+                   statsmod.addPriceMove();
 		}
 	}
         let priceMoves = statsmod.getPriceMoves();

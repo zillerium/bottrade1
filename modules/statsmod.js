@@ -39,6 +39,7 @@ class StatsMod {
         this.prices= [];
         this.priceVars= {};
         this.stats= [];
+        this.statsDb= [];
     }
 
     initializeTxns = () => {	
@@ -86,6 +87,8 @@ class StatsMod {
      setAvgPriceDB = (avgPriceDB) => { this.avgPriceDB = avgPriceDB };
      getStats = () => {return this.stats };
      setStats = (stats) => { this.stats = stats };
+     getStatsDb = () => {return this.statsDb };
+     setStatsDb = (stats) => { this.statsDb = stats };
      setChangePriceDB = (changePriceDB) => { this.changePriceDB = changePriceDB };
      setPercentChange = (percentChange) => { this.percentChange = percentChange };
 
@@ -221,10 +224,14 @@ class StatsMod {
      }
 
      calcRSI = () => {
-       if (this.getPriceMoves().length > this.getRSIN()) {
+      console.log(" get moves len = " + this.getPriceMoves().length);
+      console.log(" get moves len rsin = " + this.getRSIN());
+
+      if (this.getPriceMoves().length >= this.getRSIN()) {
            this.SAMoves();
            let rs = this.getJsonAvg().upAvg/this.getJsonAvg().downAvg;
-           this.RSI= 100 - 100/(1+rs);
+           console.log("**************** rs === " + rs);
+	   this.RSI= 100 - 100/(1+rs);
 
        }
 

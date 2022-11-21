@@ -9,6 +9,7 @@ class SQLMod {
         this.sql = null;
         this.histId = 0;
         this.currId = 0;
+        this.statsDB = [];
         this.statsSQL = null;
         this.pool = null;
         this.priceJson = {};
@@ -17,6 +18,7 @@ class SQLMod {
         this.lastCurrPriceTime = 0;
     }
 
+     getStatsDb = () => { return this.statsDB }
      getDbRes = () => { return this.dbRes }
      getLastIdCurrPriceVar = () => { return this.lastIdCurrPrice }
      getLastCurrPrice = () => { return this.lastCurrPrice }
@@ -88,7 +90,26 @@ class SQLMod {
              "( NOW()," + price + "," + timeprice + ")";
 //         console.log(this.sql); 
      }
+//  id | txndate | minprice | maxprice | openprice | closeprice | avgprice | sumprice | timemin | itemnum 
 
+     selectStatsDB = async(n) => {
+       let sql = "select id, minprice, maxprice, openprice, closeprice, avgprice, " +
+		     " sumprice, timemin, itemnum from stats order by id desc limit " + n;
+
+//console.log(sql);
+       try {
+	       let pool = this.pool;
+           let res=await pool.query(sql)
+	   if ((res) && (res.rowCount>0)) {
+          //    console.log(JSON.stringify(res));
+		 this.statsDB = res.rows;
+           //   this.lastCurrPrice = parseFloat(res.rows[0]["price"]);
+           //   this.lastCurrPriceTime = parseInt(res.rows[0]["timeprice"]);
+	   }
+           //pool.end();
+       } catch (err) { throw(err);
+       }
+     }
      selectCurrMins = async(id) => {
        let sql = "select id, price, timeprice from currprice order by timeprice desc, id desc";
 //console.log(sql);
@@ -139,6 +160,34 @@ class SQLMod {
        } catch (err) { throw(err);
        }
 
+     }
+
+/*CREATE TABLE stats(
+   ID SERIAL PRIMARY KEY,
+   TXNDATE TIMESTAMP,
+   minprice numeric(20,10),
+   maxprice numeric(20,10),
+   openprice numeric(20,10),
+   closeprice numeric(20,10),
+   avgprice numeric(20,10),
+   sumprice numeric(20,10),
+   timemin bigint,
+   itemNum int
+);
+*/
+
+     createRSISQL = (timemin, rsi) => {
+         this.sql = "insert into trends (txndate, timemin, rsi) values ( NOW(), " + timemin + "," + rsi + ")";
+     }
+
+     createStatsSQL = (minprice, maxprice, openprice, avgprice, closeprice, timemin, sumprice, itemnum) => {
+
+          this.sql =
+              "insert into stats (txndate, minprice, maxprice, openprice, closeprice, avgprice, sumprice, timemin, itemnum) " +
+              " values " +
+              "( NOW()," + minprice + "," + maxprice + "," + openprice + "," + closeprice + "," + avgprice + "," + 
+		     sumprice + "," + timemin + "," + itemnum +  ")";
+     //     console.log(this.sql);
      }
  //    sumPrices = async () => {
      createPriceSQL = (price, timeprice) => {
