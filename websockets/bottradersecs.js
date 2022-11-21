@@ -27,12 +27,13 @@ configure({
 })
 
 
+const takeLimit = 100;
 const openOrderLimit = 5;
 const logger = getLogger();
 const loggerp = getLogger("price");
 //var logger = log4js.getLogger("bot");
 var minTradeValue = 0.00125; // to sell left over coins
-var minTradingBalance = 100;
+var minTradingBalance = 500;
 const checkLimitOrder= 3; // number of attempts to confirm buy order
 //var k=0; // number of candlesticks processed
 //var prevClosePrice=0.00; // prev close price on a candlestick
@@ -188,7 +189,7 @@ async function processOrder() {
                         console.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
 			 let k1=0; let allFilledOrders =[];
 			 for (let j=0;j<apiAllOrders.data.length;j++) {
-                             if (apiAllOrders.data[j]["status"] == 'FILLED') {
+                             if ((apiAllOrders.data[j]["status"] == 'FILLED') && (apiAllOrders.data[j]["side"]=='BUY')) {
                                  allFilledOrders[k1] = apiAllOrders.data[j];
 			     }
 			 }
@@ -206,7 +207,7 @@ async function processOrder() {
                                  let clientorderidNum = parseInt(clientorderid);
 				 let buyclientid = clientorderidNum;
 				 clientorderidNum++;
-                                 let soldOrder = sellOrderFound(allFilledOrders, clientorderidNum);
+                                 let soldOrder = sellOrderFound(apiAllOrders.data, clientorderidNum); // search all orders
 				     console.log("sold ord £££££ - " + soldOrder);
 			         if (!soldOrder) {
 				      await sqlmod.selectPriceOrderRec(buyclientid);
@@ -230,18 +231,24 @@ async function processOrder() {
 			 console.log("open orders iiiiii"+ JSON.stringify(openOrders.data));
 			 console.log("open orders iiiiii len "+ JSON.stringify(openOrders.data.length));
 			  // loop and get buy orders
-			 let k=0; let openBuyOrders =[];
+			 let k=0; let openBuyOrders =[]; let totTakeVal = 0;
 			 for (let j=0;j<openOrders.data.length;j++) {
-                             if (openOrders.data[j]["side"] == 'BUY')  {
+                             if ((openOrders.data[j]["side"] == 'SELL') && (isNumber(openOrders.data[j]["clientOrderId"])))  {
                                  openBuyOrders[k] = openOrders.data[j];
+				 totTakeVal += parseFloat(openOrders.data[j]["origQty"])*parseFloat(openOrders.data[j]["price"]);
+			         k++;
 			     }
 			 }
 			 console.log("buy == " + JSON.stringify(openBuyOrders));
-			 if (openBuyOrders.length > openOrderLimit) {
-                            //unsold orders - do not buy more until it has sold
+			 console.log("taker val == " +totTakeVal);
+			 //if (openBuyOrders.length > openOrderLimit) 
+			  if (totTakeVal > takeLimit) {
+				  
+                            //unsold orde2rs - do not buy more until it has sold
+			  loggerp.error("open orders = lim ");
 			 } else {
-	   	       //        await mainBuyOrder(statsmod.getBuyPrice(), 
-		//		    statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
+	   	               await mainBuyOrder(statsmod.getBuyPrice(), 
+				    statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
 
 			 }
 	//	         let rtnresp =  await manageOrder(statsmod.getBuyPrice(), statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
@@ -262,11 +269,13 @@ function isNumber(val) {
 }
 
 function sellOrderFound(allFilledOrders, clientorderNum) {
-
+       console.log("88888888 - clientorderNum = " + clientorderNum);
        for (let n=0;n<allFilledOrders.length;n++) {
-           if (allFilledOrders[n]["clientOrderid"] == clientorderNum) {
-               return true;
-           }
+           console.log(" all orders == " + n + " , " + JSON.stringify(allFilledOrders[n]));
+	   if (isNumber(allFilledOrders[n]["clientOrderId"] )) {
+               let num1 = parseInt(allFilledOrders[n]["clientOrderId"] );
+               if (num1==clientorderNum) return true;	   
+	   }
        }
 	return false;
 }
