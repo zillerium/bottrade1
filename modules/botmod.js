@@ -10,6 +10,41 @@ class BotMod {
 	this.numberSells = 0;
     }
 
+
+    getAllOrders = async (isIsolated) => {
+        try {
+            return await this.client.marginAllOrders(
+                'BTCUSDT', // symbol
+            {
+                isIsolated: 'TRUE',
+        	limit: 25
+                //origClientOrderId: orderRef.toString(),
+            }
+            )
+      //  await addQueryOrder(response.data);
+         }
+         catch (e) {
+             this.client.logger.error(e);
+             throw(e);
+         }
+
+    }
+    getOpenOrders = async (isIsolated) => {
+        try {
+            return await this.client.marginOpenOrders(
+            {
+                isIsolated: 'TRUE',
+        	symbol: 'BTCUSDT'
+                //origClientOrderId: orderRef.toString(),
+            }
+            )
+      //  await addQueryOrder(response.data);
+         }
+         catch (e) {
+             this.client.logger.error(e);
+             throw(e);
+         }
+    }
     getOrder = async (orderId, isIsolated) => {
 
         try {
@@ -96,7 +131,7 @@ class BotMod {
             isIsolated: 'TRUE',
 	//    stopPrice: stopPrice.toString(),	
             price: price.toString(),
-            //newClientOrderId: clientOrderId.toString(), // binance will generate the id
+            newClientOrderId: clientOrderId.toString(), // binance will generate the id
             newOrderRespType: 'FULL',
             timeInForce: timeInForce //'FOK' // FOK did not work in testing 
 	}

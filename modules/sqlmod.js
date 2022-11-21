@@ -10,6 +10,9 @@ class SQLMod {
         this.histId = 0;
         this.currId = 0;
         this.statsDB = [];
+        this.priceDB = [];
+        this.priceOrderDB = [];
+        this.priceOrderRec = [];
         this.statsSQL = null;
         this.pool = null;
         this.priceJson = {};
@@ -18,6 +21,9 @@ class SQLMod {
         this.lastCurrPriceTime = 0;
     }
 
+     getPriceOrderRec = () => { return this.priceOrderRec }
+     getPriceOrderDb = () => { return this.priceOrderDB }
+     getPriceDb = () => { return this.priceDB }
      getStatsDb = () => { return this.statsDB }
      getDbRes = () => { return this.dbRes }
      getLastIdCurrPriceVar = () => { return this.lastIdCurrPrice }
@@ -92,6 +98,64 @@ class SQLMod {
      }
 //  id | txndate | minprice | maxprice | openprice | closeprice | avgprice | sumprice | timemin | itemnum 
 
+//    id    |          txndate           | timeprice  |      price       
+// id | txndate | clientorderid | price | qty | ordertype | exitprice 
+
+     selectPriceOrderRec = async(clientorderid) => {
+       let sql = "select id,clientorderid, price, qty, ordertype, exitprice from priceorder where clientordeid =    " + clientorderid;
+
+
+//console.log(sql);
+       try {
+	       let pool = this.pool;
+           let res=await pool.query(sql)
+	   if ((res) && (res.rowCount>0)) {
+          //    console.log(JSON.stringify(res));
+		 this.priceOrderRec = res.rows;
+           //   this.lastCurrPrice = parseFloat(res.rows[0]["price"]);
+           //   this.lastCurrPriceTime = parseInt(res.rows[0]["timeprice"]);
+	   }
+           //pool.end();
+       } catch (err) { throw(err);
+       }
+     }
+     selectPriceOrderDB = async(n) => {
+       let sql = "select id,clientorderid, price, qty, ordertype, exitprice from priceorder   " +
+		     " by id desc limit " + n;
+
+//console.log(sql);
+       try {
+	       let pool = this.pool;
+           let res=await pool.query(sql)
+	   if ((res) && (res.rowCount>0)) {
+          //    console.log(JSON.stringify(res));
+		 this.priceOrderDB = res.rows;
+           //   this.lastCurrPrice = parseFloat(res.rows[0]["price"]);
+           //   this.lastCurrPriceTime = parseInt(res.rows[0]["timeprice"]);
+	   }
+           //pool.end();
+       } catch (err) { throw(err);
+       }
+     }
+
+     selectPriceDB = async(n) => {
+       let sql = "select id, timeprice, price  " +
+		     " from price order by id desc limit " + n;
+
+//console.log(sql);
+       try {
+	       let pool = this.pool;
+           let res=await pool.query(sql)
+	   if ((res) && (res.rowCount>0)) {
+          //    console.log(JSON.stringify(res));
+		 this.priceDB = res.rows;
+           //   this.lastCurrPrice = parseFloat(res.rows[0]["price"]);
+           //   this.lastCurrPriceTime = parseInt(res.rows[0]["timeprice"]);
+	   }
+           //pool.end();
+       } catch (err) { throw(err);
+       }
+     }
      selectStatsDB = async(n) => {
        let sql = "select id, minprice, maxprice, openprice, closeprice, avgprice, " +
 		     " sumprice, timemin, itemnum from stats order by id desc limit " + n;
@@ -175,7 +239,12 @@ class SQLMod {
    itemNum int
 );
 */
+// id | txndate | clientorderid | price | qty | ordertype | exitprice 
 
+     insertPriceOrderSQL = (clientorderid, price, qty, ordertype, exitprice) => {
+         this.sql = "insert into priceorder (txndate, clientorderid, price, qty, ordertype, exitprice) " +
+         "values ( NOW(), " + clientorderid + "," + price + "," + qty + ",'" + ordertype + "'," + exitprice+ ")";
+     }
      createRSISQL = (timemin, rsi) => {
          this.sql = "insert into trends (txndate, timemin, rsi) values ( NOW(), " + timemin + "," + rsi + ")";
      }
