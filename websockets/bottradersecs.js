@@ -169,7 +169,7 @@ async function processOrder() {
 		  let btcBal = parseFloat(jsonAccount.data["assets"][0]["baseAsset"]["free"]);
 		  let freeBal = parseFloat(jsonAccount.data["assets"][0]["quoteAsset"]["free"]);
                   let tradePrice = 0.00;
-                  let btcrtn = await btcBalCheck(btcBal, minTradeValue, currencyPair, minTradePrice);
+                  //let btcrtn = await btcBalCheck(btcBal, minTradeValue, currencyPair, minTradePrice);
                   console.log(" ooooooo freeBal = " + freeBal);
                   console.log(" ooooooo min trading balance = " + minTradingBalance);
 		  // avoid when profit is zero
@@ -221,9 +221,10 @@ async function processOrder() {
 				     console.log(" buyprice local - " + buyPriceLocal);
 				     console.log(" qty local - " + qtyLocal);
 			             if (btcBal >= qtyLocal) { 
-                                          loggerp.warn(" coins to sell " + qtyLocal*sellPriceLocal + " bal " + freeBal);
+                                          loggerp.warn(" coins to sell for order - " + qtyLocal + " btc bal " + btcBal);
 			                  await mainSellOrder(buyPriceLocal, 
 				                sellPriceLocal, qtyLocal, clientorderidNum);
+					  btcBal -= qtyLocal; // sold
 				      } else {
                                           loggerp.warn(" no coins to sell " + qtyLocal*sellPriceLocal + " bal " + freeBal);
 				      }
@@ -253,8 +254,14 @@ async function processOrder() {
                             //unsold orde2rs - do not buy more until it has sold
 			  loggerp.error("open orders = lim ");
 			 } else {
-	   	               await mainBuyOrder(statsmod.getBuyPrice(), 
-				    statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
+	   	              // await mainBuyOrder(statsmod.getBuyPrice(), 
+		//		    statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
+			       let newBuyprice = statsmod.getBuyPrice()*2-statsmod.getSellPrice();
+			       let newBuypriceFixed = newBuyprice.toFixed(2);
+				 statsmod.setBuyPriceVal(newBuypriceFixed);
+			       orderRefVal +=10; // sell at same price but buy lower in price
+	   	  //             await mainBuyOrder(statsmod.getBuyPrice(), 
+		//		    statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
 
 			 }
 	//	         let rtnresp =  await manageOrder(statsmod.getBuyPrice(), statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
