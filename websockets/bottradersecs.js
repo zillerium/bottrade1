@@ -27,8 +27,9 @@ configure({
 })
 
 
-const takeLimit = 100;
+const takeLimit = 30;
 const openOrderLimit = 5;
+const cycleLimit = 5;
 const logger = getLogger();
 const loggerp = getLogger("price");
 //var logger = log4js.getLogger("bot");
@@ -219,8 +220,13 @@ async function processOrder() {
 				     console.log(" sellprice local - " + sellPriceLocal);
 				     console.log(" buyprice local - " + buyPriceLocal);
 				     console.log(" qty local - " + qtyLocal);
-			              await mainSellOrder(buyPriceLocal, 
-				            sellPriceLocal, qtyLocal, clientorderidNum);
+			             if (btcBal >= qtyLocal) { 
+                                          loggerp.warn(" coins to sell " + qtyLocal*sellPriceLocal + " bal " + freeBal);
+			                  await mainSellOrder(buyPriceLocal, 
+				                sellPriceLocal, qtyLocal, clientorderidNum);
+				      } else {
+                                          loggerp.warn(" no coins to sell " + qtyLocal*sellPriceLocal + " bal " + freeBal);
+				      }
 				 }
 			     }
 			 }
@@ -329,14 +335,14 @@ async function main() {
 	let timeprice = parseInt(priceRecs[0]["timeprice"]);
 	let price = parseFloat(priceRecs[0]["price"]);
 	console.log("prices == " + price + " " + timeprice + "  " + id );
-	let process=true;
+	let processtest=true;
 	let prevTime=timeprice;
 	statsmod.setPrevSecs(timeprice);
 	statsmod.initializeTxns();
         statsmod.setCurrentPrice(price); // price
         statsmod.setNumberSecs(timeprice);
         let prevId = id;
-	while (process) {
+	while (processtest) {
 
 
 	// process order
@@ -353,9 +359,11 @@ async function main() {
             statsmod.setCurrentPrice(price); // price
             statsmod.setNumberSecs(timeprice);
 
-            cycleCount++;
+//            cycleCount++;
+		if (cycleCount > cycleLimit) processtest=false;
 
 	}
+	process.exit();
 // 21      getStatsDb = () => { return this.statsDB }
 }
 
