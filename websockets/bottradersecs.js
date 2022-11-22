@@ -48,7 +48,7 @@ const RSIN=14; // period for RS
 var totOrders = 0;
 var histId = 0;
 var totOrderLimit = 2;
-var btcQty = 0.00125;
+var btcQty = 0.00075;
 //var btcQty = 0.01;
 require('dotenv').config();
 import {BotMod}  from './botmod.js';
@@ -175,6 +175,7 @@ async function processOrder() {
 		  // avoid when profit is zero
 		  // add two sell prices - one at max candlestick and one at x10 candlestick - 50% split.
 		  let profitprojected = statsmod.getSellPrice() - statsmod.getBuyPrice();
+	          let saleDone = false;
 	   	  console.log("--------------> profit projected == " + profitprojected);
 		  if ((freeBal > minTradingBalance) && (profitprojected > 0) ) {
 	                 console.log(" buying price === " + statsmod.getBuyPrice());
@@ -192,6 +193,7 @@ async function processOrder() {
 			 for (let j=0;j<apiAllOrders.data.length;j++) {
                              if ((apiAllOrders.data[j]["status"] == 'FILLED') && (apiAllOrders.data[j]["side"]=='BUY')) {
                                  allFilledOrders[k1] = apiAllOrders.data[j];
+				 k1++;
 			     }
 			 }
 			  console.log("£££££££££££££££££££££££££££££££££££")
@@ -220,9 +222,10 @@ async function processOrder() {
 				     console.log(" sellprice local - " + sellPriceLocal);
 				     console.log(" buyprice local - " + buyPriceLocal);
 				     console.log(" qty local - " + qtyLocal);
-			             if (btcBal >= qtyLocal) { 
+			             if ((btcBal >= qtyLocal) && (sellPriceLocal < 999999)) {  // 999999 legacy orders 
                                           loggerp.warn(" coins to sell for order - " + qtyLocal + " btc bal " + btcBal);
-			                  await mainSellOrder(buyPriceLocal, 
+			                  saleDone = true;
+					     await mainSellOrder(buyPriceLocal, 
 				                sellPriceLocal, qtyLocal, clientorderidNum);
 					  btcBal -= qtyLocal; // sold
 				      } else {
@@ -249,19 +252,20 @@ async function processOrder() {
 			 console.log("buy == " + JSON.stringify(openBuyOrders));
 			 console.log("taker val == " +totTakeVal);
 			 //if (openBuyOrders.length > openOrderLimit) 
-			  if (totTakeVal > takeLimit) {
+			  if ((totTakeVal > takeLimit) || (saleDone)) {
 				  
                             //unsold orde2rs - do not buy more until it has sold
 			  loggerp.error("open orders = lim ");
 			 } else {
-	   	              // await mainBuyOrder(statsmod.getBuyPrice(), 
-		//		    statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
-			       let newBuyprice = statsmod.getBuyPrice()*2-statsmod.getSellPrice();
+	   	               await mainBuyOrder(statsmod.getBuyPrice(), 
+				    statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
+			      // let newBuyprice = statsmod.getBuyPrice()*2-statsmod.getSellPrice();
+			       let newBuyprice = statsmod.getBuyPrice() - 10.00;
 			       let newBuypriceFixed = newBuyprice.toFixed(2);
 				 statsmod.setBuyPriceVal(newBuypriceFixed);
 			       orderRefVal +=10; // sell at same price but buy lower in price
-	   	  //             await mainBuyOrder(statsmod.getBuyPrice(), 
-		//		    statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
+	   	               await mainBuyOrder(statsmod.getBuyPrice(), 
+				    statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
 
 			 }
 	//	         let rtnresp =  await manageOrder(statsmod.getBuyPrice(), statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);

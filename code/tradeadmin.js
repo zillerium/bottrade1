@@ -72,12 +72,27 @@ main();
 
 async function main() {
 
+     let currencyPair = 'BTCUSDT';
+           let jsonAccount = await bmod.getAccountDetails(currencyPair);
+                  console.log(JSON.stringify(jsonAccount.data));
      let apiAllOrders = await bmod.getAllOrders('TRUE');
      client.logger.log(apiAllOrders.data);
 
-     let buyJson = popJson('BUY', apiAllOrders);
-     let sellJson = popJson('SELL', apiAllOrders);
+     let buyJson = popJson('BUY', apiAllOrders, 'FILLED');
+     let sellJson = popJson('SELL', apiAllOrders, 'FILLED');
      let profitJson = 	calcProfit(buyJson, sellJson);
+     let openBuyJson = popJson('BUY', apiAllOrders, 'NEW');
+     let openSellJson = popJson('SELL', apiAllOrders, 'NEW');
+
+                  let btcBal = parseFloat(jsonAccount.data["assets"][0]["baseAsset"]["free"]);
+                  let freeBal = parseFloat(jsonAccount.data["assets"][0]["quoteAsset"]["free"]);
+                  let tradePrice = 0.00;
+                  //let btcrtn = await btcBalCheck(btcBal, minTradeValue, currencyPair, minTradePrice);
+                  console.log(" ooooooo freeBal = " + freeBal);
+                  console.log(" ooooooo btcBal = " + btcBal);
+
+
+
 console.log("BUY Orders --- " );
 console.table(buyJson);
 console.log("SELL Orders --- " );
@@ -85,6 +100,10 @@ console.table(sellJson);
 console.log("PROFIT Orders --- " );
 console.table(profitJson);
 
+console.log("Open BUY Orders --- " );
+console.table(openBuyJson);
+console.log("Open SELL Orders --- " );
+console.table(openSellJson);
 //console.log("BUY Orders --- " + JSON.stringify(buyJson));
 //console.log("SELL Orders --- " + JSON.stringify(sellJson));
 //{"symbol":"BTCUSDT","orderId":15761117236,"clientOrderId":"103018","price":"15792.84","origQty":"0.00075","executedQty":"0.00075","cummulativeQuoteQty":"11.84463","status":"FILLED","timeInForce":"GTC","type":"LIMIT","side":"BUY","stopPrice":"0","icebergQty":"0","time":1669082832507,"updateTime":1669082902513,"isWorking":true,"isIsolated":true}
@@ -94,11 +113,11 @@ process.exit();
 
 }
 
-function popJson(orderType, apiAllOrders) {
+function popJson(orderType, apiAllOrders, statusType) {
 
      let k1=0; let allFilledOrders =[];
      for (let j=0;j<apiAllOrders.data.length;j++) {
-        if ((apiAllOrders.data[j]["status"] == 'FILLED') && (apiAllOrders.data[j]["side"]==orderType)) {
+        if ((apiAllOrders.data[j]["status"] ==statusType ) && (apiAllOrders.data[j]["side"]==orderType)) {
               let rec  =  { "clientorderid" :parseInt(apiAllOrders.data[j]["clientOrderId"]),
                 "price": parseFloat(apiAllOrders.data[j]["price"]),
                 "side": apiAllOrders.data[j]["side"].toString(),
