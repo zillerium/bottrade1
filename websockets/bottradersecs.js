@@ -26,8 +26,9 @@ configure({
       price: { appenders: ['price', 'out'], level: "info"}},	
 })
 
-
-const takeLimit = 30;
+var summarySellJson = [];
+var summaryBuyJson = [];
+const takeLimit = 10;
 const openOrderLimit = 5;
 const cycleLimit = 5;
 const logger = getLogger();
@@ -227,6 +228,8 @@ async function processOrder() {
 			                  saleDone = true;
 					     await mainSellOrder(buyPriceLocal, 
 				                sellPriceLocal, qtyLocal, clientorderidNum);
+					     addSummarySell(buyPriceLocal,
+                                                sellPriceLocal, qtyLocal, clientorderidNum);
 					  btcBal -= qtyLocal; // sold
 				      } else {
                                           loggerp.warn(" no coins to sell " + qtyLocal*sellPriceLocal + " bal " + freeBal);
@@ -257,6 +260,7 @@ async function processOrder() {
                             //unsold orde2rs - do not buy more until it has sold
 			  loggerp.error("open orders = lim ");
 			 } else {
+                               addSummaryBuy(orderRefVal)
 	   	               await mainBuyOrder(statsmod.getBuyPrice(), 
 				    statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
 			      // let newBuyprice = statsmod.getBuyPrice()*2-statsmod.getSellPrice();
@@ -266,6 +270,7 @@ async function processOrder() {
 			       orderRefVal +=10; // sell at same price but buy lower in price
 	   	               await mainBuyOrder(statsmod.getBuyPrice(), 
 				    statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
+                               addSummaryBuy(orderRefVal)
 
 			 }
 	//	         let rtnresp =  await manageOrder(statsmod.getBuyPrice(), statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
@@ -280,6 +285,24 @@ async function processOrder() {
 }
 //[{"symbol":"BTCUSDT","orderId":15104494125,"clientOrderId":"web_1e3d4378460b4bc88627c6a89cc18ae9","price":"21451.43","origQty":"0.025","executedQty":"0","cummulativeQuoteQty":"0","status":"NEW","timeInForce":"GTC","type":"LIMIT","side":"SELL","stopPrice":"0","icebergQty":"0","time":1667623112373,"updateTime":1667623112373,"isWorking":true,"isIsolated":true},{"symbol":"BTCUSDT","orderId":15146549389,"clientOrderId":"web_4ce92a216f074d8a92395edc668345e2","price":"21400","origQty":"0.025","executedQty":"0","cummulativeQuoteQty":"0","status":"NEW","timeInForce":"GTC","type":"LIMIT","side":"SELL","stopPrice":"0","icebergQty":"0","time":1667750973187,"updateTime":1667750973187,"isWorking":true,"isIsolated":true},{"symbol":"BTCUSDT","orderId":15219009686,"clientOrderId":"web_71d8ab2bb11e4ec1960c2ed2c4390e75","price":"21000","origQty":"0.025","executedQty":"0","cummulativeQuoteQty":"0","status":"NEW","timeInForce":"GTC","type":"LIMIT","side":"SELL","stopPrice":"0","icebergQty":"0","time":1667891070682,"updateTime":1667891070682,"isWorking":true,"isIsolated":true},{"symbol":"BTCUSDT","orderId":15294480358,"clientOrderId":"web_d4f829d960ba426a9cc53bee33289ed2","price":"20000","origQty":"0.01","executedQty":"0","cummulativeQuoteQty":"0","status":"NEW","timeInForce":"GTC","type":"LIMIT","side":"SELL","stopPrice":"0","icebergQty":"0","time":1668001474606,"updateTime":1668001474606,"isWorking":true,"isIsolated":true},{"symbol":"BTCUSDT","orderId":15367707769,"clientOrderId":"4020","price":"18142.46","origQty":"0.1","executedQty":"0","cummulativeQuoteQty":"0","status":"NEW","timeInForce":"GTC","type":"LIMIT","side":"SELL","stopPrice":"0","icebergQty":"0","time":1668114024599,"updateTime":1668114024599,"isWorking":true,"isIsolated":true}]
 
+function addSummaryBuy(reflocal) {
+      let buyJsonL = {"buyPrice": statsmod.getBuyPrice(), 
+	       "sellPrice": statsmod.getSellPrice(),
+	       "buyQty": statsmod.getBuyQty(),
+	       "clientorderid": reflocal,
+               "orderType": 'BUY'};
+      summaryBuyJson.push(buyJsonL);
+}
+
+function addSummarySell(buyPriceLocal, sellPriceLocal, qtyLocal, clientorderidNum) {
+
+    let sellJsonL = {"buyPrice": buyPriceLocal, 
+	       "sellPrice": sellPriceLocal,
+	       "sellQty": qtyLocal,
+	       "clientorderid": clientorderidNum,
+               "orderType": 'SELL'};
+    summarySellJson.push(sellJsonL);
+}
 function isNumber(val) {
     return !isNaN(val);
 	//&& parseFloat(Number(val)) === val && !isNaN(parseInt(val, 10));
@@ -374,6 +397,13 @@ async function main() {
 		if (cycleCount > cycleLimit) processtest=false;
 
 	}
+	console.log("*********************************************");
+	console.log("*                 SUMMARY          **********");
+	console.log("*********************************************");
+	console.log("Buy Orders ");
+	console.table(summaryBuyJson);
+	console.log("Sell Orders ");
+	console.table(summarySellJson);
 	process.exit();
 // 21      getStatsDb = () => { return this.statsDB }
 }
