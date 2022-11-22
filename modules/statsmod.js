@@ -145,6 +145,7 @@ class StatsMod {
      getRSI = () => { return this.RSI; }
      getBuyPrice= () => { return this.buyPrice; }
      setBuyPrice = () => { this.buyPrice = this.minPrice.toFixed(2); }
+     setBuyPriceVal = (val) => { this.buyPrice = val; }
      getHighProfitFactor= () => { return this.highProfitFactor; }
      getSellPrice= () => { return this.sellPrice; }
      getHighSellPrice= () => { return this.highSellPrice; }
@@ -160,6 +161,7 @@ class StatsMod {
      setSellQty = (qty) => { this.sellQty = qty; }
      setHighSellQty = (qty) => { this.highSellQty = qty; }
      setHighProfitFactor = (factor) => { this.highProfitFactor = factor; }
+     setSellPriceVal = (price) => { this.sellPrice = price; }
      setSellPrice = () => { this.sellPrice = this.maxPrice.toFixed(2); }
      setHighSellPrice = (lowProfit) => {
 	     let lp = parseFloat(lowProfit);

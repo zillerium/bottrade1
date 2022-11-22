@@ -67,12 +67,13 @@ const bmod = new BotMod(client, minTradePrice, maxTradePrice, safeLimit);
 const dbmod = new DBMod();
 const sqlmod = new SQLMod();
 const statsmod = new StatsMod();
-let cancelorders = [123];
+let cancelorders = [149478];
 main();
 
 async function main() {
       for (let j=0;j<cancelorders.length;j++) {
-      let respcancel = await bmod.cancelClientOrder(clientorderId, isIsolated);
+      let clientorderid = cancelorders[j].toString();
+	      let respcancel = await bmod.cancelClientOrder(clientorderid, 'TRUE');
                   console.log(client.logger.log(respcancel.data))
       }
 process.exit();

@@ -29,6 +29,7 @@ configure({
 var summarySellJson = [];
 var summaryBuyJson = [];
 const takeLimit = 10;
+var priceVariant = 10; // adjust buy and sell price by this - later calc via currprice table
 const openOrderLimit = 5;
 const cycleLimit = 5;
 const logger = getLogger();
@@ -246,27 +247,46 @@ async function processOrder() {
 			  // loop and get buy orders
 			 let k=0; let openBuyOrders =[]; let totTakeVal = 0;
 			 for (let j=0;j<openOrders.data.length;j++) {
-                             if ((openOrders.data[j]["side"] == 'SELL') && (isNumber(openOrders.data[j]["clientOrderId"])))  {
+                             if ((openOrders.data[j]["side"] == 'BUY') && (isNumber(openOrders.data[j]["clientOrderId"])))  {
                                  openBuyOrders[k] = openOrders.data[j];
 				 totTakeVal += parseFloat(openOrders.data[j]["origQty"])*parseFloat(openOrders.data[j]["price"]);
 			         k++;
 			     }
+			 
 			 }
+			 let topBuyRange = parseFloat(statsmod.getBuyPrice() + priceVariant);
+			  let botBuyRange = parseFloat(statsmod.getBuyPrice() - priceVariant);
+			  let inRange = checkInRange(openBuyOrders, topBuyRange, botBuyRange);
+
+			 let lowestPrice = 0.00;
+			 if (openBuyOrders.length > 0) {
+                             lowestPrice = getLowestOpenBuyPrice(openBuyOrders);
+			 }
+                          let minBuyPrice = parseFloat(statsmod.getBuyPrice() - priceVariant);
 			 console.log("buy == " + JSON.stringify(openBuyOrders));
 			 console.log("taker val == " +totTakeVal);
-			 //if (openBuyOrders.length > openOrderLimit) 
-			  if ((totTakeVal > takeLimit) || (saleDone)) {
-				  
-                            //unsold orde2rs - do not buy more until it has sold
-			  loggerp.error("open orders = lim ");
-			 } else {
-                               addSummaryBuy(orderRefVal)
-	   	               await mainBuyOrder(statsmod.getBuyPrice(), 
-				    statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
+			 console.log("minBuyPrice  == " +minBuyPrice);
+			 console.log("lowest price  == " +lowestPrice);
+			 console.log("top range   == " +topBuyRange);
+			 console.log("bot range   == " +botBuyRange);
+			 console.log("in range   == " +inRange);
+			 //if (openBuyOrders.length > openOrderLimit)
+			  // ensure there are no open buys within trading range
+			  //
+			 // if (((minBuyPrice < lowestPrice) && (!saleDone)) ||
+			//	  ((lowestPrice == 0) && (!saleDone))) {
+			    if ((!inRange) && (!saleDone)) {
+				let orgSellPrice = statsmod.getSellPrice();
+		        	let sellPriceL = parseFloat(statsmod.getBuyPrice() + priceVariant);
+				statsmod.setSellPrice(sellPriceL.toFixed(2));
+	   	                await mainBuyOrder(statsmod.getBuyPrice(), 
+		         	statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
+                                addSummaryBuy(orderRefVal)
 			      // let newBuyprice = statsmod.getBuyPrice()*2-statsmod.getSellPrice();
-			       let newBuyprice = statsmod.getBuyPrice() - 10.00;
-			       let newBuypriceFixed = newBuyprice.toFixed(2);
+			        let newBuyprice = statsmod.getBuyPrice() - priceVariant;
+			        let newBuypriceFixed = newBuyprice.toFixed(2);
 				 statsmod.setBuyPriceVal(newBuypriceFixed);
+				 statsmod.setSellPrice(orgSellPrice);
 			       orderRefVal +=10; // sell at same price but buy lower in price
 	   	               await mainBuyOrder(statsmod.getBuyPrice(), 
 				    statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
@@ -284,6 +304,33 @@ async function processOrder() {
 
 }
 //[{"symbol":"BTCUSDT","orderId":15104494125,"clientOrderId":"web_1e3d4378460b4bc88627c6a89cc18ae9","price":"21451.43","origQty":"0.025","executedQty":"0","cummulativeQuoteQty":"0","status":"NEW","timeInForce":"GTC","type":"LIMIT","side":"SELL","stopPrice":"0","icebergQty":"0","time":1667623112373,"updateTime":1667623112373,"isWorking":true,"isIsolated":true},{"symbol":"BTCUSDT","orderId":15146549389,"clientOrderId":"web_4ce92a216f074d8a92395edc668345e2","price":"21400","origQty":"0.025","executedQty":"0","cummulativeQuoteQty":"0","status":"NEW","timeInForce":"GTC","type":"LIMIT","side":"SELL","stopPrice":"0","icebergQty":"0","time":1667750973187,"updateTime":1667750973187,"isWorking":true,"isIsolated":true},{"symbol":"BTCUSDT","orderId":15219009686,"clientOrderId":"web_71d8ab2bb11e4ec1960c2ed2c4390e75","price":"21000","origQty":"0.025","executedQty":"0","cummulativeQuoteQty":"0","status":"NEW","timeInForce":"GTC","type":"LIMIT","side":"SELL","stopPrice":"0","icebergQty":"0","time":1667891070682,"updateTime":1667891070682,"isWorking":true,"isIsolated":true},{"symbol":"BTCUSDT","orderId":15294480358,"clientOrderId":"web_d4f829d960ba426a9cc53bee33289ed2","price":"20000","origQty":"0.01","executedQty":"0","cummulativeQuoteQty":"0","status":"NEW","timeInForce":"GTC","type":"LIMIT","side":"SELL","stopPrice":"0","icebergQty":"0","time":1668001474606,"updateTime":1668001474606,"isWorking":true,"isIsolated":true},{"symbol":"BTCUSDT","orderId":15367707769,"clientOrderId":"4020","price":"18142.46","origQty":"0.1","executedQty":"0","cummulativeQuoteQty":"0","status":"NEW","timeInForce":"GTC","type":"LIMIT","side":"SELL","stopPrice":"0","icebergQty":"0","time":1668114024599,"updateTime":1668114024599,"isWorking":true,"isIsolated":true}]
+
+
+function checkInRange(buyOrders, topRange, botRange) {
+    if (buyOrders.length == 0) return false; // no open buy orders in range
+     for (var key in buyOrders) {
+        let buyPrice =      parseFloat(buyOrders[key]["price"]);
+        if ((buyPrice > botRange) && (buyPrice < topRange)) {
+                  return true;
+        }
+     }
+ return false;
+
+}
+
+
+function getLowestOpenBuyPrice(buyOrders) {
+
+    let lowestPrice = parseFloat(buyOrders[0]["price"]);
+     for (var key in buyOrders) {
+        let buyPrice =      parseFloat(buyOrders[key]["price"]);
+        if (buyPrice < lowestPrice) {
+                  lowestPrice = buyPrice;
+        }
+     }
+ return lowestPrice; 
+
+}
 
 function addSummaryBuy(reflocal) {
       let buyJsonL = {"buyPrice": statsmod.getBuyPrice(), 
@@ -309,9 +356,9 @@ function isNumber(val) {
 }
 
 function sellOrderFound(allFilledOrders, clientorderNum) {
-       console.log("88888888 - clientorderNum = " + clientorderNum);
+      // console.log("88888888 - clientorderNum = " + clientorderNum);
        for (let n=0;n<allFilledOrders.length;n++) {
-           console.log(" all orders == " + n + " , " + JSON.stringify(allFilledOrders[n]));
+       //    console.log(" all orders == " + n + " , " + JSON.stringify(allFilledOrders[n]));
 	   if (isNumber(allFilledOrders[n]["clientOrderId"] )) {
                let num1 = parseInt(allFilledOrders[n]["clientOrderId"] );
                if (num1==clientorderNum) return true;	   

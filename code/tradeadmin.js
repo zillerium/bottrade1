@@ -81,6 +81,12 @@ async function main() {
      let buyJson = popJson('BUY', apiAllOrders, 'FILLED');
      let sellJson = popJson('SELL', apiAllOrders, 'FILLED');
      let profitJson = 	calcProfit(buyJson, sellJson);
+     let profittot = 0;
+     for (var key in profitJson) {
+	profittot += parseFloat(JSON.stringify(profitJson[key]["profit"]));
+        console.log("x10 -- " + key + " " + JSON.stringify(profitJson[key]["profit"]));
+     }
+
      let unfilledBuyJson = popUnfilledJson(buyJson, apiAllOrders.data);
      let unfilledBuyJsonFilled = popUnfilledJsonFilled(buyJson, apiAllOrders.data);
      let openBuyJson = popJson('BUY', apiAllOrders, 'NEW');
@@ -99,7 +105,7 @@ console.log("BUY Orders Filled --- " );
 console.table(buyJson);
 console.log("SELL Orders Filled --- " );
 console.table(sellJson);
-console.log("PROFIT Orders Filled --- " );
+console.log("PROFIT Orders Filled --- total profit for table " + profittot );
 console.table(profitJson);
 
 console.log("Unbrought BUY Orders --- " );

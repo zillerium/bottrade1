@@ -17,7 +17,7 @@ class BotMod {
                 'BTCUSDT', // symbol
             {
                 isIsolated: 'TRUE',
-        	limit: 25
+        	limit: 100
                 //origClientOrderId: orderRef.toString(),
             }
             )
@@ -149,6 +149,17 @@ class BotMod {
         }
     }
 
+    cancelClientOrder = async (clientorderId, isIsolated) => {
+        let cancelParams = { isIsolated: 'TRUE', origClientOrderId: clientorderId.toString() };	
+        try {
+            return await this.client.cancelMarginOrder('BTCUSDT', cancelParams)
+//                console.log(client.logger.log(response.data));
+        }
+        catch (e) {
+            this.client.logger.error(e);
+            throw(e);
+        }
+    }
     cancelOrder = async (orderId, isIsolated) => {
         let cancelParams = { isIsolated: 'TRUE', orderId: orderId };	
         try {
