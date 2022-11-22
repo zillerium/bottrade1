@@ -28,7 +28,7 @@ configure({
 
 var summarySellJson = [];
 var summaryBuyJson = [];
-const takeLimit = 10;
+const takeLimit = 100; // open sale orders - limit liabilities 
 var priceVariant = 10; // adjust buy and sell price by this - later calc via currprice table
 const openOrderLimit = 5;
 const cycleLimit = 5;
@@ -202,7 +202,7 @@ async function processOrder() {
 			  console.log("££  all filled orders £££££££££££££££££££££££££££££££££")
 			  console.log("£££££££££££££££££££££££££££££££££££")
 			  loggerp.error("found json rec = all ");
-			  console.log("filled == "+ JSON.stringify(allFilledOrders));
+			 // console.log("filled == "+ JSON.stringify(allFilledOrders));
 			  console.log("£££££££££££££££££££££££££££££££££££")
 			 for (let j=0;j<allFilledOrders.length;j++) {
 			     let clientorderid = allFilledOrders[j]["clientOrderId"];
@@ -213,7 +213,7 @@ async function processOrder() {
 				 let buyclientid = clientorderidNum;
 				 clientorderidNum++;
                                  let soldOrder = sellOrderFound(apiAllOrders.data, clientorderidNum); // search all orders
-				     console.log("sold ord £££££ - " + soldOrder);
+				//     console.log("sold ord £££££ - " + soldOrder);
 			         if (!soldOrder) {
 				      await sqlmod.selectPriceOrderRec(buyclientid);
 			              let priceRec = sqlmod.getPriceOrderRec();
@@ -245,17 +245,25 @@ async function processOrder() {
 			 console.log("open orders iiiiii"+ JSON.stringify(openOrders.data));
 			 console.log("open orders iiiiii len "+ JSON.stringify(openOrders.data.length));
 			  // loop and get buy orders
-			 let k=0; let openBuyOrders =[]; let totTakeVal = 0;
+			 let k=0; let openBuyOrders =[]; 
 			 for (let j=0;j<openOrders.data.length;j++) {
                              if ((openOrders.data[j]["side"] == 'BUY') && (isNumber(openOrders.data[j]["clientOrderId"])))  {
                                  openBuyOrders[k] = openOrders.data[j];
+			         k++;
+			     }
+			 
+			 }
+			 k=0; let openSellOrders =[]; let totTakeVal = 0;
+			 for (let j=0;j<openOrders.data.length;j++) {
+                             if ((openOrders.data[j]["side"] == 'SELL') && (isNumber(openOrders.data[j]["clientOrderId"])))  {
+                                 openSellOrders[k] = openOrders.data[j];
 				 totTakeVal += parseFloat(openOrders.data[j]["origQty"])*parseFloat(openOrders.data[j]["price"]);
 			         k++;
 			     }
 			 
 			 }
-			 let topBuyRange = parseFloat(statsmod.getBuyPrice() + priceVariant);
-			  let botBuyRange = parseFloat(statsmod.getBuyPrice() - priceVariant);
+			 let topBuyRange = parseFloat(statsmod.getBuyPrice()) + parseFloat(priceVariant);
+			  let botBuyRange = parseFloat(statsmod.getBuyPrice()) - parseFloat(priceVariant);
 			  let inRange = checkInRange(openBuyOrders, topBuyRange, botBuyRange);
 
 			 let lowestPrice = 0.00;
@@ -275,22 +283,24 @@ async function processOrder() {
 			  //
 			 // if (((minBuyPrice < lowestPrice) && (!saleDone)) ||
 			//	  ((lowestPrice == 0) && (!saleDone))) {
-			    if ((!inRange) && (!saleDone)) {
+			    if ((!inRange) && (!saleDone) && (totTakeVal < takeLimit)) {
 				let orgSellPrice = statsmod.getSellPrice();
-		        	let sellPriceL = parseFloat(statsmod.getBuyPrice() + priceVariant);
-				statsmod.setSellPrice(sellPriceL.toFixed(2));
-	   	                await mainBuyOrder(statsmod.getBuyPrice(), 
-		         	statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
-                                addSummaryBuy(orderRefVal)
+		        	let sellPriceL = parseFloat(statsmod.getBuyPrice()) + parseFloat(priceVariant);
+				statsmod.setSellPriceVal(sellPriceL.toFixed(2));
+				    console.log("x10 sell price == " + statsmod.getSellPrice() + " " + sellPriceL + " " + statsmod.getBuyPrice());
+	   	             // x10  await mainBuyOrder(statsmod.getBuyPrice(), 
+		        // x10	statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
+                         //  x10     addSummaryBuy(orderRefVal)
 			      // let newBuyprice = statsmod.getBuyPrice()*2-statsmod.getSellPrice();
-			        let newBuyprice = statsmod.getBuyPrice() - priceVariant;
+			        let newBuyprice =  parseFloat(statsmod.getBuyPrice()) - parseFloat(priceVariant);
+
 			        let newBuypriceFixed = newBuyprice.toFixed(2);
 				 statsmod.setBuyPriceVal(newBuypriceFixed);
 				 statsmod.setSellPrice(orgSellPrice);
 			       orderRefVal +=10; // sell at same price but buy lower in price
-	   	               await mainBuyOrder(statsmod.getBuyPrice(), 
-				    statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
-                               addSummaryBuy(orderRefVal)
+	   	          // x10     await mainBuyOrder(statsmod.getBuyPrice(), 
+		//	x10	    statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
+                  // x10             addSummaryBuy(orderRefVal)
 
 			 }
 	//	         let rtnresp =  await manageOrder(statsmod.getBuyPrice(), statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
