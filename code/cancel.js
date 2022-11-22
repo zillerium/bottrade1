@@ -67,80 +67,18 @@ const bmod = new BotMod(client, minTradePrice, maxTradePrice, safeLimit);
 const dbmod = new DBMod();
 const sqlmod = new SQLMod();
 const statsmod = new StatsMod();
-
+let cancelorders = [123];
 main();
 
 async function main() {
-
-     let currencyPair = 'BTCUSDT';
-     let jsonAccount = await bmod.getAccountDetails(currencyPair);
-     console.log(JSON.stringify(jsonAccount.data));
-     let apiAllOrders = await bmod.getAllOrders('TRUE');
-     client.logger.log(apiAllOrders.data);
-
-     let buyJson = popJson('BUY', apiAllOrders, 'FILLED');
-     let sellJson = popJson('SELL', apiAllOrders, 'FILLED');
-     let profitJson = 	calcProfit(buyJson, sellJson);
-     let unfilledBuyJson = popUnfilledJson(buyJson, apiAllOrders.data);
-     let openBuyJson = popJson('BUY', apiAllOrders, 'NEW');
-     let openSellJson = popJson('SELL', apiAllOrders, 'NEW');
-
-                  let btcBal = parseFloat(jsonAccount.data["assets"][0]["baseAsset"]["free"]);
-                  let freeBal = parseFloat(jsonAccount.data["assets"][0]["quoteAsset"]["free"]);
-                  let tradePrice = 0.00;
-                  //let btcrtn = await btcBalCheck(btcBal, minTradeValue, currencyPair, minTradePrice);
-                  console.log(" ooooooo freeBal = " + freeBal);
-                  console.log(" ooooooo btcBal = " + btcBal);
-
-
-
-console.log("BUY Orders --- " );
-console.table(buyJson);
-console.log("SELL Orders --- " );
-console.table(sellJson);
-console.log("PROFIT Orders --- " );
-console.table(profitJson);
-
-console.log("Open BUY Orders --- " );
-console.table(openBuyJson);
-console.log("Open SELL Orders --- " );
-console.table(openSellJson);
-console.log("Unfilled Buy Orders --- " );
-console.table(unfilledBuyJson);
-//console.log("BUY Orders --- " + JSON.stringify(buyJson));
-//console.log("SELL Orders --- " + JSON.stringify(sellJson));
-//{"symbol":"BTCUSDT","orderId":15761117236,"clientOrderId":"103018","price":"15792.84","origQty":"0.00075","executedQty":"0.00075","cummulativeQuoteQty":"11.84463","status":"FILLED","timeInForce":"GTC","type":"LIMIT","side":"BUY","stopPrice":"0","icebergQty":"0","time":1669082832507,"updateTime":1669082902513,"isWorking":true,"isIsolated":true}
-
-
+      for (let j=0;j<cancelorders.length;j++) {
+      let respcancel = await bmod.cancelClientOrder(clientorderId, isIsolated);
+                  console.log(client.logger.log(respcancel.data))
+      }
 process.exit();
 
 }
 
-function popUnfilledJson(buyJson, allJson) {
-        let unfilledJson=[]; let k=0;
-	for (let j=0; j<buyJson.length;j++) {
-           let clientorderid = buyJson[j]["clientorderid"];
-	   if (isNumber(clientorderid)) {
-	       	let sellClientOrderId = clientorderid++;
-		if (sellIdExists(sellClientOrderId, allJson)) {
-                
-		} else {
-                    unfilledJson[k]=buyJson[j];
-		    k++;
-		}
-	   }
-	}
-	return unfilledJson;
-
-}
-function sellIdExists(id, allJson) {
-    for (let j=0;j<allJson.length;j++) {
-        if (isNumber(allJson[j]["clientOrderId"])) {
-            if (id == allJson[j]["clientOrderId"]) return true;
-	}
-    }
-    return false;
-}
 function popJson(orderType, apiAllOrders, statusType) {
 
      let k1=0; let allFilledOrders =[];
