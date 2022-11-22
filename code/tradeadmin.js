@@ -73,8 +73,8 @@ main();
 async function main() {
 
      let currencyPair = 'BTCUSDT';
-     let jsonAccount = await bmod.getAccountDetails(currencyPair);
-     console.log(JSON.stringify(jsonAccount.data));
+ //    let jsonAccount = await bmod.getAccountDetails(currencyPair);
+ //    console.log(JSON.stringify(jsonAccount.data));
      let apiAllOrders = await bmod.getAllOrders('TRUE');
      client.logger.log(apiAllOrders.data);
 
@@ -82,31 +82,34 @@ async function main() {
      let sellJson = popJson('SELL', apiAllOrders, 'FILLED');
      let profitJson = 	calcProfit(buyJson, sellJson);
      let unfilledBuyJson = popUnfilledJson(buyJson, apiAllOrders.data);
+     let unfilledBuyJsonFilled = popUnfilledJsonFilled(buyJson, apiAllOrders.data);
      let openBuyJson = popJson('BUY', apiAllOrders, 'NEW');
      let openSellJson = popJson('SELL', apiAllOrders, 'NEW');
 
-                  let btcBal = parseFloat(jsonAccount.data["assets"][0]["baseAsset"]["free"]);
-                  let freeBal = parseFloat(jsonAccount.data["assets"][0]["quoteAsset"]["free"]);
-                  let tradePrice = 0.00;
+              //    let btcBal = parseFloat(jsonAccount.data["assets"][0]["baseAsset"]["free"]);
+              //    let freeBal = parseFloat(jsonAccount.data["assets"][0]["quoteAsset"]["free"]);
+             //     let tradePrice = 0.00;
                   //let btcrtn = await btcBalCheck(btcBal, minTradeValue, currencyPair, minTradePrice);
-                  console.log(" ooooooo freeBal = " + freeBal);
-                  console.log(" ooooooo btcBal = " + btcBal);
+            //      console.log(" ooooooo freeBal = " + freeBal);
+            //      console.log(" ooooooo btcBal = " + btcBal);
 
 
 
-console.log("BUY Orders --- " );
+console.log("BUY Orders Filled --- " );
 console.table(buyJson);
-console.log("SELL Orders --- " );
+console.log("SELL Orders Filled --- " );
 console.table(sellJson);
-console.log("PROFIT Orders --- " );
+console.log("PROFIT Orders Filled --- " );
 console.table(profitJson);
 
-console.log("Open BUY Orders --- " );
+console.log("Unbrought BUY Orders --- " );
 console.table(openBuyJson);
-console.log("Open SELL Orders --- " );
+console.log("Unsold SELL Orders --- " );
 console.table(openSellJson);
-console.log("Unfilled Buy Orders --- " );
+console.log("Buy Orders with no Sell Orders--- " );
 console.table(unfilledBuyJson);
+console.log("Buy Orders with no Filled Sell Orders--- " );
+console.table(unfilledBuyJsonFilled);
 //console.log("BUY Orders --- " + JSON.stringify(buyJson));
 //console.log("SELL Orders --- " + JSON.stringify(sellJson));
 //{"symbol":"BTCUSDT","orderId":15761117236,"clientOrderId":"103018","price":"15792.84","origQty":"0.00075","executedQty":"0.00075","cummulativeQuoteQty":"11.84463","status":"FILLED","timeInForce":"GTC","type":"LIMIT","side":"BUY","stopPrice":"0","icebergQty":"0","time":1669082832507,"updateTime":1669082902513,"isWorking":true,"isIsolated":true}
@@ -116,12 +119,38 @@ process.exit();
 
 }
 
+function popUnfilledJsonFilled(buyJson, allJson) {
+//	console.log("unmat buy orders == " + JSON.stringify(allJson));
+        let unfilledJson=[]; let k=0;
+	for (let j=0; j<buyJson.length;j++) {
+           let clientorderid = buyJson[j]["clientorderid"];
+	   if (isNumber(clientorderid)) {
+//		   console.log("buy id - " + clientorderid); 
+	       	let sellClientOrderId = clientorderid+1;
+//		   console.log("****** sell id - " + sellClientOrderId); 
+		if (sellIdExistsFilled(sellClientOrderId, allJson)) {
+              //      console.log("  x10 unmatched buy orders == found in json " + sellClientOrderId); 
+		} else {
+		//	console.log(" x10 unmatched buy orders not found in json " + sellClientOrderId);
+                    unfilledJson[k]=buyJson[j];
+		    k++;
+		}
+	   }
+	}
+	return unfilledJson;
+
+}
+
+
+
 function popUnfilledJson(buyJson, allJson) {
         let unfilledJson=[]; let k=0;
 	for (let j=0; j<buyJson.length;j++) {
            let clientorderid = buyJson[j]["clientorderid"];
 	   if (isNumber(clientorderid)) {
-	       	let sellClientOrderId = clientorderid++;
+		//   console.log("buy id - " + clientorderid); 
+	       	let sellClientOrderId = clientorderid+1;
+		//   console.log("sell id - " + sellClientOrderId); 
 		if (sellIdExists(sellClientOrderId, allJson)) {
                 
 		} else {
@@ -132,11 +161,52 @@ function popUnfilledJson(buyJson, allJson) {
 	}
 	return unfilledJson;
 
+
 }
+
+function one1() {
+
+	       /*if (allJson[j]["status"]=='NEW') {
+                     console.log("--------- matched d ---") ;
+                     console.log("--------- id ---" + id);
+                     console.log("--------- json client  ---" + JSON.stringify(allJson[j]));
+		     return true;
+                } else {
+                     console.log("status not mtached --" + allJson[j]["clientOrderId"]);
+		}*/
+}
+
+function sellIdExistsFilled(id, allJson) {
+    for (let j=0;j<allJson.length;j++) {
+        if (isNumber(allJson[j]["clientOrderId"])) {
+        //    console.log("id == " + id);
+	//    console.log("client order id == " + allJson[j]["clientOrderId"]);
+//	    console.log("status == " + allJson[j]["status"]);
+            if (id == parseInt(allJson[j]["clientOrderId"])) { 
+	       if (allJson[j]["status"]=='FILLED') {
+                   //  console.log("--------- matched d ---") ;
+                  //   console.log("--------- id ---" + id);
+                  //   console.log("--------- json client  ---" + JSON.stringify(allJson[j]));
+		     return true;
+                } else {
+                  //   console.log("status not mtached --" + allJson[j]["clientOrderId"]);
+		}
+	    } else {
+		 //  console.log("id not matched exists filled"+ id + " " + allJson[j]["clientOrderId"]);
+	    }
+	} 
+
+    }
+    return false;
+}
+
+
 function sellIdExists(id, allJson) {
     for (let j=0;j<allJson.length;j++) {
         if (isNumber(allJson[j]["clientOrderId"])) {
-            if (id == allJson[j]["clientOrderId"]) return true;
+//		console.log("id == " + id);
+//		console.log("client order id == " + allJson[j]["clientOrderId"]);
+            if (id == parseInt(allJson[j]["clientOrderId"])) return true;
 	}
     }
     return false;
@@ -154,6 +224,12 @@ function popJson(orderType, apiAllOrders, statusType) {
                  "origQty": parseFloat(apiAllOrders.data[j]["origQty"]),
                  "executedQty": parseFloat(apiAllOrders.data[j]["executedQty"]),
                 "status": apiAllOrders.data[j]["status"].toString()};
+//	console.log("*********** matched ---- ");
+//		console.log(JSON.stringify(rec));
+//			console.log("status type == "+ statusType);
+//			console.log("order type == "+ orderType);
+//
+		//console.log("api ordes  == "+ JSON.stringify(apiAllOrders.data[j]));
 		allFilledOrders[k1]= rec;
 	k1++;
         }
