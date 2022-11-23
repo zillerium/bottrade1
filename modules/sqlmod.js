@@ -242,6 +242,13 @@ class SQLMod {
 */
 // id | txndate | clientorderid | price | qty | ordertype | exitprice 
 
+     insertAPISQL = (apicall, statusapi) => {
+	 let timeapi = Math.floor(Date.now()/1000);    
+         this.sql = "insert into apicall (txndate, apicall, timeapi, statusapi) " +
+         "values ( NOW(), '" + apicall + "'," + timeapi + ",'" + statusapi + "'"+ ")";
+     }
+
+
      insertPriceOrderSQL = (clientorderid, price, qty, ordertype, exitprice) => {
          this.sql = "insert into priceorder (txndate, clientorderid, price, qty, ordertype, exitprice) " +
          "values ( NOW(), " + clientorderid + "," + price + "," + qty + ",'" + ordertype + "'," + exitprice+ ")";

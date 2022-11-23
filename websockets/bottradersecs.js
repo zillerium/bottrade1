@@ -54,7 +54,6 @@ var btcQty = 0.00075;
 //var btcQty = 0.01;
 require('dotenv').config();
 import {BotMod}  from './botmod.js';
-import {DBMod}  from './dbmod.js';
 import {SQLMod}  from './sqlmod.js';
 import {StatsMod}  from './statsmod.js';
 const { Spot } = require('@binance/connector')
@@ -66,7 +65,6 @@ const Pool = require("pg").Pool;
 const client = new Spot(apiKey, apiSecret)
 var safeLimit = 10; // difference between buys and sells to stop a runaway bot buying
 const bmod = new BotMod(client, minTradePrice, maxTradePrice, safeLimit);
-const dbmod = new DBMod();
 const sqlmod = new SQLMod();
 const statsmod = new StatsMod();
 var cycleCount = 0;
@@ -83,26 +81,6 @@ const pool = new Pool({
 });
 //client.connect();
 sqlmod.setPool(pool);
-
-const mongoose = require('mongoose');
-mongoose.connect('mongodb://127.0.0.1:27017/trade');
-
- dbmod.cancelJsonSet();
- dbmod.openOrderSet();
- dbmod.queryJsonSet();
-
-var queryOrderSchema = new mongoose.Schema(dbmod.openOrderGet());
-var openOrderSchema = new mongoose.Schema(dbmod.cancelJsonGet());
-var cancelOrderSchema = new mongoose.Schema(dbmod.queryJsonGet());
-
-var  cancelModel = mongoose.model("cancelModel", cancelOrderSchema);
-var  openOrderModel = mongoose.model("openOrderModel", openOrderSchema);
-var  queryOrderModel = mongoose.model("queryOrderModel", queryOrderSchema);
-
-dbmod.queryModelSet(queryOrderModel);
-dbmod.openModelSet(openOrderModel);
-dbmod.cancelModelSet(cancelModel);
-
 pool.connect();
 
 main();
@@ -122,6 +100,7 @@ async function btcBalCheck(btcBalLocal, minTradeValueLocal, currencyPairLocal, m
 	let isIsolatedMargin = "TRUE";
 		  logger.info("api check order");
 	let trades = await bmod.getTrades(currencyPairLocal, tradelimit, isIsolatedMargin);
+        await insertAPI("marginMyTrades", "ok");
 	console.log("response == " + JSON.stringify(trades.data));
 	if (trades.data) {
 	    let j = tradelimit;
@@ -150,6 +129,7 @@ async function btcBalCheck(btcBalLocal, minTradeValueLocal, currencyPairLocal, m
                 "GTC",
                 "SELL"
                 );
+	 await insertAPI("newMarginOrderSell", "ok");
         }
     }
     return 0;
@@ -167,6 +147,7 @@ async function processOrder() {
 		  console.log("order ref val === "+ orderRefVal);
 		  let currencyPair = 'BTCUSDT';
                   let jsonAccount = await bmod.getAccountDetails(currencyPair);
+	          await insertAPI("isolatedMarginAccountInfo", "ok");
 		  console.log(JSON.stringify(jsonAccount.data));
 		  let btcBal = parseFloat(jsonAccount.data["assets"][0]["baseAsset"]["free"]);
 		  let freeBal = parseFloat(jsonAccount.data["assets"][0]["quoteAsset"]["free"]);
@@ -180,23 +161,24 @@ async function processOrder() {
 	          let saleDone = false;
 	   	  console.log("--------------> profit projected == " + profitprojected);
 		  if ((freeBal > minTradingBalance) && (profitprojected > 0) ) {
-	                 console.log(" buying price === " + statsmod.getBuyPrice());
-	                 console.log(" selling price === " + statsmod.getSellPrice());
+	                console.log(" buying price === " + statsmod.getBuyPrice());
+	                console.log(" selling price === " + statsmod.getSellPrice());
                         console.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
                         console.log("!       all orders       !!!!!!!!");
                         console.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
 			  let apiAllOrders = await bmod.getAllOrders('TRUE');
-			 client.logger.log(apiAllOrders.data);
+			 //client.logger.log(apiAllOrders.data);
                          
+			await insertAPI("marginAllOrders", "ok");
                         console.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
                         console.log("!       all orders - end      !!!!!!!!");
                         console.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-			 let k1=0; let allFilledOrders =[];
-			 for (let j=0;j<apiAllOrders.data.length;j++) {
-                             if ((apiAllOrders.data[j]["status"] == 'FILLED') && (apiAllOrders.data[j]["side"]=='BUY')) {
+		        let k1=0; let allFilledOrders =[];
+		        for (let j=0;j<apiAllOrders.data.length;j++) {
+                           if ((apiAllOrders.data[j]["status"] == 'FILLED') && (apiAllOrders.data[j]["side"]=='BUY')) {
                                  allFilledOrders[k1] = apiAllOrders.data[j];
 				 k1++;
-			     }
+	         	    }
 			 }
 			  console.log("£££££££££££££££££££££££££££££££££££")
 			  console.log("££  all filled orders £££££££££££££££££££££££££££££££££")
@@ -207,7 +189,7 @@ async function processOrder() {
 			 for (let j=0;j<allFilledOrders.length;j++) {
 			     let clientorderid = allFilledOrders[j]["clientOrderId"];
 				 let statuss = isNumber(clientorderid);
-				 console.log("status ==== " + statuss);
+	//			 console.log("status ==== " + statuss);
 		             if ((isNumber(clientorderid)) && (allFilledOrders[j]["side"]=='BUY')) {
                                  let clientorderidNum = parseInt(clientorderid);
 				 let buyclientid = clientorderidNum;
@@ -239,8 +221,8 @@ async function processOrder() {
 			     }
 			 }
                          let openOrders = await bmod.getOpenOrders('TRUE');
-			 client.logger.log(openOrders.data);
-
+			 //client.logger.log(openOrders.data);
+			 await insertAPI("marginOpenOrders", "ok");
 			 console.log(JSON.stringify(openOrders.data));
 			 console.log("open orders iiiiii"+ JSON.stringify(openOrders.data));
 			 console.log("open orders iiiiii len "+ JSON.stringify(openOrders.data.length));
@@ -265,7 +247,7 @@ async function processOrder() {
 			 let topBuyRange = parseFloat(statsmod.getBuyPrice()) + parseFloat(priceVariant);
 			  let botBuyRange = parseFloat(statsmod.getBuyPrice()) - parseFloat(priceVariant);
 			  let inRange = checkInRange(openBuyOrders, topBuyRange, botBuyRange);
-
+                          if (!inRange) inRange =  newRangeCheck(openBuyOrders, topBuyRange, botBuyRange);
 			 let lowestPrice = 0.00;
 			 if (openBuyOrders.length > 0) {
                              lowestPrice = getLowestOpenBuyPrice(openBuyOrders);
@@ -287,22 +269,30 @@ async function processOrder() {
 				let orgSellPrice = statsmod.getSellPrice();
 		        	let sellPriceL = parseFloat(statsmod.getBuyPrice()) + parseFloat(priceVariant);
 				statsmod.setSellPriceVal(sellPriceL.toFixed(2));
-				    console.log("x10 sell price == " + statsmod.getSellPrice() + " " + sellPriceL + " " + statsmod.getBuyPrice());
-	   	             // x10  await mainBuyOrder(statsmod.getBuyPrice(), 
-		        // x10	statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
-                         //  x10     addSummaryBuy(orderRefVal)
-			      // let newBuyprice = statsmod.getBuyPrice()*2-statsmod.getSellPrice();
+     			        console.log("x10 sell price == " + statsmod.getSellPrice() + " " + sellPriceL + " " + statsmod.getBuyPrice());
+	   	                await mainBuyOrder(statsmod.getBuyPrice(), 
+		        	statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
+                                addSummaryBuy(orderRefVal)
+			        // let newBuyprice = statsmod.getBuyPrice()*2-statsmod.getSellPrice();
 			        let newBuyprice =  parseFloat(statsmod.getBuyPrice()) - parseFloat(priceVariant);
 
 			        let newBuypriceFixed = newBuyprice.toFixed(2);
-				 statsmod.setBuyPriceVal(newBuypriceFixed);
-				 statsmod.setSellPrice(orgSellPrice);
-			       orderRefVal +=10; // sell at same price but buy lower in price
-	   	          // x10     await mainBuyOrder(statsmod.getBuyPrice(), 
-		//	x10	    statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
-                  // x10             addSummaryBuy(orderRefVal)
-
+				statsmod.setBuyPriceVal(newBuypriceFixed);
+			        let topBuyRange1 = parseFloat(statsmod.getBuyPrice()) + parseFloat(priceVariant);
+			        let botBuyRange1 = parseFloat(statsmod.getBuyPrice()) - parseFloat(priceVariant);
+			        let inRange1 = checkInRange(openBuyOrders, topBuyRange1, botBuyRange1);
+                                if (!inRange1) inRange1 =  newRangeCheck(openBuyOrders, topBuyRange, botBuyRange);
+				if (!inRange1) {     
+		    		    statsmod.setSellPrice(orgSellPrice);
+			            orderRefVal +=10; // sell at same price but buy lower in price
+	   	                    await mainBuyOrder(statsmod.getBuyPrice(), 
+		        	    statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
+                                    addSummaryBuy(orderRefVal)
+				}
+			 } else {
+                             loggerp.error("failed to meet buy criteria");
 			 }
+
 	//	         let rtnresp =  await manageOrder(statsmod.getBuyPrice(), statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
 	//	      totOrders = totOrders+ 100; // pause processing
                   } else { 
@@ -313,20 +303,164 @@ async function processOrder() {
 		  console.log("************************************************");
 
 }
-//[{"symbol":"BTCUSDT","orderId":15104494125,"clientOrderId":"web_1e3d4378460b4bc88627c6a89cc18ae9","price":"21451.43","origQty":"0.025","executedQty":"0","cummulativeQuoteQty":"0","status":"NEW","timeInForce":"GTC","type":"LIMIT","side":"SELL","stopPrice":"0","icebergQty":"0","time":1667623112373,"updateTime":1667623112373,"isWorking":true,"isIsolated":true},{"symbol":"BTCUSDT","orderId":15146549389,"clientOrderId":"web_4ce92a216f074d8a92395edc668345e2","price":"21400","origQty":"0.025","executedQty":"0","cummulativeQuoteQty":"0","status":"NEW","timeInForce":"GTC","type":"LIMIT","side":"SELL","stopPrice":"0","icebergQty":"0","time":1667750973187,"updateTime":1667750973187,"isWorking":true,"isIsolated":true},{"symbol":"BTCUSDT","orderId":15219009686,"clientOrderId":"web_71d8ab2bb11e4ec1960c2ed2c4390e75","price":"21000","origQty":"0.025","executedQty":"0","cummulativeQuoteQty":"0","status":"NEW","timeInForce":"GTC","type":"LIMIT","side":"SELL","stopPrice":"0","icebergQty":"0","time":1667891070682,"updateTime":1667891070682,"isWorking":true,"isIsolated":true},{"symbol":"BTCUSDT","orderId":15294480358,"clientOrderId":"web_d4f829d960ba426a9cc53bee33289ed2","price":"20000","origQty":"0.01","executedQty":"0","cummulativeQuoteQty":"0","status":"NEW","timeInForce":"GTC","type":"LIMIT","side":"SELL","stopPrice":"0","icebergQty":"0","time":1668001474606,"updateTime":1668001474606,"isWorking":true,"isIsolated":true},{"symbol":"BTCUSDT","orderId":15367707769,"clientOrderId":"4020","price":"18142.46","origQty":"0.1","executedQty":"0","cummulativeQuoteQty":"0","status":"NEW","timeInForce":"GTC","type":"LIMIT","side":"SELL","stopPrice":"0","icebergQty":"0","time":1668114024599,"updateTime":1668114024599,"isWorking":true,"isIsolated":true}]
+//[{"symbol":"BTCUSDT","orderId":15104494125,"clientOrderId":"web_1e3d4378460b4bc88627c6a89cc18ae9","price":"21451.43","origQty":"0.025","executedQty":"0","cummulativeQuoteQty":"0","status":"NEW","timeInForce":"GTC","type":"LIMIT","side":"SELL","stopPrice":"0","icebergQty":"0","time":1667623112373,"updateTime":1667623112373,"isWorking":true,"isIsolated":true},
 
 
 function checkInRange(buyOrders, topRange, botRange) {
-    if (buyOrders.length == 0) return false; // no open buy orders in range
+ 
+   //let topBuyRange = parseFloat(statsmod.getBuyPrice()) + parseFloat(priceVariant);
+     //                     let botBuyRange = parseFloat(statsmod.getBuyPrice()) - parseFloat(priceVariant);
+       //                   let inRange = checkInRange(openBuyOrders, topBuyRange, botBuyRange);
+
+
+  if (buyOrders.length == 0) return false; // no open buy orders in range
      for (var key in buyOrders) {
         let buyPrice =      parseFloat(buyOrders[key]["price"]);
+	console.log("%%%%%% buy price == "+ buyPrice);     
+	console.log("%%%%%%top range == "+ topRange);     
+	console.log("%%%%%% bot range == "+ botRange);     
         if ((buyPrice > botRange) && (buyPrice < topRange)) {
+		console.log("match - range ");
                   return true;
         }
      }
+	console.log("kkkkk - no math range");
  return false;
 
 }
+
+function newRangeCheck(apiAllOrders,  topRange, botRange) {
+        let buyJson = popJson('BUY', apiAllOrders, 'FILLED');
+
+	let unfilledBuyJson = popUnfilledJson(buyJson, apiAllOrders);
+     let inrange = checkInRange(unfilledBuyJson, topRange, botRange);
+     if (inrange) return true;
+    
+     let unfilledBuyJsonFilled = popUnfilledJsonFilled(buyJson, apiAllOrders);
+     inrange = checkInRange(unfilledBuyJsonFilled, topRange, botRange);
+     if (inrange) return true;
+
+
+     let openBuyJson = popJson('BUY', apiAllOrders, 'NEW');
+     inrange = checkInRange(openBuyJson, topRange, botRange);
+     if (inrange) return true;
+     return false;
+
+     console.log("Unbrought BUY Orders --- " );
+     console.table(openBuyJson);
+     console.log("Buy Orders with no Sell Orders--- " );
+     console.table(unfilledBuyJson);
+     console.log("Buy Orders with no Filled Sell Orders--- " );
+     console.table(unfilledBuyJsonFilled);
+
+
+}
+
+function popUnfilledJsonFilled(buyJson, allJson) {
+//      console.log("unmat buy orders == " + JSON.stringify(allJson));
+        let unfilledJson=[]; let k=0;
+        for (let j=0; j<buyJson.length;j++) {
+           let clientorderid = buyJson[j]["clientorderid"];
+           if (isNumber(clientorderid)) {
+//                 console.log("buy id - " + clientorderid); 
+                let sellClientOrderId = clientorderid+1;
+//                 console.log("****** sell id - " + sellClientOrderId); 
+                if (sellIdExistsFilled(sellClientOrderId, allJson)) {
+              //      console.log("  x10 unmatched buy orders == found in json " + sellClientOrderId); 
+                } else {
+                //      console.log(" x10 unmatched buy orders not found in json " + sellClientOrderId);
+                    unfilledJson[k]=buyJson[j];
+                    k++;
+                }
+           }
+        }
+        return unfilledJson;
+
+}
+
+function popUnfilledJson(buyJson, allJson) {
+        let unfilledJson=[]; let k=0;
+        for (let j=0; j<buyJson.length;j++) {
+           let clientorderid = buyJson[j]["clientorderid"];
+           if (isNumber(clientorderid)) {
+                //   console.log("buy id - " + clientorderid); 
+                let sellClientOrderId = clientorderid+1;
+                //   console.log("sell id - " + sellClientOrderId); 
+                if (sellIdExists(sellClientOrderId, allJson)) {
+
+                } else {
+                    unfilledJson[k]=buyJson[j];
+                    k++;
+                }
+           }
+        }
+        return unfilledJson;
+
+
+}
+
+function sellIdExistsFilled(id, allJson) {
+    for (let j=0;j<allJson.length;j++) {
+        if (isNumber(allJson[j]["clientOrderId"])) {
+        //    console.log("id == " + id);
+        //    console.log("client order id == " + allJson[j]["clientOrderId"]);
+//          console.log("status == " + allJson[j]["status"]);
+            if (id == parseInt(allJson[j]["clientOrderId"])) {
+               if (allJson[j]["status"]=='FILLED') {
+                   //  console.log("--------- matched d ---") ;
+                  //   console.log("--------- id ---" + id);
+                  //   console.log("--------- json client  ---" + JSON.stringify(allJson[j]));
+                     return true;
+                } else {
+                  //   console.log("status not mtached --" + allJson[j]["clientOrderId"]);
+                }
+            } else {
+                 //  console.log("id not matched exists filled"+ id + " " + allJson[j]["clientOrderId"]);
+            }
+        }
+
+    }
+    return false;
+}
+
+function sellIdExists(id, allJson) {
+    for (let j=0;j<allJson.length;j++) {
+        if (isNumber(allJson[j]["clientOrderId"])) {
+//              console.log("id == " + id);
+//              console.log("client order id == " + allJson[j]["clientOrderId"]);
+            if (id == parseInt(allJson[j]["clientOrderId"])) return true;
+        }
+    }
+    return false;
+}
+
+function popJson(orderType, apiAllOrders, statusType) {
+
+     let k1=0; let allFilledOrders =[];
+     for (let j=0;j<apiAllOrders.length;j++) {
+        if ((apiAllOrders[j]["status"] ==statusType ) && (apiAllOrders[j]["side"]==orderType)) {
+              let rec  =  { "clientorderid" :parseInt(apiAllOrders[j]["clientOrderId"]),
+                "price": parseFloat(apiAllOrders[j]["price"]),
+                "side": apiAllOrders[j]["side"].toString(),
+                 "time":new Date(parseInt(apiAllOrders[j]["time"])/1),
+                 "updatetime":new Date(parseInt(apiAllOrders[j]["updateTime"])/1),
+                 "origQty": parseFloat(apiAllOrders[j]["origQty"]),
+                 "executedQty": parseFloat(apiAllOrders[j]["executedQty"]),
+                "status": apiAllOrders[j]["status"].toString()};
+//      console.log("*********** matched ---- ");
+//              console.log(JSON.stringify(rec));
+//                      console.log("status type == "+ statusType);
+//                      console.log("order type == "+ orderType);
+//
+                //console.log("api ordes  == "+ JSON.stringify(apiAllOrders.data[j]));
+                allFilledOrders[k1]= rec;
+        k1++;
+        }
+     }
+        return allFilledOrders;
+}
+
+
 
 
 function getLowestOpenBuyPrice(buyOrders) {
@@ -522,68 +656,6 @@ function setValues() {
            statsmod.setNumberTxns(1);  // initialize number of txns	   
            statsmod.incCycle();
 }
-async function timetest1() {
-      console.log("****************************** first new order ***********************");	
-      setTimeout(function() { console.log("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&& waiting ...........");
-       }, 5000);
-      console.log("****************************** second new order ***********************");	
-}
-
-function isExecuted(executedQty, timeInForce) {
-     if (timeInForce == 'FOK') {
-             if (executedQty > 0) return true;
-     } else {
-                  if (timeInForce == 'IOC') {
-                      btcQty = executedQty;
-                  }
-              }
-
-
-}
-
-async function proofExecution (orderQty, executedQty, orderId, isIsolated) {
-    console.log("********************* checking poe ============= " + orderId);
-console.log("order qty " + orderQty);
-	
-console.log("exc qty " + executedQty);
-console.log("order id " + orderId);
-console.log("isIsolated " + isIsolated);
-    let executedTrade = false;
-    let qty = parseFloat(executedQty);
-    let orgQty = parseFloat(orderQty);
-    if (qty == orgQty) {
-	    executedTrade = true;
-    }	   
-    console.log("loop");
-    let checkedCount = 0;
-    while ((!executedTrade) && (checkedCount < checkLimitOrder)) {
-        checkedCount++;
-		logger.info("api check sale");
-        let result = await bmod.getOrder(orderId, isIsolated); // order ref = pair ref for order
-        // let rtnresult = await dbmod.addQueryOrder(result.data);
-	console.log("resuilt " + JSON.stringify(result.data));
-	if (result.data) {
-            client.logger.log(result.data);
-            qty = parseFloat(result.data.executedQty);
-            orgQty = parseFloat(result.data.origQty);
-           // let rtnval = await addQueryOrder(result.data);
-	    console.log("qty val = " + qty);
-	    console.log("org qty val = " + orgQty);
-	
-            if (qty == orgQty ) {
-	      console.log("if statement met ");
-              executedTrade = true;
-            }
-	    console.log("exec trade in loop " + executedTrade);
-        }
-	console.log("end of loop");
-    } // end of check for txn existance/manage
-	// orders can ne partially sold
-    let json =  { "executedTrade": executedTrade, "qty": qty };
-    console.log("json out " + JSON.stringify(json));
-    return json;
-}
-
 
 async function mainSellOrder(buyPrice, sellPrice, btcQty, orderRef) {
 
@@ -603,11 +675,15 @@ async function mainSellOrder(buyPrice, sellPrice, btcQty, orderRef) {
       let responseMargin = await bmod.newMarginOrder(sellPrice, btcQty, orderRef, 'GTC','SELL');
       sqlmod.insertPriceOrderSQL(orderRef, sellPrice, btcQty, 'SELL', sellPrice);
       await sqlmod.exSQL();
+      await insertAPI("newMarginOrderSell", "ok");
 
 }
+async function insertAPI(apicall, statusapi) {
 
+    sqlmod.insertAPISQL(apicall, statusapi);
+    await sqlmod.exSQL();
+}
 async function mainBuyOrder(buyPrice, sellPrice, btcQty, orderRef) {
-
         console.log("@@@@@@@@@@@@@@@@@ loop alert @@@@@@@@@@@@@@@@ " + totOrders);
         console.log("@@@@@@@@@@@@@@@@@ loop alert @@@@@@@@@@@@@@@@ " + totOrders);
         console.log("@@@@@@@@@@@@@@@@@ loop alert @@@@@@@@@@@@@@@@ " + totOrders);
@@ -628,165 +704,8 @@ async function mainBuyOrder(buyPrice, sellPrice, btcQty, orderRef) {
       let responseMargin = await bmod.newMarginOrder(buyPrice, btcQty, orderRef, 'GTC','BUY');
       sqlmod.insertPriceOrderSQL(orderRef, buyPrice, btcQty, 'BUY', sellPrice);
       await sqlmod.exSQL();
-}
-async function oldfunction() {
-      let executedTrade = false;
-      console.log("++++++++++ end of order +++++++++++++++");
-      if (responseMargin) {
-	  client.logger.log(responseMargin.data);
-	  let orderId = responseMargin.data.orderId;
-          let clientOrderId = responseMargin.data.orderId;
-          let executedQty = responseMargin.data.executedQty;
-          let statusRes = responseMargin.data.status;
-          //btcQty = executedQty;
-          let executedTradeJson = await proofExecution(btcQty, executedQty, orderId, isIsolated);
-          console.log("json exec = " + JSON.stringify(executedTradeJson));
-          let purchasedQty = executedTradeJson["qty"];
-	  executedTrade = executedTradeJson["executedTrade"];
-	  console.log("exec trade bool = " + executedTrade);
-	 // if (executedTrade) {
-	 if (purchasedQty > minTradeValue) {
-	      statsmod.setBuyQty(purchasedQty);
-	      statsmod.setQtys();
-	      console.log(" buy price ==================== " + statsmod.getBuyPrice());
-	      console.log(" sell price ==================== " + statsmod.getSellPrice());
-	      console.log(" sell high price ==================== " + statsmod.getHighSellPrice());
-	      console.log(" buy qty ==================== " + statsmod.getBuyQty());
-	      console.log(" sell qty ==================== " + statsmod.getSellQty());
-	      console.log(" sell high qty ==================== " + statsmod.getHighSellQty());
-         }
-	      let sellOrderRef = orderRef++;
-	      let highSellOrderRef = sellOrderRef++;
-
-	  if ((purchasedQty >minTradeValue) && (statsmod.getSellQty() > minTradeValue) && (statsmod.getHighSellQty() > minTradeValue)) {
-	      let respsell = await manageSellOrder(statsmod.getSellPrice(), statsmod.getSellQty(), sellOrderRef, OrderPair);
-	      let profit = parseFloat(statsmod.getSellPrice() - buyPrice)*statsmod.getSellQty();
-	      logger.warn("profit =", profit);
-              sqlmod.createProfitSQL(buyPrice,statsmod.getSellPrice(), statsmod.getSellQty(), profit);
-              let rtnprofit = await sqlmod.insertOrder();
-	      profit = parseFloat(statsmod.getHighSellPrice() - buyPrice)*statsmod.getHighSellQty();
-	      logger.warn("profit 2 =", profit);
-              sqlmod.createProfitSQL(buyPrice,statsmod.getHighSellPrice(), statsmod.getHighSellQty(), profit);
-              rtnprofit = await sqlmod.insertOrder();
-
-	  } else {
-
-		  logger.info("api cancel order");
-	          let respcancel = await bmod.cancelOrder(orderId, isIsolated);
-	          console.log(client.logger.log(respcancel.data));
-	       //   let rtn = await dbmod.addCancelOrder(respcancel.data);
-	  }
-     }	     
-     return responseMargin;
-
-}
-
-async function manageOrder(buyPrice, sellPrice, btcQty, orderRef) {
-
-//    totOrders++;
-    if (totOrders > 5*totOrderLimit) {
-	    console.log("@@@@@@@@@@@@@@@ forced exit - loop @@@@@@@@@@@@@@@@");
-	    process.exit();
-    }
-    if (totOrders > totOrderLimit) {
-        console.log("@@@@@@@@@@@@@@@@@ loop alert @@@@@@@@@@@@@@@@ " + totOrders);
-	return 0;
-    }
-
-    totOrders++;
-    console.log("tot orders ---------> " + totOrders);
-   
-    let OrderPair = orderRef;
-    let isIsolated = 'TRUE';    
-    let buyOrderRef = orderRef;
-   
-	logger.info("api new order - buy ");
-      let responseMargin = await bmod.newMarginOrder(buyPrice, btcQty, orderRef, 'GTC','BUY');
-      let executedTrade = false;
-      console.log("++++++++++ end of order +++++++++++++++");
-      if (responseMargin) {
-	  client.logger.log(responseMargin.data);
-	  let orderId = responseMargin.data.orderId;
-          let clientOrderId = responseMargin.data.orderId;
-          let executedQty = responseMargin.data.executedQty;
-          let statusRes = responseMargin.data.status;
-          //btcQty = executedQty;
-          let executedTradeJson = await proofExecution(btcQty, executedQty, orderId, isIsolated);
-          console.log("json exec = " + JSON.stringify(executedTradeJson));
-	      // qty is updated when trade is confirmed
-	 // if (executedTradeJson) {
-             let purchasedQty = executedTradeJson["qty"];
-	      executedTrade = executedTradeJson["executedTrade"];
-	 // }
-	      // partial orders
-	    console.log("exec trade bool = " + executedTrade);
-	 // if (executedTrade) {
-	 if (purchasedQty > minTradeValue) {
-	      statsmod.setBuyQty(purchasedQty);
-	      statsmod.setQtys();
-	      console.log(" buy price ==================== " + statsmod.getBuyPrice());
-	      console.log(" sell price ==================== " + statsmod.getSellPrice());
-	      console.log(" sell high price ==================== " + statsmod.getHighSellPrice());
-	      console.log(" buy qty ==================== " + statsmod.getBuyQty());
-	      console.log(" sell qty ==================== " + statsmod.getSellQty());
-	      console.log(" sell high qty ==================== " + statsmod.getHighSellQty());
-         }
-	      let sellOrderRef = orderRef++;
-	      let highSellOrderRef = sellOrderRef++;
-
-	  if ((purchasedQty >minTradeValue) && (statsmod.getSellQty() > minTradeValue) && (statsmod.getHighSellQty() > minTradeValue)) {
-	      let respsell = await manageSellOrder(statsmod.getSellPrice(), statsmod.getSellQty(), sellOrderRef, OrderPair);
-	      let respsell2 = await manageSellOrder(statsmod.getHighSellPrice(), statsmod.getHighSellQty(), highSellOrderRef, OrderPair);
-	      //let rtn1 = await dbmod.addOpenOrder(responseMargin.data);
-	      //let sqlx1 = buildSQLGen(buyOrderRef, OrderPair, 'BTCUSDT', 'BUY', buyPrice, purchasedQty, 'Closed', responseMargin);
-	      sqlmod.createSQL(buyOrderRef, OrderPair, 'BTCUSDT', 'BUY', buyPrice, purchasedQty, 'Closed', responseMargin);
-              //let sqlx1 = sqlmod.getSQL();
-//		  let rtnx1 = await sqlmod.insertOrder();
-	      let profit = parseFloat(statsmod.getSellPrice() - buyPrice)*statsmod.getSellQty();
-	      logger.warn("profit =", profit);
-              sqlmod.createProfitSQL(buyPrice,statsmod.getSellPrice(), statsmod.getSellQty(), profit);
-              let rtnprofit = await sqlmod.insertOrder();
-	      profit = parseFloat(statsmod.getHighSellPrice() - buyPrice)*statsmod.getHighSellQty();
-	      logger.warn("profit 2 =", profit);
-              sqlmod.createProfitSQL(buyPrice,statsmod.getHighSellPrice(), statsmod.getHighSellQty(), profit);
-              rtnprofit = await sqlmod.insertOrder();
-
-	 //     if ((btcQty - purchasedQty)>minTradeValue) {
-	 //         console.log(" cancel orderid = " + orderId);
-//		  logger.info("api cancel order");
-//	          let respcancel = await bmod.cancelOrder(orderId, isIsolated);
-//	          console.log(client.logger.log(respcancel.data));
-	         // let rtn = await dbmod.addCancelOrder(respcancel.data);
-	   //   }
-	  } else {
-
-		  logger.info("api cancel order");
-	          let respcancel = await bmod.cancelOrder(orderId, isIsolated);
-	          console.log(client.logger.log(respcancel.data));
-	       //   let rtn = await dbmod.addCancelOrder(respcancel.data);
-	  }
-     }	     
-     return responseMargin;
+      await insertAPI("newMarginOrderBuy", "ok");
 }
 
 
-async function manageSellOrder(sellPrice, btcQty, orderRefSellVal, OrderPair) {
-    console.log("************************ sell order ***** = "+ orderRefSellVal );
-	logger.info("api new order - sell ");
-    let rSell = await bmod.newMarginOrder(sellPrice, btcQty, orderRefSellVal, 'GTC', 'SELL');
-    let executedTrade = false;
-    if (rSell) {
-   	    //let sql = buildSQLGen(orderRefSellVal, OrderPair, 'BTCUSDT', 'SELL', sellPrice, btcQty, 'Open', rSell);
-   	    sqlmod.createSQL(orderRefSellVal, OrderPair, 'BTCUSDT', 'SELL', sellPrice, btcQty, 'Open', rSell);
-	    let rtn= await sqlmod.insertOrder();
-       
-    }
-    return rSell;
-}
 
-
-//ws.on('message', function incoming(data) {
-//    console.log(data);
-//})
-
-//}
