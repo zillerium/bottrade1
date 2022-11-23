@@ -76,6 +76,12 @@ class SQLMod {
      }
 
 
+     deletePriceSQLId = (id) => {
+
+         this.sql =
+             "delete from price where id < " + id ;
+         console.log(this.sql); 
+     }
      deletePriceSQL = (timeprice) => {
 
          this.sql =
@@ -139,9 +145,10 @@ class SQLMod {
        }
      }
 
-     selectPriceDB = async(n) => {
+     selectPriceDB = async(n, orderSeq) => {
        let sql = "select id, timeprice, price  " +
-		     " from price order by id desc limit " + n;
+		     " from price order by id " + orderSeq + " limit " + n;
+	     // desc or asc
 
 //console.log(sql);
        try {
