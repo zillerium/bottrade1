@@ -214,7 +214,7 @@ async function processOrder() {
 			  let inRange = checkInRange(openBuyOrders, topBuyRange, botBuyRange);
                           if (!inRange) {
                                 console.log("+++++++++++ not found in range 1 +++ ");
-				  inRange =  newRangeCheck(openBuyOrders, topBuyRange, botBuyRange);
+				  inRange =  newRangeCheck(apiAllOrders.data, topBuyRange, botBuyRange);
 			  }
 			  else {
                              console.log("+++++++++++ found in range 1 +++ ");
@@ -547,6 +547,7 @@ async function main() {
 	let priceRecs = sqlmod.getPriceDb();
       	//    id    |          txndate           | timeprice  |      price       
         let id = parseInt(priceRecs[0]["id"]);
+        let tradeqty= parseFloat(priceRecs[0]["qty"]);
 	let timeprice = parseInt(priceRecs[0]["timeprice"]);
 	let price = parseFloat(priceRecs[0]["price"]);
 	console.log("prices == " + price + " " + timeprice + "  " + id );
@@ -569,6 +570,7 @@ async function main() {
      	        timeprice = parseInt(priceRecs[0]["timeprice"]);
 	        price = parseFloat(priceRecs[0]["price"]);
 	        id = parseFloat(priceRecs[0]["id"]);
+	        tradeqty = parseFloat(priceRecs[0]["qty"]);
 	    }
             prevId = id;
             statsmod.setCurrentPrice(price); // price

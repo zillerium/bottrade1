@@ -123,7 +123,7 @@ ws.onmessage = async  (event) => {
    // get the price 
    let price = parseFloat(obj.p).toFixed(2); // price
  //  console.log("price = " +price);
-
+ let qty = parseFloat(obj.q);
    // Calc the sec value for the candlestick
 
    let orgTime = parseInt(obj.E); // time - in millisecs
@@ -140,10 +140,10 @@ ws.onmessage = async  (event) => {
 //console.log("* insert recs   *********************");
 //console.log("********************************");
 
-   sqlmod.createPriceSQL(price, numberSecs);
+   sqlmod.createPriceSQL(price, numberSecs, qty);
    await sqlmod.exSQL();
 // small table needed for efficiency reasons    
-   sqlmod.createCurrentPriceSQL(price, numberSecs);
+   sqlmod.createCurrentPriceSQL(price, numberSecs, qty);
    await sqlmod.exSQL();
 
    let currMin = parseInt(numberSecs/60);
@@ -152,12 +152,12 @@ ws.onmessage = async  (event) => {
   // console.log("%%%%%%%%% curreMin == " + currMin);
  //  console.log(" last rec == " + lastRec);
  //  console.log(" last prev rec == " + lastPrevRec);
-   if (currMin> (lastMin + keepMin)) {
-       lastMin = currMin - keepMin;
-       logger.error = ("delete ", currMin);
-       sqlmod.deletePriceSQL(lastMin*60);
-       await sqlmod.exSQL();
-   }
+  // if (currMin> (lastMin + keepMin)) {
+  //     lastMin = currMin - keepMin;
+ //      logger.error = ("delete ", currMin);
+//       sqlmod.deletePriceSQL(lastMin*60);
+//       await sqlmod.exSQL();
+//   }
    if (lastRec == lastPrevRec) {
        } else {
 	    //   logger.error("delete ", lastRec);

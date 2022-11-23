@@ -3,4 +3,5 @@ CREATE TABLE currprice(
    TXNDATE TIMESTAMP,
    timeprice bigint, 
    price numeric(20,10),
+   qty numeric(20,10)
 );

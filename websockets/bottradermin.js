@@ -361,11 +361,16 @@ async function main1() {
 	let dbRes = sqlmod.getDbRes();
 	//console.log("=====sql ========== " + JSON.stringify(dbRes.rows));
         let prevMin = 0; let stats = []; let minInd = -1;
+            let qty =0;
 	for (var key in dbRes.rows) {
          //   console.log(" key === "  + JSON.stringify(dbRes.rows[key]) + "");
             let itemInt = parseInt(dbRes.rows[key]["id"]);
             let itemPrice = parseFloat(dbRes.rows[key]["price"]);
             let itemTimePrice =parseInt(dbRes.rows[key]["timeprice"]);
+            let qtystr =(dbRes.rows[key]["qty"]);
+	    if ((qtystr) && isNumber(qtystr)) {
+                qty += parseInt(qtystr);
+	    }
 	    let itemMin = parseInt(itemTimePrice/60);
          //  console.log("item price == " + itemPrice);
         //   console.log("item min == " + itemMin);
@@ -381,6 +386,7 @@ async function main1() {
 	       }
 	       stats[minInd]["sum"] += itemPrice;
 	       stats[minInd]["itemNum"]++;
+	       stats[minInd]["qty"] = qty;
 
 	       stats[minInd]["close"] = itemPrice;
 //	       stats[minInd]["avg"] = (parseFloat(stats[minInd]["avg"])+ itemPrice)/2
@@ -392,7 +398,7 @@ async function main1() {
                prevMin = itemMin;
 	       minInd++;
 	       let json = { min: itemPrice, max: itemPrice, open: itemPrice, avg: itemPrice, close: itemPrice,
-		       timemin: itemMin, sum: itemPrice, itemNum: 1}
+		       timemin: itemMin, sum: itemPrice, itemNum: 1, itemqty: qty}
     	   //    stats[itemMin]["min"] = itemPrice;
     	   //    stats[itemMin]["max"] = itemPrice;
     	  //     stats[itemMin]["open"] = itemPrice;
@@ -449,6 +455,7 @@ async function processData() {
 async function processStats() {
 // update a new mins recs
        let itemPrice =sqlmod.getLastCurrPrice();
+       let itemQty =sqlmod.getLastCurrQty();
        let minInd = 0;
        let currentMin = parseInt(sqlmod.getLastCurrPriceTime()/60);
        var id = sqlmod.getCurrId();
@@ -466,6 +473,7 @@ async function processStats() {
          }
          stats[minInd]["sum"] += itemPrice;
          stats[minInd]["itemNum"]++;
+         stats[minInd]["itemQty"]+=itemQty;
 
          stats[minInd]["close"] = itemPrice;
 	 while (id == currId) {
@@ -481,6 +489,7 @@ async function processStats() {
 	 loggerp.error("curr id = " + currId);
 	 loggerp.error("id = " + id);
          itemPrice =  sqlmod.getLastCurrPrice();
+         itemQty =  sqlmod.getLastCurrQty();
 	       
          let numberSecs =  sqlmod.getLastCurrPriceTime();
 	 currentMin = parseInt(numberSecs/60); 
