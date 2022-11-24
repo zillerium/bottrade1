@@ -9,6 +9,7 @@ class SQLMod {
         this.sql = null;
         this.histId = 0;
         this.currId = 0;
+        this.clientidExists = false;
         this.statsDB = [];
         this.priceDB = [];
         this.priceOrderDB = [];
@@ -22,6 +23,7 @@ class SQLMod {
         this.lastCurrPriceTime = 0;
     }
 
+     getClientIdExists = () => { return this.clientidExists }
      getPriceOrderRec = () => { return this.priceOrderRec }
      getPriceOrderDb = () => { return this.priceOrderDB }
      getPriceDb = () => { return this.priceDB }
@@ -128,6 +130,26 @@ class SQLMod {
        } catch (err) { throw(err);
        }
      }
+
+
+     tradeProfitExists = async(id) => {
+       let sql = "select clientorderid from tradeprofit where clientorderid = " + id;
+       this.clientidExists = false;
+//console.log(sql);
+       try {
+	       let pool = this.pool;
+           let res=await pool.query(sql)
+	   if ((res) && (res.rowCount>0)) {
+          //    console.log(JSON.stringify(res));
+		 this.clientidExists = true;
+           //   this.lastCurrPrice = parseFloat(res.rows[0]["price"]);
+           //   this.lastCurrPriceTime = parseInt(res.rows[0]["timeprice"]);
+	   }
+           //pool.end();
+       } catch (err) { throw(err);
+       }
+     }
+
      selectPriceOrderDB = async(n) => {
        let sql = "select id,clientorderid, price, qty, ordertype, exitprice from priceorder   " +
 		     " by id desc limit " + n;
@@ -251,6 +273,60 @@ class SQLMod {
 );
 */
 // id | txndate | clientorderid | price | qty | ordertype | exitprice 
+// id | txntime | clientid | percent | profit 
+// select (diff) from (select minprice, maxprice, (maxprice-minprice) as diff, qty, txndate from stats order by id desc limit 3) as t;
+i//crypto=# select avg(diff), min(minprice), max(maxprice), (max(maxprice) - min(minprice)) from (select minprice, maxprice, (maxprice-minprice) as diff, qty, txndate from stats order by id desc limit 60) as t;
+//         avg         |       min        |       max        |    ?column?    
+//---------------------+------------------+------------------+----------------
+// 12.8806666666666667 | 16533.7800000000 | 16674.4100000000 | 140.6300000000
+	//
+	// crypto=# select avg(diff) as pd, min(minprice), max(maxprice), (max(maxprice) - min(minprice))  as der from (select minprice, maxprice, (maxprice-minprice) as diff, qty, txndate from stats order by id desc limit 60) as t;
+  //       pd          |       min        |       max        |      der
+//---------------------+------------------+------------------+----------------
+// 13.8051666666666667 | 16533.7800000000 | 16707.6500000000 | 173.8700000000
+
+//select ((der/min)*100) as per1, pd from (select avg(diff) as pd, min(minprice), max(maxprice), (max(maxprice) - min(minprice))  as der from (select minprice, maxprice, (maxprice-minprice) as diff, qty, txndate from stats order by id desc limit 180) as t) as t1;
+//         per1          |         pd          
+//------------------------+---------------------
+// 1.72532203930240325500 | 15.8178333333333333
+//select (pd/2) as p1, (der/20) as r1, ((der/min)*100) as per1, pd from (select avg(diff) as pd, min(minprice), max(maxprice), (max(maxprice) - min(minprice))  as der from (select minprice, maxprice, (maxprice-minprice) as diff, qty, txndate from stats order by id desc limit 180) as t) as t1;
+ //        p1         |         r1          |          per1          |         pd          
+//--------------------+---------------------+------------------------+---------------------
+// 8.5761388888888889 | 14.9780000000000000 | 1.81409246324397714800 | 17.1522777777777778
+//(1 row)
+
+
+     calcRangeDiffSQL = (n) => {
+         this.sql = "select (pd/2) as p1, (der/20) as r1, ((der/min)*100) as per1, pd from (select avg(diff) as pd, min(minprice), max(maxprice), (max(maxprice) - min(minprice))  as der from (select minprice, maxprice, (maxprice-minprice) as diff, qty, txndate from stats order by id desc limit 180) as t) as t1;"
+
+     }
+
+
+
+     calcPercentAvgDiffSQL = (n) => {
+         this.sql = "select ((der/min)*100) as per1, pd from (select avg(diff) " +
+		     " as pd, min(minprice), max(maxprice), (max(maxprice) - min(minprice)) " +
+		     " as der from (select minprice, maxprice, (maxprice-minprice) " +
+		     " as diff, qty, txndate from stats order by id desc limit 180) as t) as t1;
+     }
+
+     calcAvgDiffSQL = (n) => {
+         this.sql = "select avg(diff) from (select minprice, maxprice, (maxprice-minprice) "+
+		     " as diff, qty, txndate from stats order by id desc limit "+ n ") as t;
+     }
+
+     calcVelDiffSQL = (n) => {
+         this.sql = "select avg(diff) as pd, min(minprice), max(maxprice), (max(maxprice) - min(minprice)) " +
+		     " as der from (select minprice, maxprice, (maxprice-minprice) as diff, qty, txndate " +
+		     " from stats order by id desc limit 60) as t;
+
+     }
+
+
+     inserTradeProfitSQL = (txntime, clientorderid, percent, profit) => {
+         this.sql = "insert into tradeprofit (txntime, clientorderid, percent, profit) " +
+         "values ( '" + txntime + "'," + clientorderid + "," + percent + ","+ profit + ")";
+     }
 
      insertAPISQL = (apicall, statusapi) => {
 	 let timeapi = Math.floor(Date.now()/1000);    
