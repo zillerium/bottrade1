@@ -104,8 +104,8 @@ async function processOrder() {
 		  console.log("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
 		  logger.info("loop order - new api call ");
 		  totOrders++;
-		  const ran=Math.floor(Math.random() * 1000)
-		  const ran2 = Math.floor(Math.random() * 1000)
+		  const ran=Math.floor(Math.random() * 1000000)
+		  const ran2 = Math.floor(Math.random() * 1000000)
 		  var orderRefVal = ran*ran2;
 		  console.log("order ref val === "+ orderRefVal);
 		  let currencyPair = 'BTCUSDT';
