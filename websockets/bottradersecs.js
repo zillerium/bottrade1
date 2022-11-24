@@ -51,7 +51,10 @@ const RSIN=14; // period for RS
 var totOrders = 0;
 var histId = 0;
 var totOrderLimit = 2;
-var btcQty = 0.00075;
+var btcQty =(parseFloat(2* 0.00075));
+console.log("%%%%%--- btcQty "+ btcQty);
+
+//var btcQty = 0.00075;
 //var btcQty = 0.01;
 require('dotenv').config();
 import {BotMod}  from './botmod.js';
@@ -123,7 +126,8 @@ async function processOrder() {
 	          let saleDone = false;
 	   	  console.log("--------------> profit projected == " + profitprojected);
 		  if ((freeBal > minTradingBalance) && (profitprojected > 0) ) {
-	                console.log(" buying price === " + statsmod.getBuyPrice());
+	                loggerp.error("buying option now ");
+			  console.log(" buying price === " + statsmod.getBuyPrice());
 	                console.log(" selling price === " + statsmod.getSellPrice());
                         console.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
                         console.log("!       all orders       !!!!!!!!");
@@ -222,6 +226,7 @@ async function processOrder() {
 			      console.log("++++++++++++++++++++++++++++++")
 			      console.log("+ check range 1 buying price +++" + statsmod.getBuyPrice());
 			      console.log("++++++++++++++++++++++++++++++")
+			  loggerp.error("check range === " + topBuyRange + " " + botBuyRange);
 			  let inRange = checkInRange(openBuyOrders, topBuyRange, botBuyRange);
                           if (!inRange) {
                                 console.log("+++++++++++ not found in range 1 +++ ");
@@ -231,7 +236,7 @@ async function processOrder() {
                              console.log("+++++++++++ found in range 1 +++ ");
 			  }
 
-			  if (inRange) { console.log("+++ found in range check if");}
+			  if (inRange) { loggerp.error("&&& within range - failed buy");console.log("+++ found in range check if");}
 			 let lowestPrice = 0.00;
 			 if (openBuyOrders.length > 0) {
                              lowestPrice = getLowestOpenBuyPrice(openBuyOrders);
@@ -251,7 +256,7 @@ async function processOrder() {
 			//	  ((lowestPrice == 0) && (!saleDone))) {
 			    if ((!inRange) && (!saleDone) && (totTakeVal < takeLimit)) {
 				    //         // !£££££££££££££££££££££££ [{"p1":"9.2101250000000000","r1":"13.9360000000000000","per1":"1.68576090887867142300","pd":"18.4202500000000000"}]
-
+loggerp.error("*** price criteria met *** ");
 				let orgSellPrice = statsmod.getSellPrice();
 		        	let sellPriceL = parseFloat(statsmod.getBuyPrice()) + parseFloat(priceBuyVariant);
 				statsmod.setSellPriceVal(sellPriceL.toFixed(2));
@@ -610,7 +615,6 @@ async function main() {
 	console.log("Sell Orders ");
 	console.table(summarySellJson);
 	process.exit();
-// 21      getStatsDb = () => { return this.statsDB }
 }
 
 
