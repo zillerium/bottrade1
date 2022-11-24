@@ -67,6 +67,17 @@ const bmod = new BotMod(client, minTradePrice, maxTradePrice, safeLimit);
 const dbmod = new DBMod();
 const sqlmod = new SQLMod();
 const statsmod = new StatsMod();
+console.log(client);
+const pool = new Pool({
+  user: "postgres",
+  host: "localhost",
+  database: "crypto",
+  password: "password",
+  port: 5432,
+});
+//client.connect();
+sqlmod.setPool(pool);
+pool.connect();
 
 main();
 
@@ -76,15 +87,15 @@ async function main() {
  //    let jsonAccount = await bmod.getAccountDetails(currencyPair);
  //    console.log(JSON.stringify(jsonAccount.data));
      let apiAllOrders = await bmod.getAllOrders('TRUE');
-     client.logger.log(apiAllOrders.data);
+   //  client.logger.log(apiAllOrders.data);
 
      let buyJson = popJson('BUY', apiAllOrders, 'FILLED');
      let sellJson = popJson('SELL', apiAllOrders, 'FILLED');
-     let profitJson = 	calcProfit(buyJson, sellJson);
+     let profitJson = 	await calcProfit(buyJson, sellJson);
      let profittot = 0;
      for (var key in profitJson) {
 	profittot += parseFloat(JSON.stringify(profitJson[key]["profit"]));
-        console.log("x10 -- " + key + " " + JSON.stringify(profitJson[key]["profit"]));
+        //console.log("x10 -- " + key + " " + JSON.stringify(profitJson[key]["profit"]));
      }
 
      let unfilledBuyJson = popUnfilledJson(buyJson, apiAllOrders.data);
@@ -243,8 +254,22 @@ function popJson(orderType, apiAllOrders, statusType) {
 	return allFilledOrders;
 }
 
-function calcProfit(buyJson, sellJson) {
+async function insertTradeProfit(txntime, clientid, percent, profit) {
+console.log("--- insert clientid " + txntime);
+let	txntimestr = txntime.toString().replace('GMT+0000 (Coordinated Universal Time)','');
+         await sqlmod.tradeProfitExists(clientid);
+	if (!sqlmod.getClientIdExists()) {
+console.log("--- insert clientid 222 ");
+      	    sqlmod.inserTradeProfitSQL(txntimestr, clientid, percent, profit);
+            await sqlmod.exSQL();
+	}
+
+}
+
+async function calcProfit(buyJson, sellJson) {
     let k=0; let profitJson = [];
+	// [{"clientorderid":413472,"price":16506.18,"side":"BUY","time":"2022-11-23T13:11:00.308Z","updatetime":"2022-11-23T13:11:19.811Z","origQty":0.00075,"executedQty":0.00075,"status":"FILLED"}
+//	console.log("buy json == "+ JSON.stringify(buyJson));
     for (let j=0;j<buyJson.length;j++) {
         if (isNumber(buyJson[j]["clientorderid"])) {
             let buyVal = buyJson[j]["executedQty"]*buyJson[j]["price"];
@@ -256,6 +281,7 @@ function calcProfit(buyJson, sellJson) {
          	let json = { "clientorderid": buyJson[j]["clientorderid"], "profit": profit,
 			"percent": percent, "date": buyJson[j]["updatetime"]}
 		profitJson[k]=json;
+		    await insertTradeProfit(buyJson[j]["updatetime"], parseInt(buyJson[j]["clientorderid"]), parseFloat(percent), parseFloat(profit));
 		    k++;
 	    }
 	}
