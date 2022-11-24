@@ -28,7 +28,7 @@ configure({
 
 var summarySellJson = [];
 var summaryBuyJson = [];
-const takeLimit = 200; // open sale orders - limit liabilities 
+const takeLimit = 400; // open sale orders - limit liabilities 
 var priceVariant = 20; // adjust buy and sell price by this - later calc via currprice table
 var priceBuyVariant = 10; // adjust buy and sell price by this - later calc via currprice table
 const openOrderLimit = 5;
@@ -51,7 +51,7 @@ const RSIN=14; // period for RS
 var totOrders = 0;
 var histId = 0;
 var totOrderLimit = 2;
-var btcQty =(parseFloat(2* 0.00075));
+var btcQty =(parseFloat(1* 0.00075));
 console.log("%%%%%--- btcQty "+ btcQty);
 
 //var btcQty = 0.00075;
@@ -227,17 +227,26 @@ async function processOrder() {
 			      console.log("+ check range 1 buying price +++" + statsmod.getBuyPrice());
 			      console.log("++++++++++++++++++++++++++++++")
 			  loggerp.error("check range === " + topBuyRange + " " + botBuyRange);
-			  let inRange = checkInRange(openBuyOrders, topBuyRange, botBuyRange);
+			  let inRange = await checkInRange(openBuyOrders, topBuyRange, botBuyRange);
                           if (!inRange) {
                                 console.log("+++++++++++ not found in range 1 +++ ");
-				  inRange =  newRangeCheck(apiAllOrders.data, topBuyRange, botBuyRange);
+				  inRange =  await newRangeCheck(apiAllOrders.data, topBuyRange, botBuyRange);
 			  }
 			  else {
                              console.log("+++++++++++ found in range 1 +++ ");
 			  }
 
 			  if (inRange) { loggerp.error("&&& within range - failed buy");console.log("+++ found in range check if");}
-			 let lowestPrice = 0.00;
+			 
+//  id | txndate | toprange | botrange | buyprice | sellprice | clientid | ordertype | inrange
+			  if (!saleDone) {
+                              sqlmod.insertTradeProfitLogSQL(topBuyRange, botBuyRange, statsmod.getBuyPrice(), 
+				  statsmod.getSellPrice(), orderRefVal, 'BUY', inRange);
+			      await sqlmod.exSQL();
+			  }
+//      inserTradeProfitLogSQL = (toprange, botrange, buyprice, sellprice, clientid, ordertype, inrange) => {
+
+			  let lowestPrice = 0.00;
 			 if (openBuyOrders.length > 0) {
                              lowestPrice = getLowestOpenBuyPrice(openBuyOrders);
 			 }
@@ -254,6 +263,7 @@ async function processOrder() {
 			  //
 			 // if (((minBuyPrice < lowestPrice) && (!saleDone)) ||
 			//	  ((lowestPrice == 0) && (!saleDone))) {
+			    if (totTakeVal > takeLimit) loggerp.error("too exposed - sell orders - " + totTakeVal + " " + takeLimit);
 			    if ((!inRange) && (!saleDone) && (totTakeVal < takeLimit)) {
 				    //         // !£££££££££££££££££££££££ [{"p1":"9.2101250000000000","r1":"13.9360000000000000","per1":"1.68576090887867142300","pd":"18.4202500000000000"}]
 loggerp.error("*** price criteria met *** ");
@@ -277,8 +287,8 @@ loggerp.error("*** price criteria met *** ");
 			      console.log("++++++++++++++++++++++++++++++")
 				    let topBuyRange1 = parseFloat(statsmod.getBuyPrice()) + parseFloat(priceVariant);
 			        let botBuyRange1 = parseFloat(statsmod.getBuyPrice()) - parseFloat(priceVariant);
-			        let inRange1 = checkInRange(openBuyOrders, topBuyRange1, botBuyRange1);
-                                if (!inRange1) inRange1 =  newRangeCheck(openBuyOrders, topBuyRange, botBuyRange);
+			        let inRange1 = await checkInRange(openBuyOrders, topBuyRange1, botBuyRange1);
+                                if (!inRange1) inRange1 =  await newRangeCheck(openBuyOrders, topBuyRange1, botBuyRange1);
 				if (!inRange1) {    
 					console.log("2 ++++++++++++++ not in range +++ ");
 		    		    statsmod.setSellPrice(orgSellPrice);
@@ -286,6 +296,10 @@ loggerp.error("*** price criteria met *** ");
 			      console.log("+ BUYING ORDER 2 NOW buying price +++" + statsmod.getBuyPrice());
 			      console.log("++++++++++++++++++++++++++++++")
 			            orderRefVal +=10; // sell at same price but buy lower in price
+                       
+			     sqlmod.insertTradeProfitLogSQL(topBuyRange1, botBuyRange1, statsmod.getBuyPrice(), 
+				  statsmod.getSellPrice(), orderRefVal, 'BUY', inRange);
+			      await sqlmod.exSQL();
 	   	                    await mainBuyOrder(statsmod.getBuyPrice(), 
 		        	    statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
                                     addSummaryBuy(orderRefVal)
@@ -318,13 +332,13 @@ async function getRangeAvg() {
   return jsonAvg;
 }
 
-function checkInRange(buyOrders, topRange, botRange) {
- 
+async function checkInRange(buyOrders, topRange, botRange) {
+ //[{"clientorderid":4321556200,"price":16680.84,"side":"BUY","time":"2022-11-24T07:16:27.392Z","updatetime":"2022-11-24T07:52:47.061Z","origQty":0.0015,"executedQty":0.0015,"status":"FILLED"},
    //let topBuyRange = parseFloat(statsmod.getBuyPrice()) + parseFloat(priceVariant);
      //                     let botBuyRange = parseFloat(statsmod.getBuyPrice()) - parseFloat(priceVariant);
        //                   let inRange = checkInRange(openBuyOrders, topBuyRange, botBuyRange);
 
-
+console.log("@@@@@@@@@@@@@@@@@ json file --- " + JSON.stringify(buyOrders));
   if (buyOrders.length == 0) return false; // no open buy orders in range
      for (var key in buyOrders) {
         let buyPrice =      parseFloat(buyOrders[key]["price"]);
@@ -332,6 +346,13 @@ function checkInRange(buyOrders, topRange, botRange) {
 	console.log("%%%%%%top range == "+ topRange);     
 	console.log("%%%%%% bot range == "+ botRange);     
         if ((buyPrice > botRange) && (buyPrice < topRange)) {
+	     sqlmod.insertOpenOrderSQL(parseInt(buyOrders[key]["clientOrderId"]),
+		     
+		     parseInt(buyOrders[key]["updateTime"]), 
+		     parseFloat(buyOrders[key]["price"]), 
+			     buyOrders[key]["side"].toString(),
+			     buyOrders[key]["status"].toString());
+                await sqlmod.exSQL();
 		console.log("match - range ");
                   return true;
         }
@@ -341,20 +362,21 @@ function checkInRange(buyOrders, topRange, botRange) {
 
 } 
 
-function newRangeCheck(apiAllOrders,  topRange, botRange) {
+async function newRangeCheck(apiAllOrders,  topRange, botRange) {
         let buyJson = popJson('BUY', apiAllOrders, 'FILLED');
 
-	let unfilledBuyJson = popUnfilledJson(buyJson, apiAllOrders);
-     let inrange = checkInRange(unfilledBuyJson, topRange, botRange);
-     if (inrange) return true;
-    
-     let unfilledBuyJsonFilled = popUnfilledJsonFilled(buyJson, apiAllOrders);
-     inrange = checkInRange(unfilledBuyJsonFilled, topRange, botRange);
+	//unfilled sales orders
+//	let unfilledBuyJson = popUnfilledJson(buyJson, apiAllOrders);
+ //    let inrange = checkInRange(unfilledBuyJson, topRange, botRange);
+  //   if (inrange) return true;
+
+     let buyfilledUnfilledSell = popUnfilledBuyUnfilledSell(buyJson, apiAllOrders);
+     let inrange = await checkInRange(buyfilledUnfilledSell, topRange, botRange);
      if (inrange) return true;
 
 
      let openBuyJson = popJson('BUY', apiAllOrders, 'NEW');
-     inrange = checkInRange(openBuyJson, topRange, botRange);
+     inrange = await checkInRange(openBuyJson, topRange, botRange);
      if (inrange) return true;
      return false;
 
@@ -368,7 +390,7 @@ function newRangeCheck(apiAllOrders,  topRange, botRange) {
 
 }
 
-function popUnfilledJsonFilled(buyJson, allJson) {
+function popUnfilledBuyUnfilledSell(buyJson, allJson) {
 //      console.log("unmat buy orders == " + JSON.stringify(allJson));
         let unfilledJson=[]; let k=0;
         for (let j=0; j<buyJson.length;j++) {
@@ -451,11 +473,11 @@ function popJson(orderType, apiAllOrders, statusType) {
      let k1=0; let allFilledOrders =[];
      for (let j=0;j<apiAllOrders.length;j++) {
         if ((apiAllOrders[j]["status"] ==statusType ) && (apiAllOrders[j]["side"]==orderType)) {
-              let rec  =  { "clientorderid" :parseInt(apiAllOrders[j]["clientOrderId"]),
+              let rec  =  { "clientOrderId" :parseInt(apiAllOrders[j]["clientOrderId"]),
                 "price": parseFloat(apiAllOrders[j]["price"]),
                 "side": apiAllOrders[j]["side"].toString(),
                  "time":new Date(parseInt(apiAllOrders[j]["time"])/1),
-                 "updatetime":new Date(parseInt(apiAllOrders[j]["updateTime"])/1),
+                 "updateTime":parseInt(apiAllOrders[j]["updateTime"]),
                  "origQty": parseFloat(apiAllOrders[j]["origQty"]),
                  "executedQty": parseFloat(apiAllOrders[j]["executedQty"]),
                 "status": apiAllOrders[j]["status"].toString()};

@@ -132,7 +132,7 @@ let json =  sqlmod.getTradeProfitDb();
 	if ((prevMin == txnmins) || (prevMin == -1)) {
             profit +=txnprofit;
 		prevMin = txnmins;
-		prevYear = year; prevMth=mth, prevDay=day;prevHour=hour;
+		prevYear = year; prevMth=mth, prevDay=day;prevHour=txnhours;
 	} else {
 		
            let  jsonP = { "year": prevYear, "month": prevMth, "day": prevDay, "hour": prevHour, "min": prevMin, "profit": profit} 		

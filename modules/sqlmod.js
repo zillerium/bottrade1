@@ -6,7 +6,8 @@ class SQLMod {
         this.dbRes ={};
         this.lastVal = null;
         this.lastPriceRow= null;
-        this.rangeAvgDB
+this.tradeprofitDB;
+	    this.rangeAvgDB
         this.sql = null;
         this.histId = 0;
         this.currId = 0;
@@ -24,6 +25,7 @@ class SQLMod {
         this.lastCurrPriceTime = 0;
     }
 
+     getTradeProfitDb= () => { return this.tradeprofitDB }
      getRangeAvgDb= () => { return this.rangeAvgDB }
      getClientIdExists = () => { return this.clientidExists }
      getPriceOrderRec = () => { return this.priceOrderRec }
@@ -171,8 +173,29 @@ class SQLMod {
        } catch (err) { throw(err);
        }
      }
+//crypto=# select * from tradeprofit order by id desc;
+
+//  id |          txntime          | clientorderid |    profit    | percent 
 
 
+     selectTradeProfitDB = async(n) => {
+       let sql = "select id,clientorderid, profit, percent, txntime, txnsecs from tradeprofit order by txnsecs desc limit    " +n ;
+		     " by id desc limit " + n;
+
+//console.log(sql);
+       try {
+	       let pool = this.pool;
+           let res=await pool.query(sql)
+	   if ((res) && (res.rowCount>0)) {
+          //    console.log(JSON.stringify(res));
+		 this.tradeprofitDB = res.rows;
+           //   this.lastCurrPrice = parseFloat(res.rows[0]["price"]);
+           //   this.lastCurrPriceTime = parseInt(res.rows[0]["timeprice"]);
+	   }
+           //pool.end();
+       } catch (err) { throw(err);
+       }
+     }	     
      selectPriceOrderDB = async(n) => {
        let sql = "select id,clientorderid, price, qty, ordertype, exitprice from priceorder   " +
 		     " by id desc limit " + n;
@@ -351,11 +374,21 @@ i//crypto=# select avg(diff), min(minprice), max(maxprice), (max(maxprice) - min
 		     " from stats order by id desc limit 60) as t ";
 
      }
+//  id | txndate | clientorderid | ordertime | orderprice | ordertype | orderstatus 
 
+     insertOpenOrderSQL = (clientorderid, ordertime, orderprice, orderType, orderstatus) => {
+         this.sql = "insert into openorders (txndate, clientorderid, ordertime, orderprice, orderType, orderstatus) " +
+         "values ( ' NOW()'," + clientorderid + "," + ordertime + ","+ orderprice + ",'" + orderType + "','" + orderstatus + "')";
+     }
+//  id | txndate | toprange | botrange | buyprice | sellprice | clientid | ordertype | inrange 
 
-     inserTradeProfitSQL = (txntime, clientorderid, percent, profit) => {
-         this.sql = "insert into tradeprofit (txntime, clientorderid, percent, profit) " +
-         "values ( '" + txntime + "'," + clientorderid + "," + percent + ","+ profit + ")";
+     insertTradeProfitLogSQL = (toprange, botrange, buyprice, sellprice, clientorderid, orderType1, inrange) => {
+         this.sql = "insert into tradelog (txndate, toprange, botrange, buyprice, sellprice, clientorderid, ordertype, inrange) " +
+         "values ( ' NOW()'," + toprange + "," + botrange + ","+ buyprice + ", " + sellprice + "," + clientorderid + ",'"+orderType1 + "'," +inrange+")";
+     }
+     insertTradeProfitSQL = (txntime, clientorderid, percent, profit, txnsecs) => {
+         this.sql = "insert into tradeprofit (txntime, clientorderid, percent, profit, txnsecs) " +
+         "values ( '" + txntime + "'," + clientorderid + "," + percent + ","+ profit + ", " +txnsecs+")";
      }
 
      insertAPISQL = (apicall, statusapi) => {

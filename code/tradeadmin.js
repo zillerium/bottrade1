@@ -11,8 +11,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 
-const WebSocket = require('ws');
-const ws = new WebSocket('wss://stream.binance.com:9443/ws/eo:tcusdt@trade');
 //var log4js = require("log4js");
 import pkg from 'log4js';
 const { configure, getLogger } = pkg;
@@ -256,13 +254,13 @@ function popJson(orderType, apiAllOrders, statusType) {
 }
 
 async function insertTradeProfit(txntime, clientid, percent, profit, txnsecs) {
-console.log("--- insert clientid " + txntime);
-console.log("--- insert secs " + txnsecs);
+//console.log("--- insert clientid " + txntime);
+//console.log("--- insert secs " + txnsecs);
 let	txntimestr = txntime.toString().replace('GMT+0000 (Coordinated Universal Time)','');
          await sqlmod.tradeProfitExists(clientid);
 	if (!sqlmod.getClientIdExists()) {
-console.log("--- insert clientid 222 ");
-      	    sqlmod.inserTradeProfitSQL(txntimestr, clientid, percent, profit,txnsecs);
+//console.log("--- insert clientid 222 ");
+      	    sqlmod.insertTradeProfitSQL(txntimestr, clientid, percent, profit,txnsecs);
             await sqlmod.exSQL();
 	}
 
