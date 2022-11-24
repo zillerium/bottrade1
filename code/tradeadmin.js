@@ -87,7 +87,7 @@ async function main() {
  //    let jsonAccount = await bmod.getAccountDetails(currencyPair);
  //    console.log(JSON.stringify(jsonAccount.data));
      let apiAllOrders = await bmod.getAllOrders('TRUE');
-   //  client.logger.log(apiAllOrders.data);
+     //client.logger.log(apiAllOrders.data);
 
      let buyJson = popJson('BUY', apiAllOrders, 'FILLED');
      let sellJson = popJson('SELL', apiAllOrders, 'FILLED');
@@ -238,6 +238,7 @@ function popJson(orderType, apiAllOrders, statusType) {
                 "side": apiAllOrders.data[j]["side"].toString(),
                  "time":new Date(parseInt(apiAllOrders.data[j]["time"])/1),
                  "updatetime":new Date(parseInt(apiAllOrders.data[j]["updateTime"])/1),
+                 "updatetimesecs":parseInt(apiAllOrders.data[j]["updateTime"])/1,
                  "origQty": parseFloat(apiAllOrders.data[j]["origQty"]),
                  "executedQty": parseFloat(apiAllOrders.data[j]["executedQty"]),
                 "status": apiAllOrders.data[j]["status"].toString()};
@@ -254,13 +255,14 @@ function popJson(orderType, apiAllOrders, statusType) {
 	return allFilledOrders;
 }
 
-async function insertTradeProfit(txntime, clientid, percent, profit) {
+async function insertTradeProfit(txntime, clientid, percent, profit, txnsecs) {
 console.log("--- insert clientid " + txntime);
+console.log("--- insert secs " + txnsecs);
 let	txntimestr = txntime.toString().replace('GMT+0000 (Coordinated Universal Time)','');
          await sqlmod.tradeProfitExists(clientid);
 	if (!sqlmod.getClientIdExists()) {
 console.log("--- insert clientid 222 ");
-      	    sqlmod.inserTradeProfitSQL(txntimestr, clientid, percent, profit);
+      	    sqlmod.inserTradeProfitSQL(txntimestr, clientid, percent, profit,txnsecs);
             await sqlmod.exSQL();
 	}
 
@@ -281,7 +283,9 @@ async function calcProfit(buyJson, sellJson) {
          	let json = { "clientorderid": buyJson[j]["clientorderid"], "profit": profit,
 			"percent": percent, "date": buyJson[j]["updatetime"]}
 		profitJson[k]=json;
-		    await insertTradeProfit(buyJson[j]["updatetime"], parseInt(buyJson[j]["clientorderid"]), parseFloat(percent), parseFloat(profit));
+		    await insertTradeProfit(buyJson[j]["updatetime"], 
+			    parseInt(buyJson[j]["clientorderid"]), parseFloat(percent), parseFloat(profit),
+			    parseInt(buyJson[j]["updatetimesecs"]));
 		    k++;
 	    }
 	}

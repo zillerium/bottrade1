@@ -3,5 +3,6 @@ CREATE TABLE tradeprofit(
    Txntime varchar(60),
 clientorderid bigint,
    profit numeric(20,10),
-   percent numeric(5,2)
+   percent numeric(5,2),
+   txnsecs bigint
 );
