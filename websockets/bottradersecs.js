@@ -206,6 +206,17 @@ async function processOrder() {
 			     }
 			 
 			 }
+				let jsonAvg =     await getRangeAvg();
+			        if (jsonAvg) {
+					console.log("&&&& new range found");
+				    priceBuyVariant = parseFloat(jsonAvg[0]["p1"]);
+				    priceVariant = parseFloat(jsonAvg[0]["r1"]);
+				} else {
+
+					console.log("&&&& new range  was not found");
+				}
+
+			  console.log("&&& tranges = " + priceVariant + " " + priceBuyVariant);
 			 let topBuyRange = parseFloat(statsmod.getBuyPrice()) + parseFloat(priceVariant);
 			  let botBuyRange = parseFloat(statsmod.getBuyPrice()) - parseFloat(priceVariant);
 			      console.log("++++++++++++++++++++++++++++++")
@@ -239,6 +250,8 @@ async function processOrder() {
 			 // if (((minBuyPrice < lowestPrice) && (!saleDone)) ||
 			//	  ((lowestPrice == 0) && (!saleDone))) {
 			    if ((!inRange) && (!saleDone) && (totTakeVal < takeLimit)) {
+				    //         // !£££££££££££££££££££££££ [{"p1":"9.2101250000000000","r1":"13.9360000000000000","per1":"1.68576090887867142300","pd":"18.4202500000000000"}]
+
 				let orgSellPrice = statsmod.getSellPrice();
 		        	let sellPriceL = parseFloat(statsmod.getBuyPrice()) + parseFloat(priceBuyVariant);
 				statsmod.setSellPriceVal(sellPriceL.toFixed(2));
@@ -290,6 +303,15 @@ async function processOrder() {
 }
 //[{"symbol":"BTCUSDT","orderId":15104494125,"clientOrderId":"web_1e3d4378460b4bc88627c6a89cc18ae9","price":"21451.43","origQty":"0.025","executedQty":"0","cummulativeQuoteQty":"0","status":"NEW","timeInForce":"GTC","type":"LIMIT","side":"SELL","stopPrice":"0","icebergQty":"0","time":1667623112373,"updateTime":1667623112373,"isWorking":true,"isIsolated":true},
 
+async function getRangeAvg() {
+	// !£££££££££££££££££££££££ [{"p1":"9.2101250000000000","r1":"13.9360000000000000","per1":"1.68576090887867142300","pd":"18.4202500000000000"}]
+
+//      getRangeAvgDb= () => { return this.rangeAvgDB }
+	      await sqlmod.selectRangeAvgDB(120); // 120 - mins on range
+  let jsonAvg = sqlmod.getRangeAvgDb();
+	console.log("!£££££££££££££££££££££££ "+ JSON.stringify(jsonAvg));
+  return jsonAvg;
+}
 
 function checkInRange(buyOrders, topRange, botRange) {
  
@@ -312,7 +334,7 @@ function checkInRange(buyOrders, topRange, botRange) {
 	console.log("kkkkk - no math range");
  return false;
 
-}
+} 
 
 function newRangeCheck(apiAllOrders,  topRange, botRange) {
         let buyJson = popJson('BUY', apiAllOrders, 'FILLED');

@@ -6,6 +6,7 @@ class SQLMod {
         this.dbRes ={};
         this.lastVal = null;
         this.lastPriceRow= null;
+        this.rangeAvgDB
         this.sql = null;
         this.histId = 0;
         this.currId = 0;
@@ -23,6 +24,7 @@ class SQLMod {
         this.lastCurrPriceTime = 0;
     }
 
+     getRangeAvgDb= () => { return this.rangeAvgDB }
      getClientIdExists = () => { return this.clientidExists }
      getPriceOrderRec = () => { return this.priceOrderRec }
      getPriceOrderDb = () => { return this.priceOrderDB }
@@ -149,6 +151,27 @@ class SQLMod {
        } catch (err) { throw(err);
        }
      }
+
+
+     selectRangeAvgDB = async(n) => {
+      // let sql = "select id,clientorderid, price, qty, ordertype, exitprice from priceorder   " +
+	//	     " by id desc limit " + n;
+       this.calcRangeDiffSQL(n);
+//console.log(sql);
+       try {
+	       let pool = this.pool;
+           let res=await pool.query(this.sql)
+	   if ((res) && (res.rowCount>0)) {
+          //    console.log(JSON.stringify(res));
+		 this.rangeAvgDB = res.rows;
+           //   this.lastCurrPrice = parseFloat(res.rows[0]["price"]);
+           //   this.lastCurrPriceTime = parseInt(res.rows[0]["timeprice"]);
+	   }
+           //pool.end();
+       } catch (err) { throw(err);
+       }
+     }
+
 
      selectPriceOrderDB = async(n) => {
        let sql = "select id,clientorderid, price, qty, ordertype, exitprice from priceorder   " +
@@ -297,7 +320,14 @@ i//crypto=# select avg(diff), min(minprice), max(maxprice), (max(maxprice) - min
 
 
      calcRangeDiffSQL = (n) => {
-         this.sql = "select (pd/2) as p1, (der/20) as r1, ((der/min)*100) as per1, pd from (select avg(diff) as pd, min(minprice), max(maxprice), (max(maxprice) - min(minprice))  as der from (select minprice, maxprice, (maxprice-minprice) as diff, qty, txndate from stats order by id desc limit 180) as t) as t1;"
+	     // n- time in mins - 1 min slots on table
+	     // p1 - diff avg for the min define the price moves on the min
+	     // r1 - for the entire period - define the band of trade
+         this.sql = "select (pd/2) as p1, (der/20) as r1, ((der/min)*100) " +
+		     " as per1, pd from (select avg(diff) as pd, min(minprice), " +
+		     " max(maxprice), (max(maxprice) - min(minprice))  as der " +
+		     " from (select minprice, maxprice, (maxprice-minprice) as diff," +
+		     " qty, txndate from stats order by id desc limit "+ n + ") as t) as t1;"
 
      }
 
@@ -307,18 +337,18 @@ i//crypto=# select avg(diff), min(minprice), max(maxprice), (max(maxprice) - min
          this.sql = "select ((der/min)*100) as per1, pd from (select avg(diff) " +
 		     " as pd, min(minprice), max(maxprice), (max(maxprice) - min(minprice)) " +
 		     " as der from (select minprice, maxprice, (maxprice-minprice) " +
-		     " as diff, qty, txndate from stats order by id desc limit 180) as t) as t1;
+		     " as diff, qty, txndate from stats order by id desc limit 180) as t) as t1 ";
      }
 
      calcAvgDiffSQL = (n) => {
          this.sql = "select avg(diff) from (select minprice, maxprice, (maxprice-minprice) "+
-		     " as diff, qty, txndate from stats order by id desc limit "+ n ") as t;
+		     " as diff, qty, txndate from stats order by id desc limit "+ n +") as t ";
      }
 
      calcVelDiffSQL = (n) => {
          this.sql = "select avg(diff) as pd, min(minprice), max(maxprice), (max(maxprice) - min(minprice)) " +
 		     " as der from (select minprice, maxprice, (maxprice-minprice) as diff, qty, txndate " +
-		     " from stats order by id desc limit 60) as t;
+		     " from stats order by id desc limit 60) as t ";
 
      }
 
