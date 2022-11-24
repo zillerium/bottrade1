@@ -30,6 +30,7 @@ var summarySellJson = [];
 var summaryBuyJson = [];
 const takeLimit = 400; // open sale orders - limit liabilities 
 var priceVariant = 20; // adjust buy and sell price by this - later calc via currprice table
+var riskFactor = parseFloat(2); // defines the risk on the range default is 1, raise this number to decrease risk
 var priceBuyVariant = 10; // adjust buy and sell price by this - later calc via currprice table
 const openOrderLimit = 5;
 const cycleLimit = 5;
@@ -213,8 +214,8 @@ async function processOrder() {
 				let jsonAvg =     await getRangeAvg();
 			        if (jsonAvg) {
 					console.log("&&&& new range found");
-				    priceBuyVariant = parseFloat(jsonAvg[0]["p1"]);
-				    priceVariant = parseFloat(jsonAvg[0]["r1"]);
+				    priceBuyVariant = parseFloat(jsonAvg[0]["p1"])*riskFactor;
+				    priceVariant = parseFloat(jsonAvg[0]["r1"])*riskFactor;
 				} else {
 
 					console.log("&&&& new range  was not found");
@@ -258,6 +259,7 @@ async function processOrder() {
 			 console.log("top range   == " +topBuyRange);
 			 console.log("bot range   == " +botBuyRange);
 			 console.log("in range   == " +inRange);
+			 // let avgQtyValid = checkAvgQty();
 			 //if (openBuyOrders.length > openOrderLimit)
 			  // ensure there are no open buys within trading range
 			  //
@@ -332,13 +334,21 @@ async function getRangeAvg() {
   return jsonAvg;
 }
 
+async function checkAvgQty() {
+await sqlmod.selectAvgQtyDB(60); // 60 mins - gets avg qty for all slots
+let avgQty = sqlmod.getAvgQtyDb();
+console.log("**** avg qty == "+ avgQty);
+// check last min and compare to avg to avoid a spike to zeroing out of qty in a min slot
+
+}
+
 async function checkInRange(buyOrders, topRange, botRange) {
  //[{"clientorderid":4321556200,"price":16680.84,"side":"BUY","time":"2022-11-24T07:16:27.392Z","updatetime":"2022-11-24T07:52:47.061Z","origQty":0.0015,"executedQty":0.0015,"status":"FILLED"},
    //let topBuyRange = parseFloat(statsmod.getBuyPrice()) + parseFloat(priceVariant);
      //                     let botBuyRange = parseFloat(statsmod.getBuyPrice()) - parseFloat(priceVariant);
        //                   let inRange = checkInRange(openBuyOrders, topBuyRange, botBuyRange);
 
-console.log("@@@@@@@@@@@@@@@@@ json file --- " + JSON.stringify(buyOrders));
+//console.log("@@@@@@@@@@@@@@@@@ json file --- " + JSON.stringify(buyOrders));
   if (buyOrders.length == 0) return false; // no open buy orders in range
      for (var key in buyOrders) {
         let buyPrice =      parseFloat(buyOrders[key]["price"]);

@@ -7,7 +7,8 @@ class SQLMod {
         this.lastVal = null;
         this.lastPriceRow= null;
 this.tradeprofitDB;
-	    this.rangeAvgDB
+	    this.avgQtyDB = 0; 
+	    this.rangeAvgDB = 0;
         this.sql = null;
         this.histId = 0;
         this.currId = 0;
@@ -25,6 +26,7 @@ this.tradeprofitDB;
         this.lastCurrPriceTime = 0;
     }
 
+     getAvgQtyDb = () => { return this.avgQtyDB }
      getTradeProfitDb= () => { return this.tradeprofitDB }
      getRangeAvgDb= () => { return this.rangeAvgDB }
      getClientIdExists = () => { return this.clientidExists }
@@ -177,6 +179,27 @@ this.tradeprofitDB;
 
 //  id |          txntime          | clientorderid |    profit    | percent 
 
+
+
+
+     //calcAvgQtySQL = (n) => {
+
+     selectAvgQtyDB = async(n) => {
+          this.calcAvgQtySQL(n); 
+//console.log(sql);
+       try {
+	       let pool = this.pool;
+           let res=await pool.query(this.sql)
+	   if ((res) && (res.rowCount>0)) {
+          //    console.log(JSON.stringify(res));
+		 this.avgQtyDB = res.rows;
+           //   this.lastCurrPrice = parseFloat(res.rows[0]["price"]);
+           //   this.lastCurrPriceTime = parseInt(res.rows[0]["timeprice"]);
+	   }
+           //pool.end();
+       } catch (err) { throw(err);
+       }
+     }
 
      selectTradeProfitDB = async(n) => {
        let sql = "select id,clientorderid, profit, percent, txntime, txnsecs from tradeprofit order by txnsecs desc limit    " +n ;
@@ -374,6 +397,19 @@ i//crypto=# select avg(diff), min(minprice), max(maxprice), (max(maxprice) - min
 		     " from stats order by id desc limit 60) as t ";
 
      }
+
+//select avg(qty) from (select qty, id from stats order by id desc limit 60) as t;
+//         avg         
+//---------------------
+// 46.8803835000000000
+//(1 row)
+
+
+     calcAvgQtySQL = (n) => {
+         this.sql = "select avg(qty) from (select qty, id from stats order by id desc limit "+ n + ") as t";
+
+     }
+
 //  id | txndate | clientorderid | ordertime | orderprice | ordertype | orderstatus 
 
      insertOpenOrderSQL = (clientorderid, ordertime, orderprice, orderType, orderstatus) => {
