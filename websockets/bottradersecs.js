@@ -226,7 +226,13 @@ console.log("kkk === " +JSON.stringify(jsonAvg));
 
 					console.log("&&&& new range  was not found");
 				}
+                          let rangePrice = parseFloat(jsonAvg["avgrange"]);
+			  let sellJsonOrders = popJson('SELL',apiAllOrders.data, 'NEW');
+                              let nsellprice = statsmod.getSellPrice();
+			  let dupSale = dupSales(sellJsonOrders, nsellprice, rangePrice);
+			  //452 async function dupSales(sellJsonOrders, nsellprice, rangePrice) {
 
+			  console.log("&&& dup sales val  = " + dupSale);
 			  console.log("&&& tranges = " + priceVariant + " " + priceBuyVariant);
 			 let topBuyRange = parseFloat(statsmod.getBuyPrice()) + parseFloat(priceVariant);
 			  let botBuyRange = parseFloat(statsmod.getBuyPrice()) - parseFloat(priceVariant);
@@ -272,7 +278,10 @@ console.log("kkk === " +JSON.stringify(jsonAvg));
 			 // if (((minBuyPrice < lowestPrice) && (!saleDone)) ||
 			//	  ((lowestPrice == 0) && (!saleDone))) {
 			    if (totTakeVal > takeLimit) loggerp.error("too exposed - sell orders - " + totTakeVal + " " + takeLimit);
-			    if ((!inRange) && (!saleDone) && (totTakeVal < takeLimit) && (!changeRange) && (inBuyRange)) {
+			    if ((!inRange) && (!saleDone) && 
+				    (totTakeVal < takeLimit) &&
+				    (!changeRange) && 
+				    (inBuyRange ) && (!dupSale)) {
 				    //         // !£££££££££££££££££££££££ [{"p1":"9.2101250000000000","r1":"13.9360000000000000","per1":"1.68576090887867142300","pd":"18.4202500000000000"}]
 loggerp.error("*** price criteria met *** ");
 				    loggerp.warn("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
@@ -348,6 +357,10 @@ loggerp.error("kkk3 failed - too many orders" );
 				 else { loggerp.error("kkk5 failed" );
 					 console.log("kkkk5 failed");}
 
+                             if (!dupSale) { console.log("kkkk6 =no dup sale"); }
+				 else {
+					 loggerp.error("kkk6 failed - existing sales not filled in range" );
+					 console.log("fail kkk6- sales exist");}
                              loggerp.error("failed to meet buy criteria");
 				    console.log("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
 				    console.log("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
@@ -437,6 +450,23 @@ let jsonout = { avgrange: avgrange, inrange: inrangeval, inrangebuy: inrangebuyv
 return jsonout;
 
 }
+function dupSales(sellJsonOrders, nsellprice, rangePrice) {
+console.log("&&&&&&&&&&&&&&&&&&&&&&&&& dup sales check%%%%");
+	 for (let j=0; j<sellJsonOrders.length; j++) {
+            let nprice = parseFloat(sellJsonOrders[j]["price"]);
+            let nstatus = sellJsonOrders[j]["status"];
+            if ((nsellprice <  (nprice + rangePrice)) || (nsellprice > (nprice-rangePrice))) {
+                                   
+         	} else { 
+                 console.log("kkk - dup sale = selling price " + nsellprice);
+                 console.log("kkk - dup sale = existing order price " + nprice);
+                 console.log("kkk - rangePrice " + rangePrice);
+
+			return true;
+		}
+	 }
+	return false;
+}
 async function oldrange1() {
 	// !£££££££££££££££££££££££ [{"p1":"9.2101250000000000","r1":"13.9360000000000000","per1":"1.68576090887867142300","pd":"18.4202500000000000"}]
 
@@ -501,6 +531,11 @@ async function newRangeCheck(apiAllOrders,  topRange, botRange) {
      let openBuyJson = popJson('BUY', apiAllOrders, 'NEW');
      inrange = await checkInRange(openBuyJson, topRange, botRange);
      if (inrange) return true;
+
+
+ //       let sellJson = popJson('SELL', apiAllOrders, 'NEW');
+// check if unfilled sales order is within range of expected new sales price.
+
      return false;
 
      console.log("Unbrought BUY Orders --- " );
@@ -513,20 +548,20 @@ async function newRangeCheck(apiAllOrders,  topRange, botRange) {
 
 }
 
-function popUnfilledBuyUnfilledSell(buyJson, allJson) {
+function popUnfilledBuyUnfilledSell(buyFilledJson, allOrdersJson) {
 //      console.log("unmat buy orders == " + JSON.stringify(allJson));
         let unfilledJson=[]; let k=0;
-        for (let j=0; j<buyJson.length;j++) {
-           let clientorderid = buyJson[j]["clientorderid"];
+        for (let j=0; j<buyFilledJson.length;j++) {
+           let clientorderid = buyFilledJson[j]["clientorderid"];
            if (isNumber(clientorderid)) {
 //                 console.log("buy id - " + clientorderid); 
                 let sellClientOrderId = clientorderid+1;
 //                 console.log("****** sell id - " + sellClientOrderId); 
-                if (sellIdExistsFilled(sellClientOrderId, allJson)) {
+                if (sellIdExistsFilled(sellClientOrderId, allOrdersJson)) {
               //      console.log("  x10 unmatched buy orders == found in json " + sellClientOrderId); 
                 } else {
                 //      console.log(" x10 unmatched buy orders not found in json " + sellClientOrderId);
-                    unfilledJson[k]=buyJson[j];
+                    unfilledJson[k]=buyFilledJson[j];
                     k++;
                 }
            }
