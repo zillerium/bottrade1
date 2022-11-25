@@ -2,6 +2,7 @@ class SQLMod {
   constructor( 
     )   
     {
+	    this.lastMinRec = {};
 	    this.statsRangeExists = false;
 	    this.lastIdStatsPrice=0;
 	    this.lastIdCurrPrice=0;
@@ -22,6 +23,7 @@ this.tradeprofitDB;
         this.priceOrderRec = [];
         this.statsSQL = null;
         this.pool = null;
+	    this.statsRecTime = 0;
         this.priceJson = {};
         this.priceSQL = null;
 	this.lastCurrPrice =0.00; 
@@ -30,6 +32,8 @@ this.tradeprofitDB;
     }
 // sqlmod.getPeriodStatsDB
 	//
+     getStatsRecTime= () => { return this.statsRecTime }
+     getLastMinAvg= () => { return this.lastMinRec }
      getStatsRangeExists= () => { return this.statsRangeExists }
      getLastIdStatsPriceDB = () => { return this.lastIdStatsPrice }
      getPeriodStatsDB = () => { return this.periodStatsDB }
@@ -191,6 +195,41 @@ this.tradeprofitDB;
 	   if ((res) && (res.rowCount>0)) {
           //    console.log(JSON.stringify(res));
 		 this.statsRangeExists =true;
+           //   this.lastCurrPrice = parseFloat(res.rows[0]["price"]);
+           //   this.lastCurrPriceTime = parseInt(res.rows[0]["timeprice"]);
+	   }
+           //pool.end();
+       } catch (err) { throw(err);
+       }
+     }
+	//  id | lasttimemin |   avgminprice    |   avgmaxprice    |   avgrange    | avgperiod | statsid 
+
+     selectTimeMinStatsDB = async(id) => {
+       let sql = "select timemin from stats where id = "+ id;
+       try {
+	       let pool = this.pool;
+           let res=await pool.query(sql)
+	   if ((res) && (res.rowCount>0)) {
+          //    console.log(JSON.stringify(res));
+		 this.statsRecTime = res.rows;
+           //   this.lastCurrPrice = parseFloat(res.rows[0]["price"]);
+           //   this.lastCurrPriceTime = parseInt(res.rows[0]["timeprice"]);
+	   }
+           //pool.end();
+       } catch (err) { throw(err);
+       }
+     }
+     selectLastMinAvgDB = async(timemin) => {
+       let sql = "select lasttimemin, avgminprice, avgmaxprice, avgrange, avgperiod, statsid from statsrange "+
+		     " where lasttimemin = " + timemin + " order by avgperiod asc";
+	//	     " by id desc limit " + n;
+//console.log(sql);
+       try {
+	       let pool = this.pool;
+           let res=await pool.query(sql)
+	   if ((res) && (res.rowCount>0)) {
+          //    console.log(JSON.stringify(res));
+		 this.lastMinRec = res.rows;
            //   this.lastCurrPrice = parseFloat(res.rows[0]["price"]);
            //   this.lastCurrPriceTime = parseInt(res.rows[0]["timeprice"]);
 	   }
