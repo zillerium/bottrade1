@@ -275,6 +275,10 @@ console.log("kkk === " +JSON.stringify(jsonAvg));
 			    if ((!inRange) && (!saleDone) && (totTakeVal < takeLimit) && (!changeRange) && (inBuyRange)) {
 				    //         // !£££££££££££££££££££££££ [{"p1":"9.2101250000000000","r1":"13.9360000000000000","per1":"1.68576090887867142300","pd":"18.4202500000000000"}]
 loggerp.error("*** price criteria met *** ");
+				    loggerp.warn("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
+				    loggerp.warn("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
+				     loggerp.warn("$$$  BUYING CRITERIA MET $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
+				    loggerp.warn("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
 				    console.log("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
 				    console.log("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
 				     console.log("$$$  BUYING CRITERIA MET $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
@@ -323,14 +327,26 @@ loggerp.error("*** price criteria met *** ");
 			 } else {
 //   if ((!inRange) && (!saleDone) && (totTakeVal < takeLimit) && (!changeRange) && (inBuyRange)) {
                              if (inBuyRange) { console.log("kkkk1 = Buy OK - within buy range for price")
-				     } else console.log("fail kkk1 - buy outside range for market");
+				     } else { loggerp.error("kkk1 failed - buy outside range " + statsmod.getBuyPrice());
+					     console.log("fail kkk1 - buy outside range for market"); }
                              if (!changeRange) { console.log("kkkk2 =Buy OK range did not change for market")
-				     } else console.log("fail kkk2 - market range changed ");
+				     } else {
+loggerp.error("kkk2 failed - market change" );
+
+					     console.log("fail kkk2 - market range changed ");
+				     }
                              if (!inRange) { console.log("kkkk3 =Buy OK range order failed -more orders in that range")
-				     } else console.log("fail kkk3 - current buy orders in range");
+				     } else{ 
+loggerp.error("kkk3 failed - too many orders" );
+
+					     console.log("fail kkk3 - current buy orders in range");}
                              if (!saleDone) { console.log("kkkk4 = Buy OK sale not done"); }
-				 else console.log("fail kkk4- sale done");
-                             if (totTakeVal < takeLimit) console.log("kkkk5 Buy OK  - too many sales"); else { console.log("kkkk5 failed");}
+				 else {
+					 loggerp.error("kkk4 failed - sale done" );
+					 console.log("fail kkk4- sale done");}
+                             if (totTakeVal < takeLimit) console.log("kkkk5 Buy OK  - too many sales");
+				 else { loggerp.error("kkk5 failed" );
+					 console.log("kkkk5 failed");}
 
                              loggerp.error("failed to meet buy criteria");
 				    console.log("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
