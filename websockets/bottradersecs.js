@@ -301,9 +301,15 @@ loggerp.error("*** price criteria met *** ");
 			      console.log("++++++++++++++++++++++++++++++")
 			      console.log("+ BUYING ORDER 1 NOW buying price +++" + statsmod.getBuyPrice());
 			      console.log("++++++++++++++++++++++++++++++")
-	   	                await mainBuyOrder(statsmod.getBuyPrice(), 
-		        	statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
-                                addSummaryBuy(orderRefVal)
+			        dupSale = dupSales(sellJsonOrders, statsmod.getSellPrice(), rangePrice);
+				    if (!dupSale) {
+	   	                       await mainBuyOrder(statsmod.getBuyPrice(), 
+		        	       statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
+                                       addSummaryBuy(orderRefVal)
+				    } else {
+                                        loggerp.warn("kkk6 - order failed due to sell price dup");
+                                        console.log("kkk6 - order failed due to sell price dup");
+				    }
 			        // let newBuyprice = statsmod.getBuyPrice()*2-statsmod.getSellPrice();
 			        let newBuyprice =  parseFloat(statsmod.getBuyPrice()) - parseFloat(priceBuyVariant);
 
