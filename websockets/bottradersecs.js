@@ -457,19 +457,23 @@ return jsonout;
 
 }
 function dupSales(sellJsonOrders, nsellprice, rangePrice) {
-console.log("&&&&&&&&&&&&&&&&&&&&&&&&& dup sales check%%%%");
+console.log("&&&&&&&&&&&&&&&&&&&&&&&&& dup sales check%%%% " + JSON.stringify(sellJsonOrders));
+console.log("&&&&&&&&&&&&&&&&&&&&&&&&& dup sales check%%%% range price " + rangePrice);
+console.log("&&&&&&&&&&&&&&&&&&&&&&&&& dup sales check%%%% sell price " + nsellprice);
 	 for (let j=0; j<sellJsonOrders.length; j++) {
             let nprice = parseFloat(sellJsonOrders[j]["price"]);
             let nstatus = sellJsonOrders[j]["status"];
-            if ((nsellprice <  (nprice + rangePrice)) || (nsellprice > (nprice-rangePrice))) {
+            let upperLimit = parseFloat(nprice+rangePrice) *riskFactor;
+            let lowerLimit = parseFloat(nprice-rangePrice) *riskFactor;
+		 // within range
+            if ((nsellprice < upperLimit) && (nsellprice > lowerLimit)) {
                                    
-         	} else { 
                  console.log("kkk - dup sale = selling price " + nsellprice);
                  console.log("kkk - dup sale = existing order price " + nprice);
                  console.log("kkk - rangePrice " + rangePrice);
 
 			return true;
-		}
+		 }
 	 }
 	return false;
 }
@@ -776,7 +780,10 @@ async function main() {
 
 	// process order
 		//
+//	    let numMins = statsmod.getNumberSecs();
+      if (getMod(statsmod.getNumberSecs(), 10)==0) {
             await checkData();
+	}
 	    while (id == prevId) {
                 await sqlmod.selectPriceDB(1, 'desc');
                 priceRecs = sqlmod.getPriceDb(); 
