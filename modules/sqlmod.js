@@ -1,7 +1,9 @@
 class SQLMod {
   constructor( 
     )   
-    {  
+    {
+	    this.statsRangeExists = false;
+	    this.lastIdStatsPrice=0;
 	    this.lastIdCurrPrice=0;
         this.dbRes ={};
         this.lastVal = null;
@@ -10,6 +12,7 @@ this.tradeprofitDB;
 	    this.avgQtyDB = 0; 
 	    this.rangeAvgDB = 0;
         this.sql = null;
+        this.periodStatsDB = {};
         this.histId = 0;
         this.currId = 0;
         this.clientidExists = false;
@@ -25,7 +28,11 @@ this.tradeprofitDB;
 	this.lastCurrQty =0.00; 
         this.lastCurrPriceTime = 0;
     }
-
+// sqlmod.getPeriodStatsDB
+	//
+     getStatsRangeExists= () => { return this.statsRangeExists }
+     getLastIdStatsPriceDB = () => { return this.lastIdStatsPrice }
+     getPeriodStatsDB = () => { return this.periodStatsDB }
      getAvgQtyDb = () => { return this.avgQtyDB }
      getTradeProfitDb= () => { return this.tradeprofitDB }
      getRangeAvgDb= () => { return this.rangeAvgDB }
@@ -156,7 +163,41 @@ this.tradeprofitDB;
        }
      }
 
-
+// calcPeriodStats
+     insertPeriodStatsDB = async(n1, n2) => {
+      // let sql = "select id,clientorderid, price, qty, ordertype, exitprice from priceorder   " +
+	//	     " by id desc limit " + n;
+       this.insertPeriodStats(n1, n2);
+//console.log(sql);
+       try {
+	       let pool = this.pool;
+           let res=await pool.query(this.sql)
+//	   if ((res) && (res.rowCount>0)) {
+          //    console.log(JSON.stringify(res));
+//		 this.periodStatsDB = res.rows;
+           //   this.lastCurrPrice = parseFloat(res.rows[0]["price"]);
+           //   this.lastCurrPriceTime = parseInt(res.rows[0]["timeprice"]);
+//	   }
+           //pool.end();
+       } catch (err) { throw(err);
+       }
+     }
+      existsStatsRange= async(id, avgperiod) => {
+            let sql = "select statsid from statsrange where statsid = " +id + " and avgperiod = " + avgperiod;
+            this.statsRangeExists=false;
+	    try {
+	       let pool = this.pool;
+           let res=await pool.query(sql)
+	   if ((res) && (res.rowCount>0)) {
+          //    console.log(JSON.stringify(res));
+		 this.statsRangeExists =true;
+           //   this.lastCurrPrice = parseFloat(res.rows[0]["price"]);
+           //   this.lastCurrPriceTime = parseInt(res.rows[0]["timeprice"]);
+	   }
+           //pool.end();
+       } catch (err) { throw(err);
+       }
+     }
      selectRangeAvgDB = async(n) => {
       // let sql = "select id,clientorderid, price, qty, ordertype, exitprice from priceorder   " +
 	//	     " by id desc limit " + n;
@@ -309,6 +350,27 @@ this.tradeprofitDB;
        }
 
      }
+
+
+     getLastIdStats = async() => {
+       let sql = "select last_value from stats_id_seq";
+
+       try {
+	       //console.log("start qiuery");
+	       let pool = this.pool;
+           let res=await pool.query(sql);
+
+	       //console.log("start qiuery 33");
+	       //console.log(res);
+           this.lastIdStatsPrice = parseInt(res.rows[0]["last_value"]);
+          // console.log(" last -- " + this.lastPriceRow);
+	  //    pool.end();
+       } catch (err) { throw(err);
+       }
+
+     }
+
+
  //    sumPrices = async () => {
      getLastIdCurrPrice = async() => {
        let sql = "select last_value from currprice_id_seq";
@@ -364,7 +426,27 @@ i//crypto=# select avg(diff), min(minprice), max(maxprice), (max(maxprice) - min
 // 8.5761388888888889 | 14.9780000000000000 | 1.81409246324397714800 | 17.1522777777777778
 //(1 row)
 
+//  id  |          txndate           |     minprice     |     maxprice     |    openprice     |    closeprice    |     avgprice     |       sumprice       | timemin  | itemnum |      qty       
+//crypto=# select avg(maxprice), avg(minprice), avg(diff) from (select maxprice, minprice, (maxprice - minprice) as diff, id from stats order by id desc limit 60) as t;
+ //       avg         |        avg         |        avg         
+//--------------------+--------------------+--------------------
+// 16543.555833333333 | 16535.184333333333 | 8.3715000000000000
+// 7103 | 2022-11-25 01:57:00.328209 | 16532.0000000000 | 16540.2100000000 | 16539.1100000000 | 16532.5900000000 | 16535.2350314465 |  18403716.5899999740 | 27822356 |    1113 |  20.6858400000
+//  id | timemin | avgminprice | avgmaxprice | avgspreadprice | avgperiod 
+// insert into statsrange (lasttimemin, avgminprice, avgmaxprice, avgrange, avgperiod) select  max(timemin) as lasttimemin, avg(minprice) as avgminprice, avg(maxprice) as avgmaxprice,  avg(diff) as avgrange, 60 as avgperiod from (select maxprice, minprice,  (maxprice - minprice) as diff, id, timemin from stats where id  between 7100 and 7160 )  as t;
 
+     insertPeriodStats = (n1, n2) => {
+	     // n- time in mins - 1 min slots on table
+	     // p1 - diff avg for the min define the price moves on the min
+	     // r1 - for the entire period - define the band of trade
+             let period = n2 - n1;
+	     this.sql = "insert into statsrange (statsid, lasttimemin, avgminprice, avgmaxprice, avgrange, avgperiod) "+
+		" select max(id) as statsid,  max(timemin) as lasttimemin, avg(minprice) as avgminprice, avg(maxprice) " +
+		" as avgmaxprice,  avg(diff) as avgrange, " + period + " as avgperiod from " +
+		" (select maxprice, minprice,  (maxprice - minprice) as diff, id, timemin " +
+		" from stats where id  between " + n1 + " and " + n2 + ")  as t";
+         // console.log(this.sql);
+     }
      calcRangeDiffSQL = (n) => {
 	     // n- time in mins - 1 min slots on table
 	     // p1 - diff avg for the min define the price moves on the min
