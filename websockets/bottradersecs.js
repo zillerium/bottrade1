@@ -31,7 +31,8 @@ var priceVariant = 20; // adjust buy and sell price by this - later calc via cur
 var riskFactor = parseFloat(1); // defines the risk on the range default is 1, raise this number to decrease risk
 var priceBuyVariant = 10; // adjust buy and sell price by this - later calc via currprice table
 const openOrderLimit = 5;
-const cycleLimit = 5;
+const cycleLimit = 2;
+
 const logger = getLogger();
 const loggerp = getLogger("price");
 //var logger = log4js.getLogger("bot");
@@ -49,7 +50,7 @@ var runCycle=150;
 const RSIN=14; // period for RS
 var totOrders = 0;
 var histId = 0;
-var totOrderLimit = 2;
+var totOrderLimit = 4;
 var btcQty =(parseFloat(1* 0.00075));
 console.log("%%%%%--- btcQty "+ btcQty);
 
@@ -282,63 +283,88 @@ console.log("kkk === " +JSON.stringify(jsonAvg));
 				    (totTakeVal < takeLimit) &&
 				    (!changeRange) && 
 				    (inBuyRange ) && (!dupSale)) {
-				    //         // !£££££££££££££££££££££££ [{"p1":"9.2101250000000000","r1":"13.9360000000000000","per1":"1.68576090887867142300","pd":"18.4202500000000000"}]
-loggerp.error("*** price criteria met *** ");
-				    loggerp.warn("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
-				    loggerp.warn("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
-				     loggerp.warn("$$$  BUYING CRITERIA MET $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
-				    loggerp.warn("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
-				    console.log("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
-				    console.log("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
-				     console.log("$$$  BUYING CRITERIA MET $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
-				    console.log("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
-				    console.log("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
+				// !£££££££££££££££££££££££ [{"p1":"9.2101250000000000","r1":"13.9360000000000000","per1":"1.68576090887867142300","pd":"18.4202500000000000"}]
+                                loggerp.error("*** price criteria met *** ");
+	    	                loggerp.warn("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
+			        loggerp.warn("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
+				loggerp.warn("$$$  BUYING CRITERIA MET $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
+				loggerp.warn("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
+				console.log("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
+				console.log("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
+				console.log("$$$  BUYING CRITERIA MET $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
+				console.log("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
+				console.log("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
 
 				let orgSellPrice = statsmod.getSellPrice();
 		        	let sellPriceL = parseFloat(statsmod.getBuyPrice()) + parseFloat(priceBuyVariant);
 				statsmod.setSellPriceVal(sellPriceL.toFixed(2));
      			        console.log("x10 sell price == " + statsmod.getSellPrice() + " " + sellPriceL + " " + statsmod.getBuyPrice());
-			      console.log("++++++++++++++++++++++++++++++")
-			      console.log("+ BUYING ORDER 1 NOW buying price +++" + statsmod.getBuyPrice());
-			      console.log("++++++++++++++++++++++++++++++")
+			        console.log("++++++++++++++++++++++++++++++")
+			        console.log("+ BUYING ORDER 1 NOW buying price +++" + statsmod.getBuyPrice());
+			        console.log("+ BUYING ORDER 1 NOW selling price +++" + statsmod.getSellPrice());
+			        console.log("++++++++++++++++++++++++++++++")
 			        dupSale = dupSales(sellJsonOrders, statsmod.getSellPrice(), rangePrice);
-				    if (!dupSale) {
+			        if (!dupSale) {
 	   	                       await mainBuyOrder(statsmod.getBuyPrice(), 
 		        	       statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
                                        addSummaryBuy(orderRefVal)
-				    } else {
+			        } else {
                                         loggerp.warn("kkk6 - order failed due to sell price dup");
                                         console.log("kkk6 - order failed due to sell price dup");
-				    }
+			        }
 			        // let newBuyprice = statsmod.getBuyPrice()*2-statsmod.getSellPrice();
-			        let newBuyprice =  parseFloat(statsmod.getBuyPrice()) - parseFloat(priceBuyVariant);
+			        let orgBuyPricelocal = parseFloat(statsmod.getBuyPrice());
+				let newBuyprice =  parseFloat(statsmod.getBuyPrice()) - parseFloat(priceBuyVariant);
 
 			        let newBuypriceFixed = newBuyprice.toFixed(2);
 				statsmod.setBuyPriceVal(newBuypriceFixed);
-			      console.log("++++++++++++++++++++++++++++++")
-			      console.log("+ check range 2 buying price +++" + statsmod.getBuyPrice());
-			      console.log("++++++++++++++++++++++++++++++")
-				    let topBuyRange1 = parseFloat(statsmod.getBuyPrice()) + parseFloat(priceVariant);
+			        console.log("++++++++++++++++++++++++++++++")
+			        console.log("+ check range 2 buying price +++" + statsmod.getBuyPrice());
+			        console.log("++++++++++++++++++++++++++++++")
+			        let topBuyRange1 = parseFloat(statsmod.getBuyPrice()) + parseFloat(priceVariant);
 			        let botBuyRange1 = parseFloat(statsmod.getBuyPrice()) - parseFloat(priceVariant);
 			        let inRange1 = await checkInRange(openBuyOrders, topBuyRange1, botBuyRange1);
                                 if (!inRange1) inRange1 =  await newRangeCheck(openBuyOrders, topBuyRange1, botBuyRange1);
+				let orgOrderValLocal = orderRefVal;    
 				if (!inRange1) {    
-					console.log("2 ++++++++++++++ not in range +++ ");
-		    		    statsmod.setSellPrice(orgSellPrice);
-			      console.log("++++++++++++++++++++++++++++++")
-			      console.log("+ BUYING ORDER 2 NOW buying price +++" + statsmod.getBuyPrice());
-			      console.log("++++++++++++++++++++++++++++++")
-			            orderRefVal +=10; // sell at same price but buy lower in price
+				      console.log("2 ++++++++++++++ not in range +++ ");
+		    		      statsmod.setSellPriceVal(orgSellPrice);
+			              console.log("++++++++++++++++++++++++++++++")
+			              console.log("+ BUYING ORDER 2 NOW buying price +++" + statsmod.getBuyPrice());
+			              console.log("+ BUYING ORDER 2 NOW selling price +++" + statsmod.getSellPrice());
+			              console.log("++++++++++++++++++++++++++++++")
+			              orderRefVal +=10; // sell at same price but buy lower in price
                        
-			     sqlmod.insertTradeProfitLogSQL(topBuyRange1, botBuyRange1, statsmod.getBuyPrice(), 
-				  statsmod.getSellPrice(), orderRefVal, 'BUY', inRange);
-			      await sqlmod.exSQL();
-	   	                    await mainBuyOrder(statsmod.getBuyPrice(), 
-		        	    statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
-                                    addSummaryBuy(orderRefVal)
+			              sqlmod.insertTradeProfitLogSQL(topBuyRange1, botBuyRange1, statsmod.getBuyPrice(), 
+				            statsmod.getSellPrice(), orderRefVal, 'BUY', inRange);
+			              await sqlmod.exSQL();
+	   	                      await mainBuyOrder(statsmod.getBuyPrice(), 
+		        	      statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
+                                      addSummaryBuy(orderRefVal)
 				} else {
                                     console.log("2 ++++++++++++ in range ");
 				}
+
+				// new order buy at price now and sell at x2 range - cancel if needed and resell at a lower price
+				let margin = parseFloat(2);
+           			statsmod.setBuyPriceVal(orgBuyPricelocal);
+                                let sellPriceL2 = parseFloat(statsmod.getBuyPrice()) +
+					   parseFloat(parseFloat(margin)* parseFloat(priceBuyVariant));    
+				console.log("old selling price ----- "+ statsmod.getSellPrice());
+				console.log("selling price local ----- "+ sellPriceL2);
+		    	        statsmod.setSellPriceVal(sellPriceL2.toFixed(2));
+				console.log("new selling price ----- "+ statsmod.getSellPrice());
+			        orderRefVal = orgOrderValLocal + 20; // sell at same price but buy lower in price
+			        console.log("++++++++++++++++++++++++++++++")
+			        console.log("+ BUYING ORDER 3 NOW buying price +++" + statsmod.getBuyPrice());
+			        console.log("+ BUYING ORDER 3 NOW selling price +++" + statsmod.getSellPrice());
+			        console.log("++++++++++++++++++++++++++++++")
+			        sqlmod.insertTradeProfitLogSQL(topBuyRange, botBuyRange, statsmod.getBuyPrice(), 
+				            statsmod.getSellPrice(), orderRefVal, 'BUY', inRange);
+			        await sqlmod.exSQL();
+	   	                await mainBuyOrder(statsmod.getBuyPrice(), 
+		                    statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
+                                addSummaryBuy(orderRefVal)
 			 } else {
 //   if ((!inRange) && (!saleDone) && (totTakeVal < takeLimit) && (!changeRange) && (inBuyRange)) {
                              if (inBuyRange) { console.log("kkkk1 = Buy OK - within buy range for price")
@@ -798,6 +824,7 @@ async function main() {
 
 //            cycleCount++;
 		if (cycleCount > cycleLimit) processtest=false;
+//             processtest=false;
 
 	}
 	console.log("*********************************************");
@@ -910,10 +937,11 @@ async function mainBuyOrder(buyPrice, sellPrice, btcQty, orderRef) {
 	return 0;
     }
 
-    totOrders++;
-    console.log("tot orders ---------> " + totOrders);
-	logger.info("api new order - buy ");
+      totOrders++;
+      console.log("tot orders ---------> " + totOrders);
+      logger.info("api new order - buy ");
       let responseMargin = await bmod.newMarginOrder(buyPrice, btcQty, orderRef, 'GTC','BUY');
+      console.log("resp buy == "+ JSON.stringify(responseMargin.data));
       sqlmod.insertPriceOrderSQL(orderRef, buyPrice, btcQty, 'BUY', sellPrice);
       await sqlmod.exSQL();
       await insertAPI("newMarginOrderBuy", "ok");
