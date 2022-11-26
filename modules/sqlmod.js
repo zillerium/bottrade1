@@ -2,6 +2,7 @@ class SQLMod {
   constructor( 
     )   
     {
+		 this.avgMaxMinRec = [];
 	    this.lastMinRec = {};
 	    this.statsRangeExists = false;
 	    this.lastIdStatsPrice=0;
@@ -32,6 +33,7 @@ this.tradeprofitDB;
     }
 // sqlmod.getPeriodStatsDB
 	//
+     getAvgMaxMinRec= () => { return this.avgMaxMinRec }
      getStatsRecTime= () => { return this.statsRecTime }
      getLastMinAvg= () => { return this.lastMinRec }
      getStatsRangeExists= () => { return this.statsRangeExists }
@@ -408,8 +410,50 @@ this.tradeprofitDB;
        }
 
      }
+/*
+ * crypto=# select count(*) from stats where avgprice >  (select avg(avgprice) as avgc from (select avgprice, txndate from stats where mod(timemin,60)=0 order by id desc limit 24) as t);
+ count
+-------
+  2848
+(1 row)
 
+crypto=# (select avg(avgprice) as avgc from (select avgprice, txndate from stats where mod(timemin,60)=0 order by id desc limit 24) as t);
+        avgc
+--------------------
+ 16554.614211447663
+(1 row)
+*/
 
+/*(select avg(avgprice) as avgc, max(maxprice) as maxp, min(minprice) as minp from (select avgprice, txndate, minprice, maxprice from stats order by id desc limit 1440) as t);
+        avgc        |       maxp       |       minp       
+--------------------+------------------+------------------
+ 16556.965376671378 | 16701.4600000000 | 16436.7900000000
+(1 row)
+*/
+	// sql queries
+
+     getAvgMaxMin = async(period) => {
+       let sql = "(select avg(avgprice) as avgc, max(maxprice) as maxp, "+
+		     " min(minprice) as minp from (select avgprice, txndate, " +
+		     " minprice, maxprice from stats order by id desc limit " + period + ") as t)";
+
+       try {
+	       //console.log("start qiuery");
+	       let pool = this.pool;
+           let res=await pool.query(sql);
+
+	   if ((res) && (res.rowCount>0)) {
+          //    console.log(JSON.stringify(res));
+		 this.avgMaxMinRec = res.rows;
+	       //console.log("start qiuery 33");
+	   }
+		   //console.log(res);
+          // console.log(" last -- " + this.lastPriceRow);
+	  //    pool.end();
+       } catch (err) { throw(err);
+       }
+
+     }
  //    sumPrices = async () => {
      getLastIdCurrPrice = async() => {
        let sql = "select last_value from currprice_id_seq";
