@@ -34,6 +34,8 @@ const openOrderLimit = 5;
 const cycleLimit = 2;
 var levelsjson = {};
 var avgJsonObj = {};
+var errJson = [];
+var orderJson = [];
 const logger = getLogger();
 const loggerp = getLogger("price");
 //var logger = log4js.getLogger("bot");
@@ -297,6 +299,29 @@ console.log("************ end of avg");
 			 console.log("top range   == " +topBuyRange);
 			 console.log("bot range   == " +botBuyRange);
 			 console.log("in range   == " +inRange);
+                         
+			 let errJsonLocal = {
+				 totTakeVal: totTakeVal,
+				 takeLimit: takeLimit,
+				 inRange: inRange,
+				 saleDone: saleDone,
+				 changeRange: changeRange,
+				 inBuyRange: inBuyRange,
+				 dupSale: dupSale
+			       };
+			  errJson.push(errJsonLocal);
+
+		          let orderJsonLocal = {
+				    sellPrice: statsmod.getSellPrice(),
+				     buyPrice: statsmod.getBuyPrice(),
+				     orderRef: orderRefVal,
+				     qty: statsmod.getBuyQty(),
+				     topRange: topBuyRange,
+				     botRange: botBuyRange,
+				     type: 'BUY'
+			        };
+			    orderJson.push(orderJsonLocal);
+
 			    if (totTakeVal > takeLimit) loggerp.error("too exposed - sell orders - " + totTakeVal + " " + takeLimit);
 			    if ((!inRange) && (!saleDone) && 
 				    (totTakeVal < takeLimit) &&
@@ -368,6 +393,31 @@ console.log("************ end of avg");
 
 
 				}
+
+
+			  errJsonLocal = {
+				 totTakeVal: totTakeVal,
+				 takeLimit: takeLimit,
+				 inRange: inRange,
+				 saleDone: saleDone,
+				 changeRange: changeRange,
+				 inBuyRange: inBuyRange,
+				 dupSale: dupSale
+			       };
+			  errJson.push(errJsonLocal);
+
+		           orderJsonLocal = {
+				     sellPrice: sellPriceL2.toFixed(2),
+				     buyPrice: orgBuyPricelocal.toFixed(2),
+				     orderRef: orderRefVal3,
+				     qty: origQty,
+				     topRange: topBuyRange,
+				     botRange: botBuyRange,
+				     type: 'BUY'
+			        };
+			    orderJson.push(orderJsonLocal);
+
+
 				let newBuyprice =  parseFloat(statsmod.getBuyPrice()) - parseFloat(priceBuyVariant);
 
 				let topBuyRange1 = parseFloat(orgBuyPricelocal) + parseFloat(priceVariant);
@@ -400,6 +450,30 @@ console.log("************ end of avg");
 				} else {
                                     console.log("2 ++++++++++++ in range ");
 				}
+
+
+			  errJsonLocal = {
+				 totTakeVal: totTakeVal,
+				 takeLimit: takeLimit,
+				 inRange: inRange1,
+				 saleDone: saleDone,
+				 changeRange: changeRange,
+				 inBuyRange: inBuyRange,
+				 dupSale: dupSale
+			       };
+			  errJson.push(errJsonLocal);
+
+		          orderJsonLocal = {
+				     sellPrice: orgSellPrice,
+				     buyPrice: newBuyprice.toFixed(2),
+				     orderRef: orderRefVal2,
+				     qty: origQty,
+				     topRange: topBuyRange1,
+				     botRange: botBuyRange1, 
+				     type: 'BUY'
+			        };
+			    orderJson.push(orderJsonLocal);
+
 
 			 } else {
 //   if ((!inRange) && (!saleDone) && (totTakeVal < takeLimit) && (!changeRange) && (inBuyRange)) {
@@ -909,6 +983,11 @@ async function main() {
 	//process.exit();
 	console.log("Price market ranges - period in mins");
 	console.table(avgJsonObj);
+	//process.exit();
+	console.log("Error Table");
+	console.table(errJson);
+	console.log("Order Table");
+	console.table(orderJson);
 	process.exit();
 }
 
@@ -977,7 +1056,7 @@ function setValues() {
 async function mainSellOrder(buyPrice, sellPrice, btcQty, orderRef) {
 console.log("KKKKKKKKKKKKK sell order");
 //    totOrders++;
-    return 0;
+   // return 0;
     if (totOrders > 5*totOrderLimit) {
 	    console.log("@@@@@@@@@@@@@@@ forced exit - loop @@@@@@@@@@@@@@@@");
 	    process.exit();
@@ -1007,7 +1086,7 @@ async function mainBuyOrder(buyPrice, sellPrice, btcQty, orderRef) {
         console.log("@@@@@@@@@@@@@@@@@ loop alert @@@@@@@@@@@@@@@@ " + totOrders);
         console.log("@@@@@@@@@@@@@@@@@ loop alert @@@@@@@@@@@@@@@@ " + totOrders);
 //    totOrders++;
-	return 0;
+//	return 0;
     if (totOrders > 5*totOrderLimit) {
 	    console.log("@@@@@@@@@@@@@@@ forced exit - loop @@@@@@@@@@@@@@@@");
 	    process.exit();
