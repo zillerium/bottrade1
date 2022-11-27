@@ -11,13 +11,31 @@ class BotMod {
     }
 
 
+    getAllOrdersSelect = async (isIsolated, num) => {
+        try {
+            return await this.client.marginAllOrders(
+                'BTCUSDT', // symbol
+            {
+                isIsolated: 'TRUE',
+        	limit: num
+                //origClientOrderId: orderRef.toString(),
+            }
+            )
+      //  await addQueryOrder(response.data);
+         }
+         catch (e) {
+             this.client.logger.error(e);
+             throw(e);
+         }
+
+    }
     getAllOrders = async (isIsolated) => {
         try {
             return await this.client.marginAllOrders(
                 'BTCUSDT', // symbol
             {
                 isIsolated: 'TRUE',
-        	limit: 100
+        	limit: 500
                 //origClientOrderId: orderRef.toString(),
             }
             )

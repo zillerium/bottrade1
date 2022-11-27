@@ -55,7 +55,11 @@ eriod":30,"statsid":7369},{"lasttimemin":"27822620","avgminprice":"16394.0921311
        let range5minLow = parseFloat(lastminAvg[0]["avgminprice"])- parseFloat(lastminAvg[0]["avgrange"]);
        let range5minHigh = parseFloat(lastminAvg[0]["avgminprice"])+ parseFloat(lastminAvg[0]["avgrange"]);
        let minprice10min = parseFloat(lastminAvg[1]["avgminprice"]);
-      
+       let maxprice10min = parseFloat(lastminAvg[1]["avgminprice"])+ parseFloat(lastminAvg[1]["avgrange"]);
+     
+       let levelsjson = {min5m: range5minLow, max5m: range5minHigh, 
+	                 min10m: minprice10min, max10m: maxprice10min, buyprice: buyprice};
+
        console.log("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&");
        console.log("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&");
        console.log("& RANGE CHECK                          &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&");
@@ -85,7 +89,7 @@ eriod":30,"statsid":7369},{"lasttimemin":"27822620","avgminprice":"16394.0921311
 
 
     let avgrange = parseFloat(lastminAvg[0]["avgrange"]);
-    let jsonout = { avgrange: avgrange, inrange: inrangeval, inrangebuy: inrangebuyval };
+    let jsonout = { avgrange: avgrange, inrange: inrangeval, inrangebuy: inrangebuyval, levelsjson: levelsjson };
     return jsonout;
 
 }

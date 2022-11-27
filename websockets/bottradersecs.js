@@ -32,7 +32,7 @@ var riskFactor = parseFloat(2); // defines the risk on the range default is 1, r
 var priceBuyVariant = 10; // adjust buy and sell price by this - later calc via currprice table
 const openOrderLimit = 5;
 const cycleLimit = 2;
-
+var levelsjson = {};
 const logger = getLogger();
 const loggerp = getLogger("price");
 //var logger = log4js.getLogger("bot");
@@ -125,7 +125,7 @@ async function processOrder() {
 		  // avoid when profit is zero
 		  // add two sell prices - one at max candlestick and one at x10 candlestick - 50% split.
 		  let profitprojected = statsmod.getSellPrice() - statsmod.getBuyPrice();
-	          let saleDone = false;
+	          var saleDone = false;
 	   	  console.log("--------------> profit projected == " + profitprojected);
 		  if ((freeBal > minTradingBalance) && (profitprojected > 0) ) {
 	                loggerp.error("buying option now ");
@@ -134,7 +134,7 @@ async function processOrder() {
                         console.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
                         console.log("!       all orders       !!!!!!!!");
                         console.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-			  let apiAllOrders = await bmod.getAllOrders('TRUE');
+			  let apiAllOrders = await bmod.getAllOrdersSelect('TRUE', 100);
 			 //client.logger.log(apiAllOrders.data);
                          
 			await insertAPI("marginAllOrders", "ok");
@@ -142,76 +142,91 @@ async function processOrder() {
                         console.log("!       all orders - end      !!!!!!!!");
                         console.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
 		        let k1=0; let allFilledOrders =[];
-		        for (let j=0;j<apiAllOrders.data.length;j++) {
-                           if ((apiAllOrders.data[j]["status"] == 'FILLED') && (apiAllOrders.data[j]["side"]=='BUY')) {
-                                 allFilledOrders[k1] = apiAllOrders.data[j];
-				 k1++;
-	         	    }
-			 }
-			  console.log("£££££££££££££££££££££££££££££££££££")
-			  console.log("££  all filled orders £££££££££££££££££££££££££££££££££")
-			  console.log("£££££££££££££££££££££££££££££££££££")
-			  loggerp.error("found json rec = all ");
-			 // console.log("filled == "+ JSON.stringify(allFilledOrders));
-			  console.log("£££££££££££££££££££££££££££££££££££")
-			 for (let j=0;j<allFilledOrders.length;j++) {
-			     let clientorderid = allFilledOrders[j]["clientOrderId"];
-				 let statuss = isNumber(clientorderid);
-	//			 console.log("status ==== " + statuss);
-		             if ((isNumber(clientorderid)) && (allFilledOrders[j]["side"]=='BUY')) {
-                                 let clientorderidNum = parseInt(clientorderid);
-				 let buyclientid = clientorderidNum;
-				 clientorderidNum++; // this is for a sell order - unique
-                                 let soldOrder = sellOrderFound(apiAllOrders.data, clientorderidNum); // search all orders
-				//     console.log("sold ord £££££ - " + soldOrder);
-			         if (!soldOrder) {
-				      await sqlmod.selectPriceOrderRec(buyclientid);
-			              let priceRec = sqlmod.getPriceOrderRec();
-			              let sellPriceLocal = parseFloat(priceRec[0]["exitprice"])
-	   	                      let buyPriceLocal = parseFloat(allFilledOrders[j]["price"]);
-	   	                      let qtyLocal = parseFloat(allFilledOrders[j]["executedQty"]);
-				     console.log("sold ord £££££ - " + JSON.stringify(priceRec));
-				     console.log(" sellprice local - " + sellPriceLocal);
-				     console.log(" buyprice local - " + buyPriceLocal);
-				     console.log(" qty local - " + qtyLocal);
-			             if ((btcBal >= qtyLocal) && (sellPriceLocal < 999999)) {  // 999999 legacy orders 
-                                          loggerp.warn(" coins to sell for order - " + qtyLocal + " btc bal " + btcBal);
-			                  saleDone = true;
-					     await mainSellOrder(buyPriceLocal, 
-				                sellPriceLocal, qtyLocal, clientorderidNum);
-					     addSummarySell(buyPriceLocal,
-                                                sellPriceLocal, qtyLocal, clientorderidNum);
-					  btcBal -= qtyLocal; // sold
-				      } else {
-                                          loggerp.warn(" no coins to sell " + qtyLocal*sellPriceLocal + " bal " + freeBal);
-				      }
-				 }
-			     }
-			 }
-                         let openOrders = await bmod.getOpenOrders('TRUE');
+			 let allUnFilledBuyOrders = [];
+			 let allFilledBuyOrders = [];
+			 let allFilledSellOrders = [];
+			 let allSellOrders = []; // includes new orders 
+                         apiAllOrders.data.map(item => {
+                           //  console.log("item = "+ JSON.stringify(item));
+                             if (
+				 (item["status"] == 'FILLED') 
+		              && (item["side"] =='BUY')
+		              && (isNumber(item["clientOrderId"]))
+			     ) { 
+			         allFilledBuyOrders.push(item);
+		             }
+                             if (
+				 (item["status"] == 'NEW') 
+		              && (item["side"] =='BUY')
+		              && (isNumber(item["clientOrderId"]))
+			     ) { 
+			         allUnFilledBuyOrders.push(item);
+		             }
+                             if (
+				 (item["status"] == 'FILLED') 
+		              && ((item["side"])=='SELL')
+		              && (isNumber(item["clientOrderId"]))
+			     ) { 
+			         allFilledSellOrders.push(item);
+		             }
+                             if (
+				 ((item["status"] == 'NEW') || (item["status"] == 'FILLED') ) 
+		              && ((item["side"])=='SELL')
+		              && (isNumber(item["clientOrderId"]))
+			     ) { 
+			         allSellOrders.push(item);
+		             }
+                         })
+                          //console.log("nnnnnnbbbb = " + JSON.stringify(allSellOrders));
+		          let salesunresolved = await allFilledBuyOrders.map(async item =>  {
+		             let saleJson = {};
+				  let c = parseInt(item["clientOrderId"])+parseInt(1);	
+			 //     if (item["clientOrderId"]==3716306906) 
+			//	  console.log(" order = "+ JSON.stringify(item));
+			 //     console.log("order id = " + c);
+		              if ((parseInt(item["clientOrderId"]) == 481569849090) ||
+		               (parseInt(item["clientOrderId"]) == 3716306906)) {
+
+			      } else {
+                                  let m1 = !allSellOrders.some(m => parseInt(m["clientOrderId"]) == c);
+				  //    console.log("llllllll in map - m = " + m1);
+			          if (m1) {
+				      let json = await sellOrder(item);
+				      return json;	  
+					 
+			          } else {
+			   //           console.log("pppp sale");
+			          }
+			      }
+
+			  })
+			  let salesresolved = await Promise.all(salesunresolved);
+			  let newSalesJson=salesresolved.filter(m=>{return m !=null})
+			  console.log("ooooooooooooo - sals json 1 resolved ---- " + JSON.stringify(salesresolved));
+			  console.log("ooooooooooooo - sals json 1 ---- " + JSON.stringify(newSalesJson));
+                      //   let newSaleOrders= newSaleOrders1.filter(m=>Object.keys(m).length!==0) 
+                          Object.assign(summarySellJson, newSalesJson);
+
+                          if ((newSalesJson) && (newSalesJson.length > 0)) saleDone = true;
+			  console.log("ooooooooooooo - saledone ---- " + saleDone);
+			  console.log("ooooooooooooo - sals json 2 ---- " + JSON.stringify(newSalesJson));
+
+			  let openOrders = await bmod.getOpenOrders('TRUE');
 			 //client.logger.log(openOrders.data);
 			 await insertAPI("marginOpenOrders", "ok");
-			 console.log(JSON.stringify(openOrders.data));
-			 console.log("open orders iiiiii"+ JSON.stringify(openOrders.data));
-			 console.log("open orders iiiiii len "+ JSON.stringify(openOrders.data.length));
-			  // loop and get buy orders
-			 let k=0; let openBuyOrders =[]; 
-			 for (let j=0;j<openOrders.data.length;j++) {
-                             if ((openOrders.data[j]["side"] == 'BUY') && (isNumber(openOrders.data[j]["clientOrderId"])))  {
-                                 openBuyOrders[k] = openOrders.data[j];
-			         k++;
+			 let k=0;
+                         let openBuyOrders = [];
+                         let openSellOrders = [];
+			 let totTakeVal = 0;
+                         openOrders.data.map(item => {
+                            // console.log("item = "+ JSON.stringify(item));
+                             if ((item["side"] == 'BUY') && (isNumber(item["clientOrderId"]))) openBuyOrders.push(item);	
+                             if ((item["side"] == 'SELL') && (isNumber(item["clientOrderId"]))) {
+		                 openSellOrders.push(item);
+				 totTakeVal += parseFloat(item["origQty"])*parseFloat(item["price"]);    
 			     }
-			 
-			 }
-			 k=0; let openSellOrders =[]; let totTakeVal = 0;
-			 for (let j=0;j<openOrders.data.length;j++) {
-                             if ((openOrders.data[j]["side"] == 'SELL') && (isNumber(openOrders.data[j]["clientOrderId"])))  {
-                                 openSellOrders[k] = openOrders.data[j];
-				 totTakeVal += parseFloat(openOrders.data[j]["origQty"])*parseFloat(openOrders.data[j]["price"]);
-			         k++;
-			     }
-			 
-			 }
+                         })
+
                           let period = parseInt(1440);
 			  let aboveAvg = await isAboveAvg(statsmod.getBuyPrice(), period);
                           if (aboveAvg)  {
@@ -221,8 +236,10 @@ async function processOrder() {
 
 console.log("************ start of avg");
                           let jsonout = await getRangeAvg();
+			  levelsjson = jsonout["levelsjson"];
 			  let changeRange = jsonout["changeRange"];
 			  let inBuyRange = jsonout["inBuyRange"];
+			  console.log("KKKKKKKKKKKKKKKKKKKK = inbuy range = " + inBuyRange);
 			  priceBuyVariant = parseFloat(jsonout["priceBuyVar"]);
 			  priceVariant = parseFloat(jsonout["priceVar"]);
 			  let rangePrice = parseFloat(jsonout["rangePrice"]);
@@ -321,8 +338,8 @@ console.log("************ end of avg");
 			              
 			              orderRefVal +=10; // sell at same price but buy lower in price
                                 
-				      await processBuyOrder(statsmod.getSellPrice(), statsmod.getBuyPrice(), orderRefVal, topBuyRange1,
-					botBuyRange1, inRange1, statsmod.getBuyQty(), 2);
+				  //    await processBuyOrder(statsmod.getSellPrice(), statsmod.getBuyPrice(), orderRefVal, topBuyRange1,
+				//	botBuyRange1, inRange1, statsmod.getBuyQty(), 2);
 
 				} else {
                                     console.log("2 ++++++++++++ in range ");
@@ -337,8 +354,8 @@ console.log("************ end of avg");
 				statsmod.setSellPriceVal(sellPriceL2.toFixed(2));
 
 				orderRefVal = orgOrderValLocal + 20; // sell at same price but buy lower in price
-                                await processBuyOrder(statsmod.getSellPrice(), statsmod.getBuyPrice(), orderRefVal, topBuyRange,
-					botBuyRange, inRange, statsmod.getBuyQty(), 3);
+                             //   await processBuyOrder(statsmod.getSellPrice(), statsmod.getBuyPrice(), orderRefVal, topBuyRange,
+		//			botBuyRange, inRange, statsmod.getBuyQty(), 3);
 			 } else {
 //   if ((!inRange) && (!saleDone) && (totTakeVal < takeLimit) && (!changeRange) && (inBuyRange)) {
                              if (inBuyRange) { console.log("kkkk1 = Buy OK - within buy range for price")
@@ -385,6 +402,7 @@ loggerp.error("kkk3 failed - too many orders" );
 		  console.log("************************************************");
 
 }
+
 
 async function isAboveAvg(buyprice, period) {
      await sqlmod.getAvgMaxMin(period);
@@ -443,15 +461,19 @@ async function getRangeAvg() {
     let jsonAvg =  riskmod.calcAvg(id, timemin, lastminAvg, statsmod.getBuyPrice(), statsmod.getMinPrice(), statsmod.getMaxPrice());
 
     console.log("json avg === " +JSON.stringify(jsonAvg));
-    let changeRange = !jsonAvg["inrange"];
-    let inBuyRange = jsonAvg["inrangebuy"];
-    let priceBuyVariantL = parseFloat(jsonAvg["avgrange"]);
-    let priceVariantL = parseFloat(jsonAvg["avgrange"]);
-    let rangePrice = parseFloat(jsonAvg["avgrange"]);
-    let jsonout = {changeRange: changeRange, inBuyRange: inBuyRange, priceBuyVar: priceBuyVariantL, priceVar: priceVariantL,
-	    rangePrice: rangePrice}
+//     let jsonout = { avgrange: avgrange, inrange: inrangeval, inrangebuy: inrangebuyval, levelsjson: levelsjson };
+
+    let jsonout = {changeRange:  !jsonAvg["inrange"], 
+	           inBuyRange:   jsonAvg["inrangebuy"],
+	           priceBuyVar:  parseFloat(jsonAvg["avgrange"]),
+	           priceVar:     parseFloat(jsonAvg["avgrange"]),
+	           rangePrice:   parseFloat(jsonAvg["avgrange"]),
+	           levelsjson:   jsonAvg["levelsjson"]}
 
     console.log("json out === " +JSON.stringify(jsonout));
+    console.log("******************************************");	
+    console.log("*   END THE RANGE AVERAGE***************");	
+    console.log("******************************************");	
     return jsonout;
 
 }
@@ -498,7 +520,7 @@ async function checkInRange(buyOrders, topRange, botRange) {
 	console.log("%%%%%% buy price == "+ buyPrice);     
 	console.log("%%%%%%top range == "+ topRange);     
 	console.log("%%%%%% bot range == "+ botRange);     
-        if ((buyPrice > botRange) && (buyPrice < topRange)) {
+        if ((buyPrice >= botRange) && (buyPrice < topRange)) {
 	     sqlmod.insertOpenOrderSQL(parseInt(buyOrders[key]["clientOrderId"]),
 		     
 		     parseInt(buyOrders[key]["updateTime"]), 
@@ -678,6 +700,15 @@ function addSummaryBuy(reflocal) {
       summaryBuyJson.push(buyJsonL);
 }
 
+function addSummarySellJson(buyPriceLocal, sellPriceLocal, qtyLocal, clientorderidNum) {
+
+    let sellJsonL = {"buyPrice": buyPriceLocal, 
+	       "sellPrice": sellPriceLocal,
+	       "sellQty": qtyLocal,
+	       "clientorderid": clientorderidNum,
+               "orderType": 'SELL'};
+    return sellJsonL;
+}
 function addSummarySell(buyPriceLocal, sellPriceLocal, qtyLocal, clientorderidNum) {
 
     let sellJsonL = {"buyPrice": buyPriceLocal, 
@@ -691,6 +722,36 @@ function isNumber(val) {
     return !isNaN(val);
 	//&& parseFloat(Number(val)) === val && !isNaN(parseInt(val, 10));
 }
+
+async function sellOrder(filledBuyOrder) {
+
+	console.log("filled by order to sell mmmmmmmmmmm = "+JSON.stringify(filledBuyOrder));
+        let btcBal = 1000; // should be changed for the real btc balc - get account info
+	await sqlmod.selectPriceOrderRec(filledBuyOrder["clientOrderId"]);
+///	console.log("llllllllllllll call done to db");
+	let priceRec = sqlmod.getPriceOrderRec();
+
+	let buyprice = parseFloat(filledBuyOrder["price"]);
+	let sellprice = parseFloat(priceRec[0]["exitprice"]);
+	let qty = parseFloat(filledBuyOrder["executedQty"]);
+	let sellId = parseInt(filledBuyOrder["clientOrderId"])+1;
+				     
+        if ((btcBal >= qty) && (sellprice < 999999)) {  // 999999 legacy orders 
+             console.log("if to sell order llllllll");
+	     await mainSellOrder(buyprice, sellprice, qty, sellId);
+
+	     btcBal -= qty;
+	     let json = addSummarySellJson(buyprice, sellprice, qty, sellId);
+             console.log("if to sell order llllllll json "+ JSON.stringify(json));
+             return json;		
+         } else {
+             loggerp.warn(" no coins to sell " + qtyLocal*sellPriceLocal + " bal " + freeBal);
+         }
+//	console.log("no if return lllll");
+	return {}
+
+}
+
 
 function sellOrderFound(allFilledOrders, clientorderNum) {
      //console.log("x11 = clientordernum " + clientorderNum);
@@ -707,35 +768,6 @@ function sellOrderFound(allFilledOrders, clientorderNum) {
 	   }
        }
 	return false;
-}
-
-async function newCandleStickManager() {
-
-       // new candlestick
-       console.log("************************************************************");
-       console.log("*              NEW CANDLESTICK                            *");
-       console.log("*              second count = " + statsmod.getNumberSecs() + "                 *");
-       console.log("************************************************************");
-       
-
-
-	statsmod.newCandleStick();
-       console.log("nnnnnnnn = "+ JSON.stringify(statsmod.getPriceVars()) + "  *** "); 
-       histId++;
-
-  //    let datadb = d.toString().replace('GMT+0000 (Coordinated Universal Time)','');
-  //    sqlmod.buildSQLStats(statsmod.getAvgPrice(), orgTime, statsmod.getChgPrice(), statsmod.getDirectionPrice(), datadb);
-  //    let rtn = await sqlmod.insertStats();
-      
-	let delim = ",";
-      loggerp.warn(delim, statsmod.getNumberSecs(), delim, statsmod.getBuyPrice(), delim, statsmod.getSellPrice()); 
-      let trade = true;
-      console.log("percent change = " + statsmod.getPercentChange());
-
-       console.log("************************************************************");
-       console.log("*              END CANDLESTICK                            *");
-       console.log("*              second count = " + statsmod.getNumberSecs() + "                 *");
-       console.log("************************************************************");
 }
 
 //************* read prices from the db in real-time
@@ -768,27 +800,29 @@ async function main() {
         let prevId = id;
 	while (processtest) {
 
-
+            //console.log("processing loop"+ new Date());
 	// process order
 		//
 //	    let numMins = statsmod.getNumberSecs();
-      if (getMod(statsmod.getNumberSecs(), 10)==0) {
-            await checkData();
-	}
-	    while (id == prevId) {
+           if (getMod(statsmod.getNumberSecs(), 10)==0) {
+               await newSecond();
+           }
+	   while (id == prevId) {
+//		console.log("db checks id = " + id);
+//		console.log("db checks previd = " + prevId);
                 await sqlmod.selectPriceDB(1, 'desc');
                 priceRecs = sqlmod.getPriceDb(); 
      	        timeprice = parseInt(priceRecs[0]["timeprice"]);
 	        price = parseFloat(priceRecs[0]["price"]);
 	        id = parseFloat(priceRecs[0]["id"]);
 	        tradeqty = parseFloat(priceRecs[0]["qty"]);
-	    }
-            prevId = id;
-            statsmod.setCurrentPrice(price); // price
-            statsmod.setNumberSecs(timeprice);
+	   }
+           prevId = id;
+           statsmod.setCurrentPrice(price); // price
+           statsmod.setNumberSecs(timeprice);
 
 //            cycleCount++;
-		if (cycleCount > cycleLimit) processtest=false;
+	   if (cycleCount > cycleLimit) processtest=false;
 //             processtest=false;
 
 	}
@@ -799,33 +833,37 @@ async function main() {
 	console.table(summaryBuyJson);
 	console.log("Sell Orders ");
 	console.table(summarySellJson);
+	console.log("Price ranges ");
+	console.table(levelsjson);
 	process.exit();
 }
 
 
-async function checkData() {
+async function newSecond() {
    if (statsmod.getNumberSecs() > statsmod.getPrevSecs())  {
-       console.log("$$$$$$$$$$$$$$$$$$$ furst if met");
        loggerp.error("cond if get nums ", statsmod.getNumberSecs(), statsmod.getNumberSecs()/60, " prev " , statsmod.getPrevSecs());
+       
        statsmod.setPrevSecsToNumber();
+       
        console.log("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&");     
-       console.log("& start of main loop &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&");     
+       console.log("& START OF A NEW PRICE SEC &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&");     
        console.log("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&");     
        cycleCount++;
        console.log("++++++++++++++++++++++++++++++++++++++++++++++++++++****** ======= cycle count " + cycleCount + " ");
-       let rtn1 = await newCandleStickManager();
+       
+       console.log("*              second count = " + statsmod.getNumberSecs() + "                 *");
+       statsmod.newCandleStick();
+       console.log("nnnnnnnn = "+ JSON.stringify(statsmod.getPriceVars()) + "  *** "); 
+       let delim = ",";
+       loggerp.warn(delim, statsmod.getNumberSecs(), delim, statsmod.getBuyPrice(), delim, statsmod.getSellPrice()); 
+       let trade = true;
+       console.log("percent change = " + statsmod.getPercentChange());
+       console.log("*              second count = " + statsmod.getNumberSecs() + "                 *");
        console.log("------------------------------------- "+ Math.abs(statsmod.getPercentChange()) );     
+       
        if (Math.abs(statsmod.getPercentChange() < 0.5)) {
            console.log("++++++++++++++ totOrders = " + totOrders + " ++++++++++++");
-           console.log("++++++++++++++ totOrders = " + totOrders + " ++++++++++++");
-           console.log("++++++++++++++ totOrders = " + totOrders + " ++++++++++++");
-           console.log("++++++++++++++ totOrders = " + totOrders + " ++++++++++++");
-           console.log("++++++++++++++ totOrders = " + totOrders + " ++++++++++++");
-           console.log("++++++++++++++ totOrders = " + totOrders + " ++++++++++++");
-           console.log("++++++++++++++ totOrders = " + totOrders + " ++++++++++++");
            console.log("++++++++++++++ totOrderLimit = " + totOrderLimit + " ++++++++++++");
-           console.log("++++++++++++++ totOrders = " + totOrders + " ++++++++++++");
-           console.log("++++++++++++++ totOrders = " + totOrders + " ++++++++++++");
            if (totOrders < totOrderLimit) {
                let rtn = await processOrder();
            }
@@ -835,13 +873,15 @@ async function checkData() {
           // prices.push(statsmod.getPriceVars());
            statsmod.setPrices();
        }
-       console.log("==================================== new time in secs ===================================");
        setValues();
        console.log("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&");     
-       console.log("& end of main loop &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&");     
+       console.log("& END OF A NEW PRICE SEC &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&");     
        console.log("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&");     
     } else {
        // min change
+     //  console.log("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&");
+     //  console.log("& USING CURRENT SEC &");
+     //  console.log("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&");
        statsmod.incNumberTxns();	   
        statsmod.setClosePrice(parseFloat(statsmod.getCurrentPrice()));
        statsmod.setMinMaxPrices();
@@ -861,8 +901,9 @@ function setValues() {
 }
 
 async function mainSellOrder(buyPrice, sellPrice, btcQty, orderRef) {
-
+console.log("KKKKKKKKKKKKK sell order");
 //    totOrders++;
+ //   return 0;
     if (totOrders > 5*totOrderLimit) {
 	    console.log("@@@@@@@@@@@@@@@ forced exit - loop @@@@@@@@@@@@@@@@");
 	    process.exit();
