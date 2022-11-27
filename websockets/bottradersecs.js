@@ -182,24 +182,17 @@ async function processOrder() {
                          })
                           //console.log("nnnnnnbbbb = " + JSON.stringify(allSellOrders));
 		          let salesunresolved = await allFilledBuyOrders.map(async item =>  {
-		             let saleJson = {};
-				  let c = parseInt(item["clientOrderId"])+parseInt(1);	
-			 //     if (item["clientOrderId"]==3716306906) 
-			//	  console.log(" order = "+ JSON.stringify(item));
-			 //     console.log("order id = " + c);
+		              let saleJson = {};
+			      let c = parseInt(item["clientOrderId"])+parseInt(1);	
 		              if ((parseInt(item["clientOrderId"]) == 481569849090) ||
-		               (parseInt(item["clientOrderId"]) == 3716306906)) {
+		                   (parseInt(item["clientOrderId"]) == 3716306906)) {
 
 			      } else {
                                   let m1 = !allSellOrders.some(m => parseInt(m["clientOrderId"]) == c);
-				  //    console.log("llllllll in map - m = " + m1);
 			          if (m1) {
 				      let json = await sellOrder(item);
 				      return json;	  
-					 
-			          } else {
-			   //           console.log("pppp sale");
-			          }
+			          } 
 			      }
 
 			  })
@@ -272,14 +265,6 @@ console.log("************ end of avg");
 		                        (topBuyRange >= (parseFloat(m["price"]))))
 	                              );
 
-                          if (!inRange) {
-                                console.log("+++++++++++ x10 not found in range 1 +++ ");
-			  }
-			  else {
-                             console.log("+++++++++++ x10 found in range 1 +++ ");
-			  }
-
-			  if (inRange) { loggerp.error("&&& within range - failed buy");console.log("+++ found in range check if");}
 			 
 			  if (!saleDone) {
                               sqlmod.insertTradeProfitLogSQL(topBuyRange, botBuyRange, statsmod.getBuyPrice(), 
@@ -291,14 +276,11 @@ console.log("************ end of avg");
 			 if (openBuyOrders.length > 0) {
                              lowestPrice = getLowestOpenBuyPrice(openBuyOrders);
 			 }
-                          let minBuyPrice = parseFloat(statsmod.getBuyPrice() - priceBuyVariant);
+
+                         let minBuyPrice = parseFloat(statsmod.getBuyPrice() - priceBuyVariant);
 			 console.log("buy == " + JSON.stringify(openBuyOrders));
-			 console.log("taker val == " +totTakeVal);
 			 console.log("minBuyPrice  == " +minBuyPrice);
 			 console.log("lowest price  == " +lowestPrice);
-			 console.log("top range   == " +topBuyRange);
-			 console.log("bot range   == " +botBuyRange);
-			 console.log("in range   == " +inRange);
                          
 			 let errJsonLocal = {
 				 totTakeVal: totTakeVal,
@@ -307,7 +289,8 @@ console.log("************ end of avg");
 				 saleDone: saleDone,
 				 changeRange: changeRange,
 				 inBuyRange: inBuyRange,
-				 dupSale: dupSale
+				 dupSale: dupSale,
+				 err: null
 			       };
 			  errJson.push(errJsonLocal);
 
@@ -322,11 +305,69 @@ console.log("************ end of avg");
 			        };
 			    orderJson.push(orderJsonLocal);
 
+
+
+		           errJson.map(m => { 
+                               m["err"]= (!m["inRange"] && 
+		                !m["saleDone"] && 
+			        (m["totTakeVal"] < m["takeLimit"]) &&
+			        !m["changeRange"] &&
+		                !m["dupSale"])}			  
+			         )
+
+			    console.log("================== err fnd = "+ JSON.stringify(errJson));
 			    if (totTakeVal > takeLimit) loggerp.error("too exposed - sell orders - " + totTakeVal + " " + takeLimit);
-			    if ((!inRange) && (!saleDone) && 
-				    (totTakeVal < takeLimit) &&
-				    (!changeRange) && 
-				    (inBuyRange ) && (!dupSale)) {
+			   // if ((!inRange) && (!saleDone) && 
+		//		    (totTakeVal < takeLimit) &&
+			//	    (!changeRange) && 
+			//	    (inBuyRange ) && (!dupSale)) {
+			     if (!errJson[0]["err"]) {
+                                loggerp.error("*** price criteria met *** ");
+	    	                loggerp.warn("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
+			        loggerp.warn("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
+				loggerp.warn("$$$  BUYING CRITERIA MET $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
+				loggerp.warn("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
+				console.log("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
+				console.log("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
+				console.log("$$$  BUYING CRITERIA MET $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
+				console.log("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
+				console.log("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
+
+                                processingBuying(
+					priceBuyVariant, 
+					rangePrice, 
+					dupSale, 
+					orderRefVal, 
+	                                topBuyRange, 
+					botBuyRange, 
+					inRange, 
+					totTakeVal, 
+					takeLimit);
+
+			 } else {
+
+                                loggerp.error("failed to meet buy criteria");
+				    console.log("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
+				    console.log("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
+				     console.log("$$$  BUYING CRITERIA NOT  MET $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
+				    console.log("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
+				    console.log("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
+			 }
+
+	//	         let rtnresp =  await manageOrder(statsmod.getBuyPrice(), statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
+	//	      totOrders = totOrders+ 100; // pause processing
+                  } else { 
+	//	      totOrders = totOrders+ 100; // pause processing
+		  }
+		  console.log("************************************************");
+		  console.log("***** END OF API CALL ***************************");
+		  console.log("************************************************");
+
+}
+
+async function processingBuying(priceBuyVariant, rangePrice, dupSale, orderRefVal, 
+	topBuyRange, botBuyRange, inRange, totTakeVal, takeLimit) {
+
                                 loggerp.error("*** price criteria met *** ");
 	    	                loggerp.warn("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
 			        loggerp.warn("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
@@ -402,7 +443,8 @@ console.log("************ end of avg");
 				 saleDone: saleDone,
 				 changeRange: changeRange,
 				 inBuyRange: inBuyRange,
-				 dupSale: dupSale
+				 dupSale: dupSale,
+				 err: null
 			       };
 			  errJson.push(errJsonLocal);
 
@@ -459,7 +501,8 @@ console.log("************ end of avg");
 				 saleDone: saleDone,
 				 changeRange: changeRange,
 				 inBuyRange: inBuyRange,
-				 dupSale: dupSale
+				 dupSale: dupSale,
+				 err: null
 			       };
 			  errJson.push(errJsonLocal);
 
@@ -474,54 +517,15 @@ console.log("************ end of avg");
 			        };
 			    orderJson.push(orderJsonLocal);
 
-
-			 } else {
-//   if ((!inRange) && (!saleDone) && (totTakeVal < takeLimit) && (!changeRange) && (inBuyRange)) {
-                             if (inBuyRange) { console.log("kkkk1 = Buy OK - within buy range for price")
-				     } else { loggerp.error("kkk1 failed - buy outside range " + statsmod.getBuyPrice());
-					     console.log("fail kkk1 - buy outside range for market"); }
-                             if (!changeRange) { console.log("kkkk2 =Buy OK range did not change for market")
-				     } else {
-loggerp.error("kkk2 failed - market change" );
-
-					     console.log("fail kkk2 - market range changed ");
-				     }
-                             if (!inRange) { console.log("kkkk3 =Buy OK range order failed -more orders in that range")
-				     } else{ 
-loggerp.error("kkk3 failed - too many orders" );
-
-					     console.log("fail kkk3 - current buy orders in range");}
-                             if (!saleDone) { console.log("kkkk4 = Buy OK sale not done"); }
-				 else {
-					 loggerp.error("kkk4 failed - sale done" );
-					 console.log("fail kkk4- sale done");}
-                             if (totTakeVal < takeLimit) console.log("kkkk5 Buy OK  - too many sales");
-				 else { loggerp.error("kkk5 failed" );
-					 console.log("kkkk5 failed");}
-
-                             if (!dupSale) { console.log("kkkk6 =no dup sale"); }
-				 else {
-					 loggerp.error("kkk6 failed - existing sales not filled in range" );
-					 console.log("fail kkk6- sales exist");}
-                             loggerp.error("failed to meet buy criteria");
-				    console.log("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
-				    console.log("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
-				     console.log("$$$  BUYING CRITERIA NOT  MET $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
-				    console.log("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
-				    console.log("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
-			 }
-
-	//	         let rtnresp =  await manageOrder(statsmod.getBuyPrice(), statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
-	//	      totOrders = totOrders+ 100; // pause processing
-                  } else { 
-	//	      totOrders = totOrders+ 100; // pause processing
-		  }
-		  console.log("************************************************");
-		  console.log("***** END OF API CALL ***************************");
-		  console.log("************************************************");
+                            errJson.map(m => {
+                               m["err"]= (!m["inRange"] &&
+                                !m["saleDone"] &&
+                                (m["totTakeVal"] < m["takeLimit"]) &&
+                                !m["changeRange"] &&
+                                !m["dupSale"])}
+                                 )
 
 }
-
 
 async function avgStats(buyprice, period) {
      await sqlmod.getAvgMaxMin(period);
@@ -1056,7 +1060,7 @@ function setValues() {
 async function mainSellOrder(buyPrice, sellPrice, btcQty, orderRef) {
 console.log("KKKKKKKKKKKKK sell order");
 //    totOrders++;
-   // return 0;
+    return 0;
     if (totOrders > 5*totOrderLimit) {
 	    console.log("@@@@@@@@@@@@@@@ forced exit - loop @@@@@@@@@@@@@@@@");
 	    process.exit();
