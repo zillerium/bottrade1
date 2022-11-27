@@ -227,6 +227,7 @@ async function processOrder() {
 				 totTakeVal += parseFloat(item["origQty"])*parseFloat(item["price"]);    
 			     }
                          })
+			  console.log("ppppppppppppp json open sell "+JSON.stringify(openSellOrders));
 //      return {aboveavg: buyprice>avgc, buyprice: buyprice, avgc: agvc, maxp: maxp, minp: minp);
 
                           let period = parseInt(1440);
@@ -237,7 +238,7 @@ async function processOrder() {
 			      console.log("above avg == " + riskFactor);
 			  } 
 
-console.log("************ start of avg");
+console.log("************ start of avg");  // range calc
                           let jsonout = await getRangeAvg();
 			  levelsjson = jsonout["levelsjson"];
 			  let changeRange = jsonout["changeRange"];
@@ -249,37 +250,40 @@ console.log("************ start of avg");
 
 console.log("************ end of avg");
 
-			  let sellJsonOrders = popJson('SELL',apiAllOrders.data, 'NEW');
                           let nsellprice = statsmod.getSellPrice();
-			  let dupSale = dupSales(sellJsonOrders, nsellprice, rangePrice);
-			  //452 async function dupSales(sellJsonOrders, nsellprice, rangePrice) {
-
+       	                  let dupSale = openSellOrders.some(m => 
+                                       ((nsellprice < (parseFloat(m["price"])+rangePrice)) &&
+		                       (nsellprice > (parseFloat(m["price"])-rangePrice)))
+	                            ) 
 			  console.log("&&& dup sales val  = " + dupSale);
 			  console.log("&&& tranges = " + priceVariant + " " + priceBuyVariant);
+			  
 			  let topBuyRange = parseFloat(statsmod.getBuyPrice()) + parseFloat(priceVariant);
 			  let botBuyRange = parseFloat(statsmod.getBuyPrice()) - parseFloat(priceVariant);
-			      console.log("++++++++++++++++++++++++++++++")
-			      console.log("+ check range 1 buying price +++" + statsmod.getBuyPrice());
-			      console.log("++++++++++++++++++++++++++++++")
+			  
+			  console.log("+ check range 1 buying price +++" + statsmod.getBuyPrice());
 			  loggerp.error("check range === " + topBuyRange + " " + botBuyRange);
-			  let inRange = await checkInRange(openBuyOrders, topBuyRange, botBuyRange);
+           	          
+			  let inRange = openBuyOrders.some(m => 
+                                      (
+	                                (botBuyRange <= (parseFloat(m["price"]))) &&
+		                        (topBuyRange >= (parseFloat(m["price"]))))
+	                              );
+
                           if (!inRange) {
-                                console.log("+++++++++++ not found in range 1 +++ ");
-				  inRange =  await newRangeCheck(apiAllOrders.data, topBuyRange, botBuyRange);
+                                console.log("+++++++++++ x10 not found in range 1 +++ ");
 			  }
 			  else {
-                             console.log("+++++++++++ found in range 1 +++ ");
+                             console.log("+++++++++++ x10 found in range 1 +++ ");
 			  }
 
 			  if (inRange) { loggerp.error("&&& within range - failed buy");console.log("+++ found in range check if");}
 			 
-//  id | txndate | toprange | botrange | buyprice | sellprice | clientid | ordertype | inrange
 			  if (!saleDone) {
                               sqlmod.insertTradeProfitLogSQL(topBuyRange, botBuyRange, statsmod.getBuyPrice(), 
 				  statsmod.getSellPrice(), orderRefVal, 'BUY', inRange);
 			      await sqlmod.exSQL();
 			  }
-//      inserTradeProfitLogSQL = (toprange, botrange, buyprice, sellprice, clientid, ordertype, inrange) => {
 
 			  let lowestPrice = 0.00;
 			 if (openBuyOrders.length > 0) {
@@ -310,55 +314,93 @@ console.log("************ end of avg");
 				console.log("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
 
 				let orgSellPrice = statsmod.getSellPrice();
-		        	let sellPriceL = parseFloat(statsmod.getBuyPrice()) + parseFloat(priceBuyVariant);
-				statsmod.setSellPriceVal(sellPriceL.toFixed(2));
+			        let orgBuyPricelocal = parseFloat(statsmod.getBuyPrice());
+				let origQty = statsmod.getBuyQty();
+		        	
+				let sellPriceL = parseFloat(orgBuyPricelocal) + parseFloat(priceBuyVariant);
 			        
-				dupSale = dupSales(sellJsonOrders, statsmod.getSellPrice(), rangePrice);
+				dupSale = openSellOrders.some(m => 
+                                       ((sellPriceL < (parseFloat(m["price"])+rangePrice)) &&
+		                       (sellPriceL > (parseFloat(m["price"])-rangePrice)))
+	                            ) 
 			        if (!dupSale) {
 					 
-				      await processBuyOrder(statsmod.getSellPrice(), statsmod.getBuyPrice(), orderRefVal, topBuyRange,
-					botBuyRange, inRange, statsmod.getBuyQty(), 1);
+				      await processBuyOrder(
+					      sellPriceL.toFixed(2), 
+					      orgBuyPricelocal.toFixed(2),
+					      orderRefVal, 
+					      topBuyRange,
+					      botBuyRange, 
+					      inRange, 
+					      origQty,
+					      1
+				            );
 
 			        } else {
                                         loggerp.warn("kkk6 - order failed due to sell price dup");
                                         console.log("kkk6 - order failed due to sell price dup");
 			        }
-			        // let newBuyprice = statsmod.getBuyPrice()*2-statsmod.getSellPrice();
-			        let orgBuyPricelocal = parseFloat(statsmod.getBuyPrice());
+
+
+				let margin = parseFloat(2);
+                                let sellPriceL2 = parseFloat(orgBuyPricelocal) +
+					   parseFloat(parseFloat(margin)* parseFloat(priceBuyVariant));    
+
+				let orderRefVal3 = orderRefVal + 20; 
+				dupSale = openSellOrders.some(m => 
+                                       ((sellPriceL2 < (parseFloat(m["price"])+rangePrice)) &&
+		                       (sellPriceL2 > (parseFloat(m["price"])-rangePrice)))
+	                            ) 
+                                if (!dupSale) {
+                                    await processBuyOrder(
+					     sellPriceL2.toFixed(2),
+					     orgBuyPricelocal.toFixed(2),
+					     orderRefVal3, 
+					     topBuyRange,
+					     botBuyRange, 
+					     inRange, 
+					     origQty,
+					     3
+				         );
+                                } else {
+                                        loggerp.warn("kkk7 - order failed due to sell price dup");
+                                        console.log("kkk7 - order failed due to sell price dup");
+
+
+				}
 				let newBuyprice =  parseFloat(statsmod.getBuyPrice()) - parseFloat(priceBuyVariant);
 
-			        let newBuypriceFixed = newBuyprice.toFixed(2);
-				statsmod.setBuyPriceVal(newBuypriceFixed);
-			        
-				let topBuyRange1 = parseFloat(statsmod.getBuyPrice()) + parseFloat(priceVariant);
-			        let botBuyRange1 = parseFloat(statsmod.getBuyPrice()) - parseFloat(priceVariant);
-			        let inRange1 = await checkInRange(openBuyOrders, topBuyRange1, botBuyRange1);
-                                if (!inRange1) inRange1 =  await newRangeCheck(openBuyOrders, topBuyRange1, botBuyRange1);
-				let orgOrderValLocal = orderRefVal;    
+				let topBuyRange1 = parseFloat(orgBuyPricelocal) + parseFloat(priceVariant);
+			        let botBuyRange1 = parseFloat(orgBuyPricelocal) - parseFloat(priceVariant);
+
+			        let inRange1 = openBuyOrders.some(m => 
+                                      (
+	                                (botBuyRange1 <= (parseFloat(m["price"]))) &&
+		                        (topBuyRange1 >= (parseFloat(m["price"]))))
+	                              );
+
+				let orderRefVal2 = orderRefVal+10;    
 				if (!inRange1) {    
 				      console.log("2 ++++++++++++++ not in range +++ ");
 		    		      statsmod.setSellPriceVal(orgSellPrice);
 			              
 			              orderRefVal +=10; // sell at same price but buy lower in price
                                 
-				  //    await processBuyOrder(statsmod.getSellPrice(), statsmod.getBuyPrice(), orderRefVal, topBuyRange1,
-				//	botBuyRange1, inRange1, statsmod.getBuyQty(), 2);
+				      await processBuyOrder(
+					      orgSellPrice,
+					      newBuyprice.toFixed(2), 
+					      orderRefVal2, 
+					      topBuyRange1,
+			 		      botBuyRange1, 
+					      inRange1, 
+					      origQty,
+					      2
+				      );
 
 				} else {
                                     console.log("2 ++++++++++++ in range ");
 				}
 
-				// new order buy at price now and sell at x2 range - cancel if needed and resell at a lower price
-				let margin = parseFloat(2);
-           			statsmod.setBuyPriceVal(orgBuyPricelocal);
-                                let sellPriceL2 = parseFloat(statsmod.getBuyPrice()) +
-					   parseFloat(parseFloat(margin)* parseFloat(priceBuyVariant));    
-				
-				statsmod.setSellPriceVal(sellPriceL2.toFixed(2));
-
-				orderRefVal = orgOrderValLocal + 20; // sell at same price but buy lower in price
-                             //   await processBuyOrder(statsmod.getSellPrice(), statsmod.getBuyPrice(), orderRefVal, topBuyRange,
-		//			botBuyRange, inRange, statsmod.getBuyQty(), 3);
 			 } else {
 //   if ((!inRange) && (!saleDone) && (totTakeVal < takeLimit) && (!changeRange) && (inBuyRange)) {
                              if (inBuyRange) { console.log("kkkk1 = Buy OK - within buy range for price")
@@ -421,11 +463,13 @@ async function avgStats(buyprice, period) {
     //     return true;   
    //  }
    //  return false;
-     return {aboveavg: buyprice>avgc, 
+     return {aboveavg: parseFloat(buyprice)>avgc, 
+	     dev:parseFloat(buyprice) - avgc,
 	     buyprice: buyprice, 
 	     avgc: avgc, 
 	     maxp: maxp, 
-	     minp: minp};	
+	     minp: minp,
+             period: period};	
 }
 
 async function processBuyOrder(aSellPrice, aBuyPrice, aOrderRef, topLimit, botLimit, rangeInc, aBuyQty, n) {
@@ -444,7 +488,13 @@ async function processBuyOrder(aSellPrice, aBuyPrice, aOrderRef, topLimit, botLi
 	await sqlmod.exSQL();
 	await mainBuyOrder(aBuyPrice, aSellPrice, aBuyQty, aOrderRef);
                                
-	addSummaryBuy(aOrderRef);
+//	addSummaryBuy(aOrderRef);
+        let buyJsonL = {"buyPrice": aBuyPrice, 
+	                "sellPrice": aSellPrice,
+	                "buyQty": aBuyQty,
+	                "clientorderid": aOrderRef,
+                        "orderType": 'BUY'};
+        summaryBuyJson.push(buyJsonL);
 }
 
 
@@ -464,7 +514,7 @@ async function getRangeAvg() {
     await sqlmod.selectTimeMinStatsDB(id);
     let timemin = sqlmod.getStatsRecTime();
         
-    await sqlmod.selectLastMinAvgDB(timemin[0]["timemin"]);
+    await sqlmod.selectLastMinAvgDB(timemin[0]["timemin"]); // 5 mins avg
     let lastminAvg = sqlmod.getLastMinAvg();
     let jsonAvg =  riskmod.calcAvg(id, timemin, lastminAvg, statsmod.getBuyPrice(), statsmod.getMinPrice(), statsmod.getMaxPrice());
 
@@ -489,7 +539,13 @@ function dupSales(sellJsonOrders, nsellprice, rangePrice) {
 console.log("&&&&&&&&&&&&&&&&&&&&&&&&& dup sales check%%%% " + JSON.stringify(sellJsonOrders));
 console.log("&&&&&&&&&&&&&&&&&&&&&&&&& dup sales check%%%% range price " + rangePrice);
 console.log("&&&&&&&&&&&&&&&&&&&&&&&&& dup sales check%%%% sell price " + nsellprice);
-	 for (let j=0; j<sellJsonOrders.length; j++) {
+//nsellprice = 16700;rangePrice = 20;
+	let m1 = sellJsonOrders.some(m => 
+                  ((nsellprice < (parseFloat(m["price"])+rangePrice)) &&
+		   (nsellprice > (parseFloat(m["price"])-rangePrice)))
+	          ) 
+console.log("lllllllllllllll m1 = "+ m1);
+	/*for (let j=0; j<sellJsonOrders.length; j++) {
             let nprice = parseFloat(sellJsonOrders[j]["price"]);
             let nstatus = sellJsonOrders[j]["status"];
             let upperLimit = parseFloat(nprice+rangePrice) *riskFactor;
@@ -504,7 +560,8 @@ console.log("&&&&&&&&&&&&&&&&&&&&&&&&& dup sales check%%%% sell price " + nsellp
 			return true;
 		 }
 	 }
-	return false;
+	return false;*/
+	return true;
 }
 
 async function checkAvgQty() {
@@ -522,7 +579,13 @@ async function checkInRange(buyOrders, topRange, botRange) {
        //                   let inRange = checkInRange(openBuyOrders, topBuyRange, botBuyRange);
 
 //console.log("@@@@@@@@@@@@@@@@@ json file --- " + JSON.stringify(buyOrders));
-  if (buyOrders.length == 0) return false; // no open buy orders in range
+	let m1 = buyOrders.some(m => 
+                  (
+	           (botRange <= (parseFloat(m["price"]))) &&
+		   (topRange >= (parseFloat(m["price"]))))
+	          );
+	return m1;
+ /* if (buyOrders.length == 0) return false; // no open buy orders in range
      for (var key in buyOrders) {
         let buyPrice =      parseFloat(buyOrders[key]["price"]);
 	console.log("%%%%%% buy price == "+ buyPrice);     
@@ -541,7 +604,7 @@ async function checkInRange(buyOrders, topRange, botRange) {
         }
      }
 	console.log("kkkkk - no math range");
- return false;
+ return false;*/
 
 } 
 
@@ -558,22 +621,22 @@ async function newRangeCheck(apiAllOrders,  topRange, botRange) {
      if (inrange) return true;
 
 
-     let openBuyJson = popJson('BUY', apiAllOrders, 'NEW');
-     inrange = await checkInRange(openBuyJson, topRange, botRange);
-     if (inrange) return true;
+//     let openBuyJson = popJson('BUY', apiAllOrders, 'NEW');
+//     inrange = await checkInRange(openBuyJson, topRange, botRange);
+//     if (inrange) return true;
 
 
  //       let sellJson = popJson('SELL', apiAllOrders, 'NEW');
 // check if unfilled sales order is within range of expected new sales price.
 
-     return false;
+  //   return false;
 
-     console.log("Unbrought BUY Orders --- " );
-     console.table(openBuyJson);
-     console.log("Buy Orders with no Sell Orders--- " );
-     console.table(unfilledBuyJson);
-     console.log("Buy Orders with no Filled Sell Orders--- " );
-     console.table(unfilledBuyJsonFilled);
+  //   console.log("Unbrought BUY Orders --- " );
+  //   console.table(openBuyJson);
+  //   console.log("Buy Orders with no Sell Orders--- " );
+  //   console.table(unfilledBuyJson);
+  //   console.log("Buy Orders with no Filled Sell Orders--- " );
+  //   console.table(unfilledBuyJsonFilled);
 
 
 }
@@ -844,7 +907,7 @@ async function main() {
 	console.log("Price ranges ");
 	console.table(levelsjson);
 	//process.exit();
-	console.log("Price market ranges ");
+	console.log("Price market ranges - period in mins");
 	console.table(avgJsonObj);
 	process.exit();
 }
@@ -914,7 +977,7 @@ function setValues() {
 async function mainSellOrder(buyPrice, sellPrice, btcQty, orderRef) {
 console.log("KKKKKKKKKKKKK sell order");
 //    totOrders++;
- //   return 0;
+    return 0;
     if (totOrders > 5*totOrderLimit) {
 	    console.log("@@@@@@@@@@@@@@@ forced exit - loop @@@@@@@@@@@@@@@@");
 	    process.exit();
@@ -944,7 +1007,7 @@ async function mainBuyOrder(buyPrice, sellPrice, btcQty, orderRef) {
         console.log("@@@@@@@@@@@@@@@@@ loop alert @@@@@@@@@@@@@@@@ " + totOrders);
         console.log("@@@@@@@@@@@@@@@@@ loop alert @@@@@@@@@@@@@@@@ " + totOrders);
 //    totOrders++;
-//	return 0;
+	return 0;
     if (totOrders > 5*totOrderLimit) {
 	    console.log("@@@@@@@@@@@@@@@ forced exit - loop @@@@@@@@@@@@@@@@");
 	    process.exit();
