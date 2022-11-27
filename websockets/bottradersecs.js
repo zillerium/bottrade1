@@ -33,6 +33,7 @@ var priceBuyVariant = 10; // adjust buy and sell price by this - later calc via 
 const openOrderLimit = 5;
 const cycleLimit = 2;
 var levelsjson = {};
+var avgJsonObj = {};
 const logger = getLogger();
 const loggerp = getLogger("price");
 //var logger = log4js.getLogger("bot");
@@ -226,9 +227,11 @@ async function processOrder() {
 				 totTakeVal += parseFloat(item["origQty"])*parseFloat(item["price"]);    
 			     }
                          })
+//      return {aboveavg: buyprice>avgc, buyprice: buyprice, avgc: agvc, maxp: maxp, minp: minp);
 
                           let period = parseInt(1440);
-			  let aboveAvg = await isAboveAvg(statsmod.getBuyPrice(), period);
+			  avgJsonObj = await avgStats(statsmod.getBuyPrice(), period);
+			  let aboveAvg = avgJsonObj["aboveavg"];
                           if (aboveAvg)  {
                               riskFactor = 2;
 			      console.log("above avg == " + riskFactor);
@@ -404,7 +407,7 @@ loggerp.error("kkk3 failed - too many orders" );
 }
 
 
-async function isAboveAvg(buyprice, period) {
+async function avgStats(buyprice, period) {
      await sqlmod.getAvgMaxMin(period);
      let jsonAvgMaxMinRec = await sqlmod.getAvgMaxMinRec(); 
 //        avgc        |       maxp       |       minp       
@@ -414,10 +417,15 @@ async function isAboveAvg(buyprice, period) {
      let avgc = parseFloat(jsonAvgMaxMinRec[0]["avgc"]);
      let maxp = parseFloat(jsonAvgMaxMinRec[0]["maxp"]);
      let minp = parseFloat(jsonAvgMaxMinRec[0]["minp"]);
-     if (buyprice > avgc) {
-         return true;   
-     }
-     return false;
+   //  if (buyprice > avgc) {
+    //     return true;   
+   //  }
+   //  return false;
+     return {aboveavg: buyprice>avgc, 
+	     buyprice: buyprice, 
+	     avgc: avgc, 
+	     maxp: maxp, 
+	     minp: minp};	
 }
 
 async function processBuyOrder(aSellPrice, aBuyPrice, aOrderRef, topLimit, botLimit, rangeInc, aBuyQty, n) {
@@ -835,6 +843,9 @@ async function main() {
 	console.table(summarySellJson);
 	console.log("Price ranges ");
 	console.table(levelsjson);
+	//process.exit();
+	console.log("Price market ranges ");
+	console.table(avgJsonObj);
 	process.exit();
 }
 
