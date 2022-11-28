@@ -24,6 +24,7 @@ configure({
       price: { appenders: ['price', 'out'], level: "info"}},	
 })
 
+var devLimit = parseFloat(1); // limit of changed allowed on deviation from the period avg - eg 60 mins
 var summarySellJson = [];
 var summaryBuyJson = [];
 const takeLimit = 5000; // open sale orders - limit liabilities 
@@ -32,10 +33,12 @@ var riskFactor = parseFloat(2); // defines the risk on the range default is 1, r
 var priceBuyVariant = 10; // adjust buy and sell price by this - later calc via currprice table
 const openOrderLimit = 5;
 const cycleLimit = 2;
+var openSalesOrdersRangeJson=[];
 var levelsjson = {};
 var avgJsonObj = {};
 var errJson = [];
 var orderJson = [];
+var openOrdersRangeJson = [];
 const logger = getLogger();
 const loggerp = getLogger("price");
 //var logger = log4js.getLogger("bot");
@@ -185,7 +188,8 @@ async function processOrder() {
 		              let saleJson = {};
 			      let c = parseInt(item["clientOrderId"])+parseInt(1);	
 		              if ((parseInt(item["clientOrderId"]) == 481569849090) ||
-		                   (parseInt(item["clientOrderId"]) == 3716306906)) {
+		                   (parseInt(item["clientOrderId"]) == 3716306906) || 
+		                   (parseInt(item["clientOrderId"]) == 389325811524)) {
 
 			      } else {
                                   let m1 = !allSellOrders.some(m => parseInt(m["clientOrderId"]) == c);
@@ -227,6 +231,8 @@ async function processOrder() {
 
                           let period = parseInt(1440);
 			  avgJsonObj = await avgStats(statsmod.getBuyPrice(), period);
+			  let perdev = avgJsonObj["perdev"];
+//			  let changeRange = jsonout["changeRange"];
 			  let aboveAvg = avgJsonObj["aboveavg"];
                           if (aboveAvg)  {
                               riskFactor = 2;
@@ -236,7 +242,13 @@ async function processOrder() {
 console.log("************ start of avg");  // range calc
                           let jsonout = await getRangeAvg();
 			  levelsjson = jsonout["levelsjson"];
+			  //let perdev = avgJsonObj["perdev"];
 			  let changeRange = jsonout["changeRange"];
+			//  if (Math.abs(perdev) > devLimit) {
+		//		  changeRange = true;
+		//		  console.log("jjjjjj change range");
+		//	  }
+		//	  console.log("jjjjjjj dev " + perdev + " " + devLimit);
 			  let inBuyRange = jsonout["inBuyRange"];
 			  console.log("KKKKKKKKKKKKKKKKKKKK = inbuy range = " + inBuyRange);
 			  priceBuyVariant = parseFloat(jsonout["priceBuyVar"]);
@@ -253,19 +265,54 @@ console.log("************ end of avg");
 			  console.log("&&& dup sales val  = " + dupSale);
 			  console.log("&&& tranges = " + priceVariant + " " + priceBuyVariant);
 			  
+                         let salesunresolvedDup = openSellOrders.map(m =>  {
+                              let ordersJson = {};
+                              ordersJson["price"] = parseFloat(m["price"]);
+                              ordersJson["topRange"] = parseFloat(m["price"])+rangePrice;
+                              ordersJson["botRange"] = parseFloat(m["price"])-rangePrice;
+                              ordersJson["dupSale"] = 
+                                       ((nsellprice < (parseFloat(m["price"])+rangePrice)) &&
+		                       (nsellprice > (parseFloat(m["price"])-rangePrice)))
+                              ordersJson["rangePrice"] = rangePrice;
+                              ordersJson["sellPrice"] = nsellprice;
+                              return ordersJson;
+                          })
+
+			  let salesresolvedDup = await Promise.all(salesunresolvedDup);
+                         Object.assign(openSalesOrdersRangeJson, salesresolvedDup);
+			 console.log("uuuuuuuuuuuuuuuuu sales orders resolved == " + JSON.stringify(salesresolvedDup));
 			  let topBuyRange = parseFloat(statsmod.getBuyPrice()) + parseFloat(priceVariant);
 			  let botBuyRange = parseFloat(statsmod.getBuyPrice()) - parseFloat(priceVariant);
 			  
 			  console.log("+ check range 1 buying price +++" + statsmod.getBuyPrice());
 			  loggerp.error("check range === " + topBuyRange + " " + botBuyRange);
-           	          
+           	          let cBuyPrice = statsmod.getBuyPrice(); 
 			  let inRange = openBuyOrders.some(m => 
                                       (
 	                                (botBuyRange <= (parseFloat(m["price"]))) &&
 		                        (topBuyRange >= (parseFloat(m["price"]))))
 	                              );
 
-			 
+                         let ordersunresolved = openBuyOrders.map(m =>  {
+                              let ordersJson = {};
+                              ordersJson["price"] = parseFloat(m["price"]);
+                              ordersJson["topRange"] = topBuyRange;
+                              ordersJson["botRange"] = botBuyRange;
+                              ordersJson["priceVariant"] = parseFloat(priceVariant);
+                              ordersJson["inRange"] = 
+                                      (
+	                                (botBuyRange <= (parseFloat(m["price"]))) &&
+		                        (topBuyRange >= (parseFloat(m["price"]))));
+                              ordersJson["buyPrice"] = cBuyPrice;
+                              return ordersJson;
+                          })
+
+			  let ordersresolved = await Promise.all(ordersunresolved);
+                         Object.assign(openOrdersRangeJson, ordersresolved);
+			 console.log("uuuuuuuuuuuuuuuuu orders resolved == " + JSON.stringify(ordersresolved));
+
+
+			 console.log("uuuuuuuuuuuuuuuuu in range == " + inRange); 
 			  if (!saleDone) {
                               sqlmod.insertTradeProfitLogSQL(topBuyRange, botBuyRange, statsmod.getBuyPrice(), 
 				  statsmod.getSellPrice(), orderRefVal, 'BUY', inRange);
@@ -308,7 +355,7 @@ console.log("************ end of avg");
 
 
 		           errJson.map(m => { 
-                               m["err"]= (!m["inRange"] && 
+                               m["err"]= !(!m["inRange"] && 
 		                !m["saleDone"] && 
 			        (m["totTakeVal"] < m["takeLimit"]) &&
 			        !m["changeRange"] &&
@@ -316,6 +363,7 @@ console.log("************ end of avg");
 			         )
 
 			    console.log("================== err fnd = "+ JSON.stringify(errJson));
+			    console.log("================== order fnd = "+ JSON.stringify(orderJson));
 			    if (totTakeVal > takeLimit) loggerp.error("too exposed - sell orders - " + totTakeVal + " " + takeLimit);
 			   // if ((!inRange) && (!saleDone) && 
 		//		    (totTakeVal < takeLimit) &&
@@ -333,7 +381,7 @@ console.log("************ end of avg");
 				console.log("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
 				console.log("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
 
-                                processingBuying(
+                                await processingBuying(
 					priceBuyVariant, 
 					rangePrice, 
 					dupSale, 
@@ -342,7 +390,13 @@ console.log("************ end of avg");
 					botBuyRange, 
 					inRange, 
 					totTakeVal, 
-					takeLimit);
+					takeLimit, 
+					openSellOrders, 
+					openBuyOrders,
+					saleDone,  
+					changeRange, 
+					inBuyRange
+				        );
 
 			 } else {
 
@@ -365,8 +419,21 @@ console.log("************ end of avg");
 
 }
 
-async function processingBuying(priceBuyVariant, rangePrice, dupSale, orderRefVal, 
-	topBuyRange, botBuyRange, inRange, totTakeVal, takeLimit) {
+async function processingBuying(
+	priceBuyVariant,
+	rangePrice, 
+	dupSale, 
+	orderRefVal, 
+	topBuyRange, 
+	botBuyRange, 
+	inRange, 
+	totTakeVal,
+	takeLimit, 
+	openSellOrders, 
+	openBuyOrders,
+	saleDone, 
+	changeRange,
+	inBuyRange) {
 
                                 loggerp.error("*** price criteria met *** ");
 	    	                loggerp.warn("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
@@ -436,7 +503,7 @@ async function processingBuying(priceBuyVariant, rangePrice, dupSale, orderRefVa
 				}
 
 
-			  errJsonLocal = {
+			  let errJsonLocal = {
 				 totTakeVal: totTakeVal,
 				 takeLimit: takeLimit,
 				 inRange: inRange,
@@ -448,7 +515,7 @@ async function processingBuying(priceBuyVariant, rangePrice, dupSale, orderRefVa
 			       };
 			  errJson.push(errJsonLocal);
 
-		           orderJsonLocal = {
+		          let orderJsonLocal = {
 				     sellPrice: sellPriceL2.toFixed(2),
 				     buyPrice: orgBuyPricelocal.toFixed(2),
 				     orderRef: orderRefVal3,
@@ -462,8 +529,8 @@ async function processingBuying(priceBuyVariant, rangePrice, dupSale, orderRefVa
 
 				let newBuyprice =  parseFloat(statsmod.getBuyPrice()) - parseFloat(priceBuyVariant);
 
-				let topBuyRange1 = parseFloat(orgBuyPricelocal) + parseFloat(priceVariant);
-			        let botBuyRange1 = parseFloat(orgBuyPricelocal) - parseFloat(priceVariant);
+				let topBuyRange1 = parseFloat(newBuyprice) + parseFloat(priceVariant);
+			        let botBuyRange1 = parseFloat(newBuyprice) - parseFloat(priceVariant);
 
 			        let inRange1 = openBuyOrders.some(m => 
                                       (
@@ -518,7 +585,7 @@ async function processingBuying(priceBuyVariant, rangePrice, dupSale, orderRefVa
 			    orderJson.push(orderJsonLocal);
 
                             errJson.map(m => {
-                               m["err"]= (!m["inRange"] &&
+                               m["err"]= !(!m["inRange"] &&
                                 !m["saleDone"] &&
                                 (m["totTakeVal"] < m["takeLimit"]) &&
                                 !m["changeRange"] &&
@@ -543,6 +610,7 @@ async function avgStats(buyprice, period) {
    //  return false;
      return {aboveavg: parseFloat(buyprice)>avgc, 
 	     dev:parseFloat(buyprice) - avgc,
+	     perdev: (((parseFloat(buyprice) - avgc)/avgc)*100).toFixed(2),
 	     buyprice: buyprice, 
 	     avgc: avgc, 
 	     maxp: maxp, 
@@ -992,6 +1060,10 @@ async function main() {
 	console.table(errJson);
 	console.log("Order Table");
 	console.table(orderJson);
+	console.log("Order Range Buy Table");
+	console.table(openOrdersRangeJson);
+	console.log("Dup Sales");
+	console.table(openSalesOrdersRangeJson);
 	process.exit();
 }
 
@@ -1060,7 +1132,7 @@ function setValues() {
 async function mainSellOrder(buyPrice, sellPrice, btcQty, orderRef) {
 console.log("KKKKKKKKKKKKK sell order");
 //    totOrders++;
-    return 0;
+  //  return 0;
     if (totOrders > 5*totOrderLimit) {
 	    console.log("@@@@@@@@@@@@@@@ forced exit - loop @@@@@@@@@@@@@@@@");
 	    process.exit();
