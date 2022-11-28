@@ -57,6 +57,9 @@ class StatsMod {
 	    this.rangePrice= 0;
 	    this.txnType = 'BUY';
 	    this.keyOrderVars = {};
+	    this.openOrdersRangeJson = [];
+            this.openSalesRangeJson =[];
+
     }
      setKeyOrderVars = () => {
 
@@ -76,10 +79,16 @@ class StatsMod {
         takeLimit: this.takeLimit
             
 
-
 	}
 
      }
+
+     getOpenSalesRangeJson = () => {return this.openSalesRangeJson };
+     setOpenSalesRangeJson = (orders) => { this.openSalesRangeJson= orders };
+     
+     getOpenOrdersRangeJson = () => {return this.openOrdersRangeJson };
+     setOpenOrdersRangeJson = (orders) => { this.openOrdersRangeJson= orders };
+
      getKeyOrderVars = () => {return this.keyOrderVars };
      getRangePrice = () => {return this.rangePrice };
      setRangePrice = (price) => { this.rangePrice= price };

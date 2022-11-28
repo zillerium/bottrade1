@@ -31,11 +31,9 @@ const takeLimit = 5000; // open sale orders - limit liabilities
 var riskFactor = parseFloat(2); // defines the risk on the range default is 1, raise this number to decrease risk
 const openOrderLimit = 5;
 const cycleLimit = 2;
-var openSalesOrdersRangeJson=[];
 var levelsjson = {};
 var avgJsonObj = {};
 var orderJson = [];
-var openOrdersRangeJson = [];
 const logger = getLogger();
 const loggerp = getLogger("price");
 //var logger = log4js.getLogger("bot");
@@ -217,8 +215,30 @@ let openBuyOrders=[];
 	return [ openBuyOrders, openSellOrders, totTake ];
 
 }
+async function popOrdersJson(openBuyOrders, topBuyRange, botBuyRange, priceVariant, cBuyPrice) {
+     let openOrdersRangeJson=[];
+                         let ordersresolved = await processingRangeOrder(
+				 openBuyOrders, 
+				 topBuyRange, 
+				 botBuyRange, 
+				 priceVariant, 
+				 cBuyPrice
+			    );
 
+                         Object.assign(openOrdersRangeJson, ordersresolved);
+			 return openOrdersRangeJson; 
 
+}
+async function processingDup(openSellOrders, rangePrice, nsellprice) {
+let openSalesOrdersRangeJson=[];
+                          let salesresolvedDup = await processingInDupOrder(
+				 openSellOrders, 
+				 rangePrice, 
+				 nsellprice
+			        );
+                          Object.assign(openSalesOrdersRangeJson, salesresolvedDup);
+	return openSalesOrdersRangeJson;
+}
 async function processOrder() {
 
 		  console.log("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
@@ -246,9 +266,15 @@ async function processOrder() {
 		  // avoid when profit is zero
 		  // add two sell prices - one at max candlestick and one at x10 candlestick - 50% split.
 		  let profitprojected = statsmod.getSellPrice() - statsmod.getBuyPrice();
-	          var saleDone = false;
+	         // var saleDone = false;
 	   	  console.log("--------------> profit projected == " + profitprojected);
 		  if ((freeBal > minTradingBalance) && (profitprojected > 0) ) {
+
+                      await processMainOrders(orderRefVal);
+		  }
+}
+async function processMainOrders(orderRefVal) {
+
 	                loggerp.error("buying option now ");
 			  console.log(" buying price === " + statsmod.getBuyPrice());
 	                console.log(" selling price === " + statsmod.getSellPrice());
@@ -300,8 +326,12 @@ async function processOrder() {
                          })
 
 			  // detect filled buy orders without a sale - sell the current btc
-                         saleDone = await  processSellOrderForBuy(allFilledBuyOrders, allSellOrders);
+                         let saleDone = await  processSellOrderForBuy(allFilledBuyOrders, allSellOrders);
                          statsmod.setSaleDone(saleDone);
+	                 if (saleDone) return 0; // do not buy
+	//
+	//
+	//
 			  //console.log("nnnnnnbbbb = " + JSON.stringify(allSellOrders));
 // end of sale - proceed to buys only when there are no sales
 			  // ********************** get all open buy and sell orders 
@@ -323,7 +353,8 @@ async function processOrder() {
 
 			  // **********************************************
 			  // **** GET THE AVG STATS 
-			  avgJsonObj = await avgStats(statsmod.getBuyPrice(), parseInt(1440));
+			  let riskFactor = 1;
+	                  avgJsonObj = await avgStats(statsmod.getBuyPrice(), parseInt(1440));
                           if (avgJsonObj["aboveavg"])  {
                               riskFactor = 2;
 			      console.log("above avg == " + riskFactor);
@@ -353,15 +384,12 @@ async function processOrder() {
                           let nsellprice = statsmod.getSellPrice();
                           
 			  let dupSale = await inDupDecision(openSellOrders, nsellprice, rangePrice);
-                          let salesresolvedDup = await processingInDupOrder(
-				 openSellOrders, 
-				 rangePrice, 
-				 nsellprice
-			        );
-                          Object.assign(openSalesOrdersRangeJson, salesresolvedDup);
-// *** end open sales orders
 			  statsmod.setDupSale(dupSale);
 
+                          let dupSalesJson = await processingDup(openSellOrders, rangePrice, nsellprice);
+ 			  statsmod.setOpenSalesRangeJson(dupSalesJson); 
+
+// *** end open sales orders
 // *** check in range 
 			  let topBuyRange = parseFloat(statsmod.getBuyPrice()) + parseFloat(priceVariant);
 			  let botBuyRange = parseFloat(statsmod.getBuyPrice()) - parseFloat(priceVariant);
@@ -377,16 +405,14 @@ async function processOrder() {
 			  statsmod.setInRange(inRange);
 // end check in range
 			  // ***get all open orders and range
-                         let ordersresolved = await processingRangeOrder(
+
+                         let openOrdersRangeJson = await popOrdersJson(
 				 openBuyOrders, 
 				 topBuyRange, 
 				 botBuyRange, 
 				 priceVariant, 
-				 cBuyPrice
-			    );
-
-                         Object.assign(openOrdersRangeJson, ordersresolved);
-			  
+				 cBuyPrice);
+                          statsmod.setOpenOrdersRangeJson(openOrdersRangeJson);
 
 			  if (!saleDone) {
                               sqlmod.insertTradeProfitLogSQL(topBuyRange, botBuyRange, statsmod.getBuyPrice(), 
@@ -431,9 +457,8 @@ async function processOrder() {
 
 	//	         let rtnresp =  await manageOrder(statsmod.getBuyPrice(), statsmod.getSellPrice(), statsmod.getBuyQty(), orderRefVal);
 	//	      totOrders = totOrders+ 100; // pause processing
-                  } else { 
+                  //} 
 	//	      totOrders = totOrders+ 100; // pause processing
-		  }
 		  console.log("************************************************");
 		  console.log("***** END OF API CALL ***************************");
 		  console.log("************************************************");
@@ -815,9 +840,9 @@ async function main() {
 	console.log("Order Table");
 	console.table(statsmod.getOrderJson());
 	console.log("Order Range Buy Table");
-	console.table(openOrdersRangeJson);
+	console.table(statsmod.getOpenOrdersRangeJson());
 	console.log("Dup Sales");
-	console.table(openSalesOrdersRangeJson);
+	console.table(statsmod.getOpenSalesRangeJson());
 	process.exit();
 }
 
