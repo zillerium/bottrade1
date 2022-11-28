@@ -28,9 +28,7 @@ var devLimit = parseFloat(1); // limit of changed allowed on deviation from the 
 var summarySellJson = [];
 var summaryBuyJson = [];
 const takeLimit = 5000; // open sale orders - limit liabilities 
-var priceVariant = 20; // adjust buy and sell price by this - later calc via currprice table
 var riskFactor = parseFloat(2); // defines the risk on the range default is 1, raise this number to decrease risk
-var priceBuyVariant = 10; // adjust buy and sell price by this - later calc via currprice table
 const openOrderLimit = 5;
 const cycleLimit = 2;
 var openSalesOrdersRangeJson=[];
@@ -231,6 +229,7 @@ async function processOrder() {
 		  const ran=Math.floor(Math.random() * 1000000)
 		  const ran2 = Math.floor(Math.random() * 1000000)
 		  var orderRefVal = ran*ran2;
+	          statsmod.setOrderRef(orderRefVal);
 		  console.log("order ref val === "+ orderRefVal);
 		  let currencyPair = 'BTCUSDT';
              //     let jsonAccount = await bmod.getAccountDetails(currencyPair);
@@ -332,16 +331,21 @@ async function processOrder() {
 			  // **********************************************
 			  // ******************** get range data
                           let jsonout = await getRangeAvg();
+			  if (!jsonout) return 0; // db has been failing
+			  if (jsonout.length == 0) return 0;
+
 			  levelsjson = jsonout["levelsjson"];
 			  let min5m =parseFloat(levelsjson["min5m"]);
 			  let max5m = parseFloat(levelsjson["max5m"]);
 			  let changeRange = jsonout["changeRange"];
 			  let inBuyRange = jsonout["inBuyRange"];
 			  console.log("KKKKKKKKKKKKKKKKKKKK = inbuy range = " + inBuyRange);
-			  priceBuyVariant = parseFloat(jsonout["priceBuyVar"]);
-			  priceVariant = parseFloat(jsonout["priceVar"]);
+			  let priceBuyVariant = parseFloat(jsonout["priceBuyVar"]);
+			  let priceVariant = parseFloat(jsonout["priceVar"]);
 			  let rangePrice = parseFloat(jsonout["rangePrice"]);
-
+                          statsmod.setPriceBuyVariant(priceBuyVariant);
+                          statsmod.setPriceVariant(priceVariant);
+                          statsmod.setRangePrice(rangePrice);
 			  statsmod.setChangeRange(changeRange);
 			  statsmod.setInBuyRange(inBuyRange);
 			  // **************** end of range data
@@ -411,20 +415,8 @@ async function processOrder() {
 				console.log("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
 
                                 await processingBuying(
-					priceBuyVariant, 
-					rangePrice, 
-					dupSale, 
-					orderRefVal, 
-	                                topBuyRange, 
-					botBuyRange, 
-					inRange, 
-					totTakeVal, 
-					takeLimit, 
 					openSellOrders, 
-					openBuyOrders,
-					saleDone,  
-					changeRange, 
-					inBuyRange
+					openBuyOrders
 				        );
 
 			 } else {
@@ -449,21 +441,28 @@ async function processOrder() {
 }
 
 async function processingBuying(
-	priceBuyVariant,
-	rangePrice, 
-	dupSale, 
-	orderRefVal, 
-	topBuyRange, 
-	botBuyRange, 
-	inRange, 
-	totTakeVal,
-	takeLimit, 
 	openSellOrders, 
-	openBuyOrders,
-	saleDone, 
-	changeRange,
-	inBuyRange) {
+	openBuyOrders
+      ) {
 
+	console.log("kkkkkkkk = staryt");
+        let priceBuyVariant = statsmod.getPriceBuyVariant();
+        let priceVariant = statsmod.getPriceVariant();
+        let rangePrice = statsmod.getRangePrice();
+	let topBuyRange = statsmod.getTopBuyRange();
+	let botBuyRange = statsmod.getBotBuyRange();
+	let inBuyRange = statsmod.getInBuyRange();
+	let changeRange = statsmod.getChangeRange();
+	let saleDone = statsmod.getSaleDone();
+	let dupSale = statsmod.getDupSale();
+	let orderRefVal = statsmod.getOrderRef();
+	let inRange = statsmod.getInRange();
+	let totTakeVal = statsmod.getTotTakeVal();
+	let takeLimit = statsmod.getTakeLimit();
+        statsmod.setKeyOrderVars();
+	console.log("mmmmmmmmmmmmmm = "+ JSON.stringify(statsmod.getKeyOrderVars()));
+
+	console.log("kkkkkkkk = end staryt");
 // sell at price 1 - buy at current price
 				let orgSellPrice = statsmod.getSellPrice();
 			        let orgBuyPricelocal = parseFloat(statsmod.getBuyPrice());
@@ -641,6 +640,9 @@ async function getRangeAvg() {
         
     await sqlmod.selectLastMinAvgDB(timemin[0]["timemin"]); // 5 mins avg
     let lastminAvg = sqlmod.getLastMinAvg();
+
+    if (!lastminAvg) return null; // db has been failing	
+    if (lastminAvg.length==0) return null; // db has been failing	
     let jsonAvg =  riskmod.calcAvg(id, timemin, lastminAvg, statsmod.getBuyPrice(), statsmod.getMinPrice(), statsmod.getMaxPrice());
 
     console.log("json avg === " +JSON.stringify(jsonAvg));

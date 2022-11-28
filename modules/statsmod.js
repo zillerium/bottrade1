@@ -52,9 +52,41 @@ class StatsMod {
 	    this.botBuyRange = 0;
 	    this.topBuyRange = 0;
 	    this.orderCat= 0;
+	    this.priceBuyVariant= 0;
+	    this.priceVariant= 0;
+	    this.rangePrice= 0;
 	    this.txnType = 'BUY';
+	    this.keyOrderVars = {};
     }
+     setKeyOrderVars = () => {
 
+        this.keyOrderVars = {
+		priceBuyVariant: this.priceBuyVariant,
+		priceVariant: this.priceVariant,
+             rangePrice: this.rangePrice,
+        topBuyRange: this.topBuyRange,
+        botBuyRange: this.botBuyRange,
+        inBuyRange: this.inBuyRange,
+        changeRange: this.changeRange,
+        saleDone: this.saleDone,
+        dupSale: this.dupSale,
+        orderRef: this.orderRef,
+        inRange: this.inRange,
+        totTakeVal: this.totTakeVal,
+        takeLimit: this.takeLimit
+            
+
+
+	}
+
+     }
+     getKeyOrderVars = () => {return this.keyOrderVars };
+     getRangePrice = () => {return this.rangePrice };
+     setRangePrice = (price) => { this.rangePrice= price };
+     getPriceVariant = () => {return this.priceVariant };
+     setPriceVariant = (price) => { this.priceVariant= price };
+     getPriceBuyVariant = () => {return this.priceBuyVariant };
+     setPriceBuyVariant = (price) => { this.priceBuyVariant= price };
      getTotTakeVal = () => {return this.totTakeVal };
      setTotTakeVal = (total) => { this.totTakeVal = total };
      getTakeLimit = () => {return this.takeLimit };
