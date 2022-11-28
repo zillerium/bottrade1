@@ -105,7 +105,7 @@ function getMod(n, m) {
     return ((n % m) + m) % m;
 }
 
-async function processSellOrderForBuy(allFilledBuyOrders) {
+async function processSellOrderForBuy(allFilledBuyOrders, allSellOrders) {
 
 
                   //console.log("nnnnnnbbbb = " + JSON.stringify(allSellOrders));
@@ -137,9 +137,50 @@ async function processSellOrderForBuy(allFilledBuyOrders) {
  return false;
 
 }
+async function processingInDupOrder(openSellOrders, rangePrice, nsellprice) {
 
 
+                         let salesunresolvedDup = openSellOrders.map(m =>  {
+                              let ordersJson = {};
+                              ordersJson["price"] = parseFloat(m["price"]);
+                              ordersJson["topRange"] = parseFloat(m["price"])+rangePrice;
+                              ordersJson["botRange"] = parseFloat(m["price"])-rangePrice;
+                              ordersJson["dupSale"] = 
+                                       ((nsellprice < (parseFloat(m["price"])+rangePrice)) &&
+		                       (nsellprice > (parseFloat(m["price"])-rangePrice)))
+                              ordersJson["rangePrice"] = rangePrice;
+                              ordersJson["sellPrice"] = nsellprice;
+                              return ordersJson;
+                          })
 
+			  let salesresolvedDup = await Promise.all(salesunresolvedDup);
+return salesresolvedDup;
+}
+
+async function processingRangeOrder(openBuyOrders, topBuyRange, botBuyRange, priceVariant, cBuyPrice) {
+
+
+                         let ordersunresolved = openBuyOrders.map(m =>  {
+                              let ordersJson = {};
+                              ordersJson["price"] = parseFloat(m["price"]);
+                              ordersJson["topRange"] = topBuyRange;
+                              ordersJson["botRange"] = botBuyRange;
+                              ordersJson["priceVariant"] = parseFloat(priceVariant);
+                              ordersJson["inRange"] = 
+                                      (
+	                                (botBuyRange <= (parseFloat(m["price"]))) &&
+		                        (topBuyRange >= (parseFloat(m["price"]))));
+                              ordersJson["buyPrice"] = cBuyPrice;
+                              return ordersJson;
+                          })
+
+			  let ordersresolved = await Promise.all(ordersunresolved);
+	                   return ordersresolved;
+
+                         //Object.assign(openOrdersRangeJson, ordersresolved);
+			 //console.log("uuuuuuuuuuuuuuuuu orders resolved == " + JSON.stringify(ordersresolved));
+
+}
 
 
 
@@ -223,10 +264,13 @@ async function processOrder() {
                          })
 
 			  // detect filled buy orders without a sale - sell the current btc
-                         saleDone = await  processSellOrderForBuy(allFilledBuyOrders);
+                         saleDone = await  processSellOrderForBuy(allFilledBuyOrders, allSellOrders);
                           //console.log("nnnnnnbbbb = " + JSON.stringify(allSellOrders));
 // end of sale - proceed to buys only when there are no sales
 			  //
+			  //
+			  //
+			  // ********************** get all open buy and sell orders 
 			  let openOrders = await bmod.getOpenOrders('TRUE');
 			 //client.logger.log(openOrders.data);
 			 await insertAPI("marginOpenOrders", "ok");
@@ -242,9 +286,12 @@ async function processOrder() {
 				 totTakeVal += parseFloat(item["origQty"])*parseFloat(item["price"]);    
 			     }
                          })
+
+			  // ************* end of all open buy and sell orders 
+			  //
 			  console.log("ppppppppppppp json open sell "+JSON.stringify(openSellOrders));
 //      return {aboveavg: buyprice>avgc, buyprice: buyprice, avgc: agvc, maxp: maxp, minp: minp);
-
+// **************** get marco stats
                           let period = parseInt(1440);
 			  avgJsonObj = await avgStats(statsmod.getBuyPrice(), period);
 			  let perdev = avgJsonObj["perdev"];
@@ -254,8 +301,9 @@ async function processOrder() {
                               riskFactor = 2;
 			      console.log("above avg == " + riskFactor);
 			  } 
-
+// end get macro stats
 console.log("************ start of avg");  // range calc
+			  // ******************** get range data
                           let jsonout = await getRangeAvg();
 			  levelsjson = jsonout["levelsjson"];
 			  //let perdev = avgJsonObj["perdev"];
@@ -272,7 +320,8 @@ console.log("************ start of avg");  // range calc
 			  let rangePrice = parseFloat(jsonout["rangePrice"]);
 
 console.log("************ end of avg");
-
+			  // **************** end of range data
+// *** get dup sale
                           let nsellprice = statsmod.getSellPrice();
        	                  let dupSale = openSellOrders.some(m => 
                                        ((nsellprice < (parseFloat(m["price"])+rangePrice)) &&
@@ -280,53 +329,40 @@ console.log("************ end of avg");
 	                            ) 
 			  console.log("&&& dup sales val  = " + dupSale);
 			  console.log("&&& tranges = " + priceVariant + " " + priceBuyVariant);
-			  
-                         let salesunresolvedDup = openSellOrders.map(m =>  {
-                              let ordersJson = {};
-                              ordersJson["price"] = parseFloat(m["price"]);
-                              ordersJson["topRange"] = parseFloat(m["price"])+rangePrice;
-                              ordersJson["botRange"] = parseFloat(m["price"])-rangePrice;
-                              ordersJson["dupSale"] = 
-                                       ((nsellprice < (parseFloat(m["price"])+rangePrice)) &&
-		                       (nsellprice > (parseFloat(m["price"])-rangePrice)))
-                              ordersJson["rangePrice"] = rangePrice;
-                              ordersJson["sellPrice"] = nsellprice;
-                              return ordersJson;
-                          })
-
-			  let salesresolvedDup = await Promise.all(salesunresolvedDup);
+// end dup sale
+			  // **** get open sales order
+                         let salesresolvedDup = await processingInDupOrder(
+				 openSellOrders, 
+				 rangePrice, 
+				 nsellprice
+			       );
                          Object.assign(openSalesOrdersRangeJson, salesresolvedDup);
-			 console.log("uuuuuuuuuuuuuuuuu sales orders resolved == " + JSON.stringify(salesresolvedDup));
+// *** end open sales orders 
+
+// *** check in range 
 			  let topBuyRange = parseFloat(statsmod.getBuyPrice()) + parseFloat(priceVariant);
 			  let botBuyRange = parseFloat(statsmod.getBuyPrice()) - parseFloat(priceVariant);
 			  
-			  console.log("+ check range 1 buying price +++" + statsmod.getBuyPrice());
-			  loggerp.error("check range === " + topBuyRange + " " + botBuyRange);
            	          let cBuyPrice = statsmod.getBuyPrice(); 
 			  let inRange = openBuyOrders.some(m => 
                                       (
 	                                (botBuyRange <= (parseFloat(m["price"]))) &&
 		                        (topBuyRange >= (parseFloat(m["price"]))))
 	                              );
+// end check in range
+			  // ***get all open orders and range
+                         let ordersresolved = await processingRangeOrder(
+				 openBuyOrders, 
+				 topBuyRange, 
+				 botBuyRange, 
+				 priceVariant, 
+				 cBuyPrice
+			    );
 
-                         let ordersunresolved = openBuyOrders.map(m =>  {
-                              let ordersJson = {};
-                              ordersJson["price"] = parseFloat(m["price"]);
-                              ordersJson["topRange"] = topBuyRange;
-                              ordersJson["botRange"] = botBuyRange;
-                              ordersJson["priceVariant"] = parseFloat(priceVariant);
-                              ordersJson["inRange"] = 
-                                      (
-	                                (botBuyRange <= (parseFloat(m["price"]))) &&
-		                        (topBuyRange >= (parseFloat(m["price"]))));
-                              ordersJson["buyPrice"] = cBuyPrice;
-                              return ordersJson;
-                          })
-
-			  let ordersresolved = await Promise.all(ordersunresolved);
                          Object.assign(openOrdersRangeJson, ordersresolved);
 			 console.log("uuuuuuuuuuuuuuuuu orders resolved == " + JSON.stringify(ordersresolved));
-
+// end of open orders for range
+			  //
 
 			 console.log("uuuuuuuuuuuuuuuuu in range == " + inRange); 
 			  if (!saleDone) {
