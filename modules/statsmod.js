@@ -40,9 +40,96 @@ class StatsMod {
         this.priceVars= {};
         this.stats= [];
         this.statsDb= [];
+	    this.totTakeVal = 0;
+	    this.takeLimit = 0;
+	    this.inRange = false;
+	    this.saleDone = false;
+	    this.changeRange = false;
+	    this.inBuyRange = false;
+	    this.dupSale = false;
+	    this.errJson = [];
+	    this.orderJson = [];
+	    this.botBuyRange = 0;
+	    this.topBuyRange = 0;
+	    this.orderCat= 0;
+	    this.txnType = 'BUY';
     }
 
-    initializeTxns = () => {	
+     getTotTakeVal = () => {return this.totTakeVal };
+     setTotTakeVal = (total) => { this.totTakeVal = total };
+     getTakeLimit = () => {return this.takeLimit };
+     setTakeLimit = (limit) => { this.takeLimit = limit };
+     getInRange = () => {return this.inRange };
+     setInRange = (range) => { this.inRange = range };
+     getSaleDone = () => {return this.saleDone };
+     setSaleDone = (sale) => { this.saleDone = sale };
+     getChangeRange= () => {return this.changeRange };
+     setChangeRange = (range) => { this.changeRange = range };
+     getOrderCat= () => {return this.orderCat };
+     setOrderCat = (cat) => { this.orderCat = cat };
+     getInBuyRange= () => {return this.inBuyRange };
+     setInBuyRange = (range) => { this.inBuyRange = range };
+     
+     getOrderRef= () => {return this.orderRef };
+     setOrderRef = (ref) => { this.orderRef = ref };
+     getBotBuyRange= () => {return this.botBuyRange };
+     setBotBuyRange = (range) => { this.botBuyRange = range };
+     getTopBuyRange= () => {return this.topBuyRange };
+     setTopBuyRange = (range) => { this.topBuyRange = range };
+     getTxnType= () => {return this.txnType };
+     setTxnType = (type) => { this.txnType = type };
+
+
+	getDupSale= () => {return this.dupSale };
+     getErrJson= () => {return this.errJson };
+     getOrderJson= () => {return this.orderJson };
+     setDupSale = (dup) => { this.dupSale = dup };
+     setErrJson = () => {
+
+          this.errJson.push({ 
+		  totTakeVal: this.totTakeVal, 
+		  takeLimit: this.takeLimit, 
+		  inRange: this.inRange, 
+		  saleDone: this.saleDone, 
+		  changeRange: this.changeRange,
+		  inBuyRange: this.inBuyRange, 
+		  dupSale: this.dupSale, 
+		  err: null 
+	      });
+
+
+      }
+	setOrderJson = () => {
+             let p = {
+                 sellPrice: this.sellPrice,
+                 buyPrice: this.buyPrice,
+                 orderRef: this.orderRef,
+                 topBuyRange: this.topBuyRange,
+                 botBuyRange: this.botBuyRange,
+                 inRange: this.inRange,
+                 qty: this.buyQty,
+                 txnType: this.txnType,
+                 cat: this.orderCat
+            };
+		this.orderJson.push(p);
+           console.log("ppppppppppppppppppppp => "+ JSON.stringify(p));
+	}
+   setErrForJson = () => {
+                          this.errJson.map(m => {
+                               m["err"]= 
+			       !(!m["inRange"] &&
+                                !m["saleDone"] &&
+                                (m["totTakeVal"] < m["takeLimit"]) &&
+                                !m["changeRange"] &&
+                                !m["saleDone"] &&
+                                 m["inBuyRange"] &&
+                                !m["dupSale"])}
+                                 )
+
+
+   }
+
+   initializeTxns = () => {	
       this.setOpenPrice(parseFloat(this.currentPrice)); //reset for the new candletsick
       this.setClosePrice(parseFloat(this.currentPrice));  // reset for the new candlestick
       this.setPrevSecsToNumber();
