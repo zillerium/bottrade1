@@ -105,6 +105,44 @@ function getMod(n, m) {
     return ((n % m) + m) % m;
 }
 
+async function processSellOrderForBuy(allFilledBuyOrders) {
+
+
+                  //console.log("nnnnnnbbbb = " + JSON.stringify(allSellOrders));
+	 let salesunresolved = await allFilledBuyOrders.map(async item =>  {
+		      let saleJson = {};
+			  let c = parseInt(item["clientOrderId"])+parseInt(1);	
+		      if ((parseInt(item["clientOrderId"]) == 481569849090) ||
+		           (parseInt(item["clientOrderId"]) == 3716306906) || 
+		           (parseInt(item["clientOrderId"]) == 389325811524)) {
+
+			  } else {
+                          let m1 = !allSellOrders.some(m => parseInt(m["clientOrderId"]) == c);
+			  if (m1) {
+				  let json = await sellOrder(item);
+				  return json;	  
+			  } 
+			  }
+
+	 })
+
+	let salesresolved = await Promise.all(salesunresolved);
+	let newSalesJson=salesresolved.filter(m=>{return m !=null})
+			  console.log("ooooooooooooo - sals json 1 resolved ---- " + JSON.stringify(salesresolved));
+			  console.log("ooooooooooooo - sals json 1 ---- " + JSON.stringify(newSalesJson));
+              //   let newSaleOrders= newSaleOrders1.filter(m=>Object.keys(m).length!==0) 
+        Object.assign(summarySellJson, newSalesJson);
+
+        if ((newSalesJson) && (newSalesJson.length > 0)) return true;
+ return false;
+
+}
+
+
+
+
+
+
 async function processOrder() {
 
 		  console.log("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
@@ -183,34 +221,12 @@ async function processOrder() {
 			         allSellOrders.push(item);
 		             }
                          })
+
+			  // detect filled buy orders without a sale - sell the current btc
+                         saleDone = await  processSellOrderForBuy(allFilledBuyOrders);
                           //console.log("nnnnnnbbbb = " + JSON.stringify(allSellOrders));
-		          let salesunresolved = await allFilledBuyOrders.map(async item =>  {
-		              let saleJson = {};
-			      let c = parseInt(item["clientOrderId"])+parseInt(1);	
-		              if ((parseInt(item["clientOrderId"]) == 481569849090) ||
-		                   (parseInt(item["clientOrderId"]) == 3716306906) || 
-		                   (parseInt(item["clientOrderId"]) == 389325811524)) {
-
-			      } else {
-                                  let m1 = !allSellOrders.some(m => parseInt(m["clientOrderId"]) == c);
-			          if (m1) {
-				      let json = await sellOrder(item);
-				      return json;	  
-			          } 
-			      }
-
-			  })
-			  let salesresolved = await Promise.all(salesunresolved);
-			  let newSalesJson=salesresolved.filter(m=>{return m !=null})
-			  console.log("ooooooooooooo - sals json 1 resolved ---- " + JSON.stringify(salesresolved));
-			  console.log("ooooooooooooo - sals json 1 ---- " + JSON.stringify(newSalesJson));
-                      //   let newSaleOrders= newSaleOrders1.filter(m=>Object.keys(m).length!==0) 
-                          Object.assign(summarySellJson, newSalesJson);
-
-                          if ((newSalesJson) && (newSalesJson.length > 0)) saleDone = true;
-			  console.log("ooooooooooooo - saledone ---- " + saleDone);
-			  console.log("ooooooooooooo - sals json 2 ---- " + JSON.stringify(newSalesJson));
-
+// end of sale - proceed to buys only when there are no sales
+			  //
 			  let openOrders = await bmod.getOpenOrders('TRUE');
 			 //client.logger.log(openOrders.data);
 			 await insertAPI("marginOpenOrders", "ok");
@@ -435,17 +451,7 @@ async function processingBuying(
 	changeRange,
 	inBuyRange) {
 
-                                loggerp.error("*** price criteria met *** ");
-	    	                loggerp.warn("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
-			        loggerp.warn("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
-				loggerp.warn("$$$  BUYING CRITERIA MET $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
-				loggerp.warn("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
-				console.log("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
-				console.log("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
-				console.log("$$$  BUYING CRITERIA MET $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
-				console.log("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
-				console.log("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
-
+// sell at price 1 - buy at current price
 				let orgSellPrice = statsmod.getSellPrice();
 			        let orgBuyPricelocal = parseFloat(statsmod.getBuyPrice());
 				let origQty = statsmod.getBuyQty();
@@ -473,7 +479,7 @@ async function processingBuying(
                                         loggerp.warn("kkk6 - order failed due to sell price dup");
                                         console.log("kkk6 - order failed due to sell price dup");
 			        }
-
+// sell at price 2 - buy at current price
 
 				let margin = parseFloat(2);
                                 let sellPriceL2 = parseFloat(orgBuyPricelocal) +
@@ -526,7 +532,7 @@ async function processingBuying(
 			        };
 			    orderJson.push(orderJsonLocal);
 
-
+// new buy price, sell price is current sell price, check no current buy prices exist
 				let newBuyprice =  parseFloat(statsmod.getBuyPrice()) - parseFloat(priceBuyVariant);
 
 				let topBuyRange1 = parseFloat(newBuyprice) + parseFloat(priceVariant);
@@ -681,34 +687,6 @@ async function getRangeAvg() {
     return jsonout;
 
 }
-function dupSales(sellJsonOrders, nsellprice, rangePrice) {
-console.log("&&&&&&&&&&&&&&&&&&&&&&&&& dup sales check%%%% " + JSON.stringify(sellJsonOrders));
-console.log("&&&&&&&&&&&&&&&&&&&&&&&&& dup sales check%%%% range price " + rangePrice);
-console.log("&&&&&&&&&&&&&&&&&&&&&&&&& dup sales check%%%% sell price " + nsellprice);
-//nsellprice = 16700;rangePrice = 20;
-	let m1 = sellJsonOrders.some(m => 
-                  ((nsellprice < (parseFloat(m["price"])+rangePrice)) &&
-		   (nsellprice > (parseFloat(m["price"])-rangePrice)))
-	          ) 
-console.log("lllllllllllllll m1 = "+ m1);
-	/*for (let j=0; j<sellJsonOrders.length; j++) {
-            let nprice = parseFloat(sellJsonOrders[j]["price"]);
-            let nstatus = sellJsonOrders[j]["status"];
-            let upperLimit = parseFloat(nprice+rangePrice) *riskFactor;
-            let lowerLimit = parseFloat(nprice-rangePrice) *riskFactor;
-		 // within range
-            if ((nsellprice < upperLimit) && (nsellprice > lowerLimit)) {
-                                   
-                 console.log("kkk - dup sale = selling price " + nsellprice);
-                 console.log("kkk - dup sale = existing order price " + nprice);
-                 console.log("kkk - rangePrice " + rangePrice);
-
-			return true;
-		 }
-	 }
-	return false;*/
-	return true;
-}
 
 async function checkAvgQty() {
     await sqlmod.selectAvgQtyDB(60); // 60 mins - gets avg qty for all slots
@@ -717,181 +695,6 @@ async function checkAvgQty() {
      // check last min and compare to avg to avoid a spike to zeroing out of qty in a min slot
 
 }
-
-async function checkInRange(buyOrders, topRange, botRange) {
- //[{"clientorderid":4321556200,"price":16680.84,"side":"BUY","time":"2022-11-24T07:16:27.392Z","updatetime":"2022-11-24T07:52:47.061Z","origQty":0.0015,"executedQty":0.0015,"status":"FILLED"},
-   //let topBuyRange = parseFloat(statsmod.getBuyPrice()) + parseFloat(priceVariant);
-     //                     let botBuyRange = parseFloat(statsmod.getBuyPrice()) - parseFloat(priceVariant);
-       //                   let inRange = checkInRange(openBuyOrders, topBuyRange, botBuyRange);
-
-//console.log("@@@@@@@@@@@@@@@@@ json file --- " + JSON.stringify(buyOrders));
-	let m1 = buyOrders.some(m => 
-                  (
-	           (botRange <= (parseFloat(m["price"]))) &&
-		   (topRange >= (parseFloat(m["price"]))))
-	          );
-	return m1;
- /* if (buyOrders.length == 0) return false; // no open buy orders in range
-     for (var key in buyOrders) {
-        let buyPrice =      parseFloat(buyOrders[key]["price"]);
-	console.log("%%%%%% buy price == "+ buyPrice);     
-	console.log("%%%%%%top range == "+ topRange);     
-	console.log("%%%%%% bot range == "+ botRange);     
-        if ((buyPrice >= botRange) && (buyPrice < topRange)) {
-	     sqlmod.insertOpenOrderSQL(parseInt(buyOrders[key]["clientOrderId"]),
-		     
-		     parseInt(buyOrders[key]["updateTime"]), 
-		     parseFloat(buyOrders[key]["price"]), 
-			     buyOrders[key]["side"].toString(),
-			     buyOrders[key]["status"].toString());
-                await sqlmod.exSQL();
-		console.log("match - range ");
-                  return true;
-        }
-     }
-	console.log("kkkkk - no math range");
- return false;*/
-
-} 
-
-async function newRangeCheck(apiAllOrders,  topRange, botRange) {
-        let buyJson = popJson('BUY', apiAllOrders, 'FILLED');
-
-	//unfilled sales orders
-//	let unfilledBuyJson = popUnfilledJson(buyJson, apiAllOrders);
- //    let inrange = checkInRange(unfilledBuyJson, topRange, botRange);
-  //   if (inrange) return true;
-
-     let buyfilledUnfilledSell = popUnfilledBuyUnfilledSell(buyJson, apiAllOrders);
-     let inrange = await checkInRange(buyfilledUnfilledSell, topRange, botRange);
-     if (inrange) return true;
-
-
-//     let openBuyJson = popJson('BUY', apiAllOrders, 'NEW');
-//     inrange = await checkInRange(openBuyJson, topRange, botRange);
-//     if (inrange) return true;
-
-
- //       let sellJson = popJson('SELL', apiAllOrders, 'NEW');
-// check if unfilled sales order is within range of expected new sales price.
-
-  //   return false;
-
-  //   console.log("Unbrought BUY Orders --- " );
-  //   console.table(openBuyJson);
-  //   console.log("Buy Orders with no Sell Orders--- " );
-  //   console.table(unfilledBuyJson);
-  //   console.log("Buy Orders with no Filled Sell Orders--- " );
-  //   console.table(unfilledBuyJsonFilled);
-
-
-}
-
-function popUnfilledBuyUnfilledSell(buyFilledJson, allOrdersJson) {
-//      console.log("unmat buy orders == " + JSON.stringify(allJson));
-        let unfilledJson=[]; let k=0;
-        for (let j=0; j<buyFilledJson.length;j++) {
-           let clientorderid = buyFilledJson[j]["clientorderid"];
-           if (isNumber(clientorderid)) {
-//                 console.log("buy id - " + clientorderid); 
-                let sellClientOrderId = clientorderid+1;
-//                 console.log("****** sell id - " + sellClientOrderId); 
-                if (sellIdExistsFilled(sellClientOrderId, allOrdersJson)) {
-              //      console.log("  x10 unmatched buy orders == found in json " + sellClientOrderId); 
-                } else {
-                //      console.log(" x10 unmatched buy orders not found in json " + sellClientOrderId);
-                    unfilledJson[k]=buyFilledJson[j];
-                    k++;
-                }
-           }
-        }
-        return unfilledJson;
-
-}
-
-function popUnfilledJson(buyJson, allJson) {
-        let unfilledJson=[]; let k=0;
-        for (let j=0; j<buyJson.length;j++) {
-           let clientorderid = buyJson[j]["clientorderid"];
-           if (isNumber(clientorderid)) {
-                //   console.log("buy id - " + clientorderid); 
-                let sellClientOrderId = clientorderid+1;
-                //   console.log("sell id - " + sellClientOrderId); 
-                if (sellIdExists(sellClientOrderId, allJson)) {
-
-                } else {
-                    unfilledJson[k]=buyJson[j];
-                    k++;
-                }
-           }
-        }
-        return unfilledJson;
-
-
-}
-
-function sellIdExistsFilled(id, allJson) {
-    for (let j=0;j<allJson.length;j++) {
-        if (isNumber(allJson[j]["clientOrderId"])) {
-        //    console.log("id == " + id);
-        //    console.log("client order id == " + allJson[j]["clientOrderId"]);
-//          console.log("status == " + allJson[j]["status"]);
-            if (id == parseInt(allJson[j]["clientOrderId"])) {
-               if (allJson[j]["status"]=='FILLED') {
-                   //  console.log("--------- matched d ---") ;
-                  //   console.log("--------- id ---" + id);
-                  //   console.log("--------- json client  ---" + JSON.stringify(allJson[j]));
-                     return true;
-                } else {
-                  //   console.log("status not mtached --" + allJson[j]["clientOrderId"]);
-                }
-            } else {
-                 //  console.log("id not matched exists filled"+ id + " " + allJson[j]["clientOrderId"]);
-            }
-        }
-
-    }
-    return false;
-}
-
-function sellIdExists(id, allJson) {
-    for (let j=0;j<allJson.length;j++) {
-        if (isNumber(allJson[j]["clientOrderId"])) {
-//              console.log("id == " + id);
-//              console.log("client order id == " + allJson[j]["clientOrderId"]);
-            if (id == parseInt(allJson[j]["clientOrderId"])) return true;
-        }
-    }
-    return false;
-}
-
-function popJson(orderType, apiAllOrders, statusType) {
-
-     let k1=0; let allFilledOrders =[];
-     for (let j=0;j<apiAllOrders.length;j++) {
-        if ((apiAllOrders[j]["status"] ==statusType ) && (apiAllOrders[j]["side"]==orderType)) {
-              let rec  =  { "clientOrderId" :parseInt(apiAllOrders[j]["clientOrderId"]),
-                "price": parseFloat(apiAllOrders[j]["price"]),
-                "side": apiAllOrders[j]["side"].toString(),
-                 "time":new Date(parseInt(apiAllOrders[j]["time"])/1),
-                 "updateTime":parseInt(apiAllOrders[j]["updateTime"]),
-                 "origQty": parseFloat(apiAllOrders[j]["origQty"]),
-                 "executedQty": parseFloat(apiAllOrders[j]["executedQty"]),
-                "status": apiAllOrders[j]["status"].toString()};
-//      console.log("*********** matched ---- ");
-//              console.log(JSON.stringify(rec));
-//                      console.log("status type == "+ statusType);
-//                      console.log("order type == "+ orderType);
-//
-                //console.log("api ordes  == "+ JSON.stringify(apiAllOrders.data[j]));
-                allFilledOrders[k1]= rec;
-        k1++;
-        }
-     }
-        return allFilledOrders;
-}
-
-
 
 
 function getLowestOpenBuyPrice(buyOrders) {
