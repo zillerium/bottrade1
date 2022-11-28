@@ -83,7 +83,7 @@ var cycleCount = 0;
 statsmod.setBuyQty(btcQty);
 statsmod.setRSIN(RSIN);
 statsmod.setPrevSecs(0); // initial Value
-console.log(client);
+//console.log(client);
 const pool = new Pool({
   user: "postgres",
   host: "localhost",
@@ -202,7 +202,23 @@ async function processingRangeOrder(openBuyOrders, topBuyRange, botBuyRange, pri
 			 //console.log("uuuuuuuuuuuuuuuuu orders resolved == " + JSON.stringify(ordersresolved));
 
 }
+function BuildOrderJson(sellPrice, buyPrice, orderRef, qty, topRange, botRange, type) {
 
+
+		          let orderJsonLocal = {
+
+				    sellPrice: sellPrice,
+				     buyPrice: buyPrice,
+				     orderRef: orderRef,
+				     qty: qty,
+				     topRange: topRange,
+				     botRange: botRange,
+				     type: type
+			        };
+	return orderJsonLocal;
+
+
+}	
 function getOpenSell(openOrders) {
 let openBuyOrders=[];
 	let openSellOrders=[];
@@ -330,6 +346,8 @@ async function processOrder() {
 			  // ******************** get range data
                           let jsonout = await getRangeAvg();
 			  levelsjson = jsonout["levelsjson"];
+			  let min5m =parseFloat(levelsjson["min5m"]);
+			  let max5m = parseFloat(levelsjson["max5m"]);
 			  let changeRange = jsonout["changeRange"];
 			  let inBuyRange = jsonout["inBuyRange"];
 			  console.log("KKKKKKKKKKKKKKKKKKKK = inbuy range = " + inBuyRange);
@@ -372,11 +390,8 @@ async function processOrder() {
 			    );
 
                          Object.assign(openOrdersRangeJson, ordersresolved);
-			 console.log("uuuuuuuuuuuuuuuuu orders resolved == " + JSON.stringify(ordersresolved));
-// end of open orders for range
-			  //
+			  
 
-			 console.log("uuuuuuuuuuuuuuuuu in range == " + inRange); 
 			  if (!saleDone) {
                               sqlmod.insertTradeProfitLogSQL(topBuyRange, botBuyRange, statsmod.getBuyPrice(), 
 				  statsmod.getSellPrice(), orderRefVal, 'BUY', inRange);
@@ -397,18 +412,14 @@ async function processOrder() {
 			       };
 			  errJson.push(errJsonLocal);
 
-		          let orderJsonLocal = {
-				    sellPrice: statsmod.getSellPrice(),
-				     buyPrice: statsmod.getBuyPrice(),
-				     orderRef: orderRefVal,
-				     qty: statsmod.getBuyQty(),
-				     topRange: topBuyRange,
-				     botRange: botBuyRange,
-				     type: 'BUY'
-			        };
-			    orderJson.push(orderJsonLocal);
-
-
+                          orderJson.push(BuildOrderJson(
+				          statsmod.getSellPrice(),
+				          statsmod.getBuyPrice(),
+				          orderRefVal,
+				          statsmod.getBuyQty(),
+				          topBuyRange,
+				          botBuyRange,
+				          'BUY'));
 
 		           errJson.map(m => { 
                                m["err"]= !(!m["inRange"] && 
