@@ -117,7 +117,10 @@ class BotMod {
 
     getAccountDetails = async (assetPair) => {
 
-	let queryParams = { symbols: assetPair }    
+	let queryParams = { 
+     	    symbols: assetPair,
+	    recvWindows: 6000,
+	}    
         try {
             return await this.client.isolatedMarginAccountInfo(queryParams); 
         } catch (e) {
@@ -125,6 +128,48 @@ class BotMod {
             throw(e);
         }
     }
+
+
+    newMarginOrderShort = async (price,  quantity, clientOrderId, timeInForce, orderType) => {
+        if ((orderType == 'SELL') && (!this.isSafeSellPrice(price))) {this.client.logger.error("too low price - sale");return null};
+        if ((orderType == 'BUY') && (!this.isSafeBuyPrice(price))) {this.client.logger.error("too high price - buy");return null};
+      //  this.client.logger.error(this.numberBuys);
+      //  this.client.logger.error(this.numberSells);
+      //  this.client.logger.error(this.tradeDiffLimit);
+	if (!this.isSafeTrade) {this.client.logger.error("trade not balanced");return null};
+
+        switch (orderType) {
+            case 'BUY':
+                this.numberBuys++; break;
+	    case 'SELL':		
+                this.numberSells++; break;
+	    default:
+		break;
+	}
+
+	let orderParams = {
+            quantity: quantity,
+            isIsolated: 'TRUE',
+	//    stopPrice: stopPrice.toString(),	
+            price: price.toString(),
+           // newClientOrderId: clientOrderId.toString(), // binance will generate the id
+            newOrderRespType: 'FULL',
+            timeInForce: timeInForce //'FOK' // FOK did not work in testing 
+	}
+	try {
+            return await this.client.newMarginOrder('BTCUSDT', orderType, 'LIMIT', orderParams)
+
+		
+        //client.logger.log(resp.data);
+        //return { "resp": resp.data, "error": false};
+        }
+        catch (e) {
+            this.client.logger.error(e);
+	    throw(e);
+//            return {"resp": null, "error": true};
+        }
+    }
+
 
 
 // OrderType - 'BUY' or 'SELL'

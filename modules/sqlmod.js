@@ -6,6 +6,7 @@ class SQLMod {
 	    this.lastMinRec = {};
 	    this.statsRangeExists = false;
 	    this.lastIdStatsPrice=0;
+	    this.pid=0;
 	    this.lastIdCurrPrice=0;
         this.dbRes ={};
         this.lastVal = null;
@@ -34,6 +35,7 @@ this.tradeprofitDB;
 // sqlmod.getPeriodStatsDB
 	//
      getAvgMaxMinRec= () => { return this.avgMaxMinRec }
+     getPid= () => { return this.pid }
      getStatsRecTime= () => { return this.statsRecTime }
      getLastMinAvg= () => { return this.lastMinRec }
      getStatsRangeExists= () => { return this.statsRangeExists }
@@ -129,6 +131,26 @@ this.tradeprofitDB;
 
 //    id    |          txndate           | timeprice  |      price       
 // id | txndate | clientorderid | price | qty | ordertype | exitprice 
+
+     selectPriceOrderRecById = async(id) => {
+       let sql = "select id,clientorderid, price, qty, ordertype, exitprice" +
+		     " from priceorder where id =    " + parseInt(id);
+
+ console.log("sql==" + sql);
+//console.log(sql);
+       try {
+	       let pool = this.pool;
+           let res=await pool.query(sql)
+	   if ((res) && (res.rowCount>0)) {
+          //    console.log(JSON.stringify(res));
+		 this.priceOrderRec = res.rows;
+           //   this.lastCurrPrice = parseFloat(res.rows[0]["price"]);
+           //   this.lastCurrPriceTime = parseInt(res.rows[0]["timeprice"]);
+	   }
+           //pool.end();
+       } catch (err) { throw(err);
+       }
+     }
 
      selectPriceOrderRec = async(clientorderid) => {
        let sql = "select id,clientorderid, price, qty, ordertype, exitprice" +
@@ -739,6 +761,17 @@ i//crypto=# select avg(diff), min(minprice), max(maxprice), (max(maxprice) - min
         avgPrice + "," + timePrice + "," + chgPrice + ", " + directionPrice + ",'" + timeSecs + "')";
 
 
+    }
+    getPriceOrderLastId = async() => {
+       let sql = "select last_value from priceorder_id_seq";
+
+       try {
+	       let pool = this.pool;
+           let res=await pool.query(sql)
+           this.pid = parseInt(res.rows[0]["last_value"]);
+
+       } catch (err) { throw(err);
+       }
     }
     getId = async() => {
        let sql = "select last_value from trade_id_seq";
