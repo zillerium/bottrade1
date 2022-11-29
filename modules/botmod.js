@@ -115,6 +115,15 @@ class BotMod {
 
 //client.isolatedMarginAccountInfo({symbols: 'BTCUSDT'})
 
+    getServerTime = async () => {
+
+        try {
+            return await this.client.time();
+        } catch (e) {
+            this.client.logger.error(e);
+            throw(e);
+        }
+    }
     getAccountDetails = async (assetPair) => {
 
 	let queryParams = { 

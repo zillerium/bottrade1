@@ -109,6 +109,8 @@ async function processSellOrderForBuy(allFilledBuyOrders, allSellOrders) {
 			  let c = parseInt(item["clientOrderId"])+parseInt(1);	
 		      if (((parseInt(item["clientOrderId"]) == 481569849090) ||
 		           (parseInt(item["clientOrderId"]) == 3716306906) || 
+		           (parseInt(item["clientOrderId"]) == 65933311107) || 
+		           (parseInt(item["clientOrderId"]) == 691595626555) || 
 		           (parseInt(item["clientOrderId"]) == 389325811524))
                            || (parseInt(item["time"]) <=1669693522665))           
 // 1669693522665
@@ -832,19 +834,61 @@ async function sellOrder(filledBuyOrder) {
 // s
 //
 //
+async function main3() {
+// use  ntpdate -s ntp.ubuntu.com to sync time 
+	// also date "+%S"
+let response = await bmod.getServerTime();
+	client.logger.log(response.data);
+	console.log("time - "+ Date.now());
+	process.exit();
+}
 async function main() {
 	let processLimit = parseInt(1);
         let processA = 0;
 	let processtest = true;
-	while (processtest) {
+        let i=0;
+        let btcBal = await getBtcBalance();
+        if (btcBal == 0) {
+	    const ran=Math.floor(Math.random() * 1000000)
+	    const ran2 = Math.floor(Math.random() * 1000000)
+	    var aOrderRef = ran*ran2;
 
-            await shortTermTrade();
-            processA++;
-            if (processA>=processLimit) { processtest =false;}		
-	}
+	    await sqlmod.selectPriceDB(1, 'desc');
+	    let priceRecs = sqlmod.getPriceDb();
+	    //let qty= parseFloat(priceRecs[0]["qty"]);
+	    let qty =parseFloat(1) * parseFloat(0.00075);
+	    let aBuyPrice = parseFloat(priceRecs[0]["price"]);
+	    let aSellPrice = aBuyPrice + parseFloat(1); // 1 dollar
+            loggerp.error("log buy call to api");
+	    await processShortTermBuyOrder(
+		    aSellPrice, 
+		    aBuyPrice, 
+		    aOrderRef, 
+		    qty);
+
+	   while ((btcBal == 0) && (i< 20)) {
+                btcBal = await getBtcBalance();
+		i++;   
+    	    }
+            if (btcBal > 0) {		
+                loggerp.error("log sell call to api");
+                await mainSellOrderShort(aBuyPrice, aSellPrice, qty, aOrderRef);
+	    }
+	}	
+
 	process.exit();
 }
 
+async function getBtcBalance() {
+
+loggerp.error("log call to api");
+    let jsonAccount = await bmod.getAccountDetails('BTCUSDT');
+    console.log(JSON.stringify(jsonAccount.data));
+    let btcBal = parseFloat(jsonAccount.data["assets"][0]["baseAsset"]["free"]);
+    let freeBal = parseFloat(jsonAccount.data["assets"][0]["quoteAsset"]["free"]);
+
+	return btcBal;
+}
 async function shortTermTrade() {
 	
     let jsonAccount = await bmod.getAccountDetails('BTCUSDT');
@@ -854,6 +898,14 @@ async function shortTermTrade() {
 
     await insertAPI("getAccountInfo", "ok");
     if (btcBal > 0) {
+	    await sellShort();
+    } else {
+	    await buyShort();
+    }
+}
+
+async function sellShort() {
+
        await sqlmod.getPriceOrderLastIdShort();
        let id = sqlmod.getPid();
        console.log(" id 222 = "+ id);
@@ -867,7 +919,9 @@ async function shortTermTrade() {
            let sellId = parseInt(priceRec[0]["clientorderid"])+1;
            await mainSellOrderShort(buyprice, sellprice, qty, sellId);
        }
-    } else {
+}
+async function buyShort() {
+
 	    const ran=Math.floor(Math.random() * 1000000)
 	    const ran2 = Math.floor(Math.random() * 1000000)
 	    var aOrderRef = ran*ran2;
@@ -883,8 +937,9 @@ async function shortTermTrade() {
 		    aBuyPrice, 
 		    aOrderRef, 
 		    qty);
-    }
 }
+
+
 async function main2() {
 	// get price data by the sec
 	// check if new sec
@@ -1022,7 +1077,7 @@ console.log("KKKKKKKKKKKKK sell order");
 
       logger.info("api new order - buy ");
       let responseMargin = await bmod.newMarginOrderShort(sellPrice, btcQty, orderRef, 'GTC','SELL');
-      await insertAPI("newMarginOrderSell", "ok");
+ //     await insertAPI("newMarginOrderSell", "ok");
       client.logger.log(responseMargin.data);
 	
 
@@ -1089,10 +1144,10 @@ async function mainBuyOrderShort(buyPrice, sellPrice, btcQty, orderRef) {
         console.log("@@@@@@@@@@@@@@@@@ loop alert @@@@@@@@@@@@@@@@ " + totOrders);
 
       let responseMargin = await bmod.newMarginOrderShort(buyPrice, btcQty, orderRef, 'GTC','BUY');
-      console.log("resp buy == "+ JSON.stringify(responseMargin.data));
-      sqlmod.insertPriceOrderSQLShort(orderRef, buyPrice, btcQty, 'BUY', sellPrice);
-      await sqlmod.exSQL();
-      await insertAPI("newMarginOrderBuy", "ok");
+    //  console.log("resp buy == "+ JSON.stringify(responseMargin.data));
+     // sqlmod.insertPriceOrderSQLShort(orderRef, buyPrice, btcQty, 'BUY', sellPrice);
+    //  await sqlmod.exSQL();
+    //  await insertAPI("newMarginOrderBuy", "ok");
       client.logger.log(responseMargin.data);
 }
 

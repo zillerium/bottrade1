@@ -132,12 +132,34 @@ this.tradeprofitDB;
 //    id    |          txndate           | timeprice  |      price       
 // id | txndate | clientorderid | price | qty | ordertype | exitprice 
 
+
+     selectPriceOrderRecByIdShort = async(id) => {
+       let sql = "select id,clientorderid, price, qty, ordertype, exitprice" +
+		     " from priceordershort where id =    " + parseInt(id);
+
+         console.log("sql==" + sql);
+         //console.log(sql);
+       try {
+	       let pool = this.pool;
+           let res=await pool.query(sql)
+	   if ((res) && (res.rowCount>0)) {
+          //    console.log(JSON.stringify(res));
+		 this.priceOrderRec = res.rows;
+           //   this.lastCurrPrice = parseFloat(res.rows[0]["price"]);
+           //   this.lastCurrPriceTime = parseInt(res.rows[0]["timeprice"]);
+	   }
+           //pool.end();
+       } catch (err) { throw(err);
+       }
+     }
+
+
      selectPriceOrderRecById = async(id) => {
        let sql = "select id,clientorderid, price, qty, ordertype, exitprice" +
 		     " from priceorder where id =    " + parseInt(id);
 
- console.log("sql==" + sql);
-//console.log(sql);
+         console.log("sql==" + sql);
+         //console.log(sql);
        try {
 	       let pool = this.pool;
            let res=await pool.query(sql)
@@ -621,6 +643,10 @@ i//crypto=# select avg(diff), min(minprice), max(maxprice), (max(maxprice) - min
      }
 
 
+     insertPriceOrderSQLShort = (clientorderid, price, qty, ordertype, exitprice) => {
+         this.sql = "insert into priceordershort (txndate, clientorderid, price, qty, ordertype, exitprice) " +
+         "values ( NOW(), " + clientorderid + "," + price + "," + qty + ",'" + ordertype + "'," + exitprice+ ")";
+     }
      insertPriceOrderSQL = (clientorderid, price, qty, ordertype, exitprice) => {
          this.sql = "insert into priceorder (txndate, clientorderid, price, qty, ordertype, exitprice) " +
          "values ( NOW(), " + clientorderid + "," + price + "," + qty + ",'" + ordertype + "'," + exitprice+ ")";
@@ -762,8 +788,11 @@ i//crypto=# select avg(diff), min(minprice), max(maxprice), (max(maxprice) - min
 
 
     }
-    getPriceOrderLastId = async() => {
-       let sql = "select last_value from priceorder_id_seq";
+
+
+
+    getPriceOrderLastIdShort = async() => {
+       let sql = "select last_value from priceordershort_id_seq";
 
        try {
 	       let pool = this.pool;
