@@ -52,8 +52,8 @@ const RSIN=14; // period for RS
 var totOrders = 0;
 var histId = 0;
 var totOrderLimit = 4;
-var btcStdQty = parseFloat(0.00075);
-var btcQty =(parseFloat(1)* btcStdQty);
+var btcStdQty = parseFloat(0.0015);
+var btcQty =parseFloat(1) * btcStdQty;
 console.log("%%%%%--- btcQty "+ btcQty);
 
 //var btcQty = 0.00075;
@@ -597,7 +597,7 @@ async function processingBuying(
              origQty,
 	     openSellOrders
          );
-	catNum = parseInt(3);
+/*	catNum = parseInt(3);
         let orderRefVal3 = orderRef + 20; 
 	let margin = parseFloat(2);
         sellPrice = parseFloat(orgBuyPricelocal) + parseFloat(parseFloat(margin)* parseFloat(priceBuyVariant));
@@ -615,9 +615,9 @@ async function processingBuying(
              origQty,
 	     openSellOrders
          );
-
+*/
 // new buy price, sell price is current sell price, check no current buy prices exist
-	let newBuyprice =  parseFloat(orgBuyPricelocal) - parseFloat(priceBuyVariant);
+/*	let newBuyprice =  parseFloat(orgBuyPricelocal) - parseFloat(priceBuyVariant);
 	let topBuyRange1 = parseFloat(newBuyprice) + parseFloat(priceVariant);
         let botBuyRange1 = parseFloat(newBuyprice) - parseFloat(priceVariant);
         statsmod.setTopBuyRange(topBuyRange1);
@@ -645,7 +645,7 @@ async function processingBuying(
 	             openSellOrders
                   );
 	}
-
+*/
         statsmod.setErrForJson();
 
 }
@@ -986,7 +986,7 @@ async function main() {
 	// process order
 		//
 //	    let numMins = statsmod.getNumberSecs();
-           if (getMod(statsmod.getNumberSecs(), 10)==0) {
+           if (getMod(statsmod.getNumberSecs(), 900)==0) {
                await newSecond();
            }
 	   while (id == prevId) {
