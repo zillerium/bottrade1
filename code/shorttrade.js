@@ -52,7 +52,7 @@ const RSIN=14; // period for RS
 var totOrders = 0;
 var histId = 0;
 var totOrderLimit = 4;
-var btcQty =(parseFloat(1* 0.00075));
+var btcQty =(parseFloat(2* 0.00075));
 console.log("%%%%%--- btcQty "+ btcQty);
 
 //var btcQty = 0.00075;
@@ -844,7 +844,7 @@ let response = await bmod.getServerTime();
 	console.log("time - "+ Date.now());
 	process.exit();
 }
-async function mainx() {
+async function main() {
 	let processLimit = parseInt(1);
         let processA = 0;
 	let processtest = true;
@@ -942,7 +942,7 @@ async function buyShort() {
 }
 
 
-async function main() {
+async function mainx() {
 	// get price data by the sec
 	// check if new sec
 	// open buy orders
