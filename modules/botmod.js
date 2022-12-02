@@ -35,6 +35,7 @@ class BotMod {
             return await this.client.marginAllOrders(
                 'BTCUSDT', // symbol
             {
+		    recvWindows: 6000,
                 isIsolated: 'TRUE',
         	limit: 500
                 //origClientOrderId: orderRef.toString(),

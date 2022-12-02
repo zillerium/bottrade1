@@ -18,6 +18,7 @@ this.tradeprofitDB;
         this.periodStatsDB = {};
         this.histId = 0;
         this.currId = 0;
+        this.profitByDate = 0.00;
         this.clientidExists = false;
         this.statsDB = [];
         this.priceDB = [];
@@ -34,6 +35,7 @@ this.tradeprofitDB;
     }
 // sqlmod.getPeriodStatsDB
 	//
+     getProfitByDate= () => { return this.profitByDate }
      getAvgMaxMinRec= () => { return this.avgMaxMinRec }
      getPid= () => { return this.pid }
      getStatsRecTime= () => { return this.statsRecTime }
@@ -248,6 +250,33 @@ this.tradeprofitDB;
        } catch (err) { throw(err);
        }
      }
+
+//select sum(p) from (select (exitprice-price)*qty as p from priceorder where ordertype = 'BUY' and txndate >='2022-11-30' order by id desc limit 100) as t;
+        //  
+        //  
+     getProfitByDateSQL = async (dateStr) => {
+         let sql = "select sum(p) as sump from (select (exitprice-price)*qty as p from priceorder "+
+                     " where ordertype = 'BUY' and txndate >='" + dateStr + "' " +
+                     " order by id desc) as t";
+ //console.log(sql);
+            
+	    try {
+	       let pool = this.pool;
+               let res=await pool.query(sql)
+	       if ((res) && (res.rowCount>0)) {
+          //    console.log(JSON.stringify(res));
+		    this.profitByDate =parseFloat(res.rows[0]["sump"]);
+           //   this.lastCurrPrice = parseFloat(res.rows[0]["price"]);
+           //   this.lastCurrPriceTime = parseInt(res.rows[0]["timeprice"]);
+	       }
+           //pool.end();
+             } catch (err) { throw(err);
+             }
+
+     }  
+
+
+
 	//  id | lasttimemin |   avgminprice    |   avgmaxprice    |   avgrange    | avgperiod | statsid 
 
      selectTimeMinStatsDB = async(id) => {
@@ -618,7 +647,12 @@ i//crypto=# select avg(diff), min(minprice), max(maxprice), (max(maxprice) - min
          this.sql = "select avg(qty) from (select qty, id from stats order by id desc limit "+ n + ") as t";
 
      }
+//  id | txndate | openbuyval | opensellval | capitalreserves | cash | totval 
 
+     insertCapital = (openbuyval, opensellval, capitalreserves, cash, totval) => {
+         this.sql = "insert into capital (txndate,openbuyval, opensellval, capitalreserves, cash, totval ) " +
+         "values ( ' NOW()'," + openbuyval + "," + opensellval + ","+ capitalreserves + "," + cash + "," +totval + ")";
+     }
 //  id | txndate | clientorderid | ordertime | orderprice | ordertype | orderstatus 
 
      insertOpenOrderSQL = (clientorderid, ordertime, orderprice, orderType, orderstatus) => {

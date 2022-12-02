@@ -30,6 +30,7 @@ var summaryBuyJson = [];
 const takeLimit = 5000; // open sale orders - limit liabilities 
 var riskFactor = parseFloat(2); // defines the risk on the range default is 1, raise this number to decrease risk
 const openOrderLimit = 5;
+var profitFactor = parseFloat(101/100);
 const cycleLimit = 2;
 var levelsjson = {};
 var avgJsonObj = {};
@@ -101,39 +102,6 @@ function getMod(n, m) {
     return ((n % m) + m) % m;
 }
 
-async function cancelSellOrders2() {
-
-    let respcancel = await bmod.cancelClientOrder(clientorderid, 'TRUE');
-
-
-}
-
-
-function cancelSellOrders(orderType, apiAllOrders, statusType) {
-     let nowSecs = (Date.now()/1000);
-     let k1=0; let allFilledOrders =[];
-     for (let j=0;j<apiAllOrders.data.length;j++) {
-        if ((apiAllOrders.data[j]["status"] ==statusType ) && (apiAllOrders.data[j]["side"]==orderType)) {
-                let updateSecsDiff = nowSecs - (parseInt(apiAllOrders.data[j]["updateTime"])/1000)
-                let timeSecsDiff = nowSecs - (parseInt(apiAllOrders.data[j]["time"])/1000)
-              let rec  =  { "clientorderid" :parseInt(apiAllOrders.data[j]["clientOrderId"]),
-                "price": parseFloat(apiAllOrders.data[j]["price"]),
-                "side": apiAllOrders.data[j]["side"].toString(),
-                 "time":new Date(parseInt(apiAllOrders.data[j]["time"])/1),
-                 "updatetime":new Date(parseInt(apiAllOrders.data[j]["updateTime"])/1),
-                 "updatetimesecs":parseInt(apiAllOrders.data[j]["updateTime"])/1,
-                 "updateSecsDiff":updateSecsDiff,
-                 "timeSecsDiff":timeSecsDiff,
-                 "origQty": parseFloat(apiAllOrders.data[j]["origQty"]),
-                 "executedQty": parseFloat(apiAllOrders.data[j]["executedQty"]),
-                "status": apiAllOrders.data[j]["status"].toString()};
-                allFilledOrders[k1]= rec;
-        k1++;
-        }
-     }
-        return allFilledOrders;
-}
-
 
 async function processCancelOrders(cancelOrders, aBuyPrice){
 
@@ -147,17 +115,27 @@ async function processCancelOrders(cancelOrders, aBuyPrice){
                                   let sellPriceOrg = parseFloat(item["price"]);
 				  let sellPriceCancel = aBuyPrice;
 		                  let qtyCancel = parseFloat(item["origQty"]);
-                                  let nowqty = qtyCancel - btcStdQty;
+                                  let nowqty =parseFloat(qtyCancel) - parseFloat(btcStdQty);
 				  console.log(" qty = " + nowqty + " sell price cancel " + sellPriceCancel);
-                                  resp = await bmod.newMarginOrder(sellPriceCancel.toFixed(2), nowqty, c, 'GTC','SELL');
+                                  let sellPriceFixed2 = sellPriceCancel.toFixed(2);                                  
+				  resp = await bmod.newMarginOrder(sellPriceFixed2, nowqty, c, 'GTC','SELL');
                   console.log(client.logger.log(resp.data))
+                                 sqlmod.insertPriceOrderSQL(c, parseFloat(sellPriceFixed2),
+					 nowqty, 'SELL', parseFloat(sellPriceFixed2));
+                                 await sqlmod.exSQL();
+
                                   let orgTot = qtyCancel * sellPriceOrg;
-				 let totToSell = parseFloat(orgTot - (sellPriceCancel * nowqty));
+				  // profit factor allows for profit to compensate for losses when using fixed 2
+				 let totToSell = parseFloat(orgTot - (parseFloat(sellPriceFixed2) * nowqty))*parseFloat(profitFactor);
 				 let newSellPrice= parseFloat(totToSell/btcStdQty);
 				  console.log(" qty = " + btcStdQty + " sell price cancel " + newSellPrice);
-				  resp = await bmod.newMarginOrder(newSellPrice.toFixed(2), btcStdQty, c+1, 'GTC','SELL');
+				  
+				  let c1=c+1;
+				  resp = await bmod.newMarginOrder(newSellPrice.toFixed(2), btcStdQty, c1, 'GTC','SELL');
                   console.log(client.logger.log(resp.data))
 
+                                 sqlmod.insertPriceOrderSQL(c1, newSellPrice, btcStdQty, 'SELL', newSellPrice);
+                                 await sqlmod.exSQL();
 	                         // addSummarySellJson(buyprice, sellprice, qty, sellId);
 				  
 			  } 
@@ -175,6 +153,8 @@ async function processSellOrderForBuy(allFilledBuyOrders, allSellOrders, btcBal)
 		      if (((parseInt(item["clientOrderId"]) == 481569849090) ||
 		           (parseInt(item["clientOrderId"]) == 3716306906) || 
 		           (parseInt(item["clientOrderId"]) == 143891352102) || 
+		           (parseInt(item["clientOrderId"]) == 23541204855) || 
+		           (parseInt(item["clientOrderId"]) == 702319960530) || 
 		           (parseInt(item["clientOrderId"]) == 65933311107) || 
 		           (parseInt(item["clientOrderId"]) == 691595626555) || 
 		           (parseInt(item["clientOrderId"]) == 389325811524))
@@ -213,8 +193,11 @@ async function processingInDupOrder(openSellOrders, rangePrice, nsellprice) {
                               ordersJson["topRange"] = parseFloat(m["price"])+rangePrice;
                               ordersJson["botRange"] = parseFloat(m["price"])-rangePrice;
                               ordersJson["dupSale"] = 
-                                       ((nsellprice < (parseFloat(m["price"])+rangePrice)) &&
-		                       (nsellprice > (parseFloat(m["price"])-rangePrice)))
+                                       (
+					(nsellprice < (parseFloat(m["price"])+rangePrice)) &&
+		                        (nsellprice > (parseFloat(m["price"])-rangePrice)) &&
+                                        (parseFloat(m["origQty"]) == btcQty) // original sale before splitting (when coins do not sell)
+				       )
                               ordersJson["rangePrice"] = rangePrice;
                               ordersJson["sellPrice"] = nsellprice;
                               return ordersJson;
@@ -229,7 +212,9 @@ async function inRangeDecision(openBuyOrders, topBuyRange, botBuyRange) {
 			  let inRange = openBuyOrders.some(m => 
                                       (
 	                                (botBuyRange <= (parseFloat(m["price"]))) &&
-		                        (topBuyRange >= (parseFloat(m["price"]))))
+		                        (topBuyRange >= (parseFloat(m["price"]))) &&
+					      (parseFloat(m["origQty"]) == btcQty)
+				      )
 	                              );
 	return inRange;
 }
@@ -237,8 +222,11 @@ async function inRangeDecision(openBuyOrders, topBuyRange, botBuyRange) {
 async function inDupDecision(openSellOrders, nsellprice, rangePrice) {
 
        	                  let dupSale = openSellOrders.some(m => 
-                                       ((nsellprice < (parseFloat(m["price"])+rangePrice)) &&
-		                       (nsellprice > (parseFloat(m["price"])-rangePrice)))
+                                       (
+				       (nsellprice < (parseFloat(m["price"])+rangePrice)) &&
+		                       (nsellprice > (parseFloat(m["price"])-rangePrice)) &&
+					      (parseFloat(m["origQty"]) == btcQty)
+				       )
 	                            ) 
 	if (dupSale) {
             console.log("existing sale orders ---------------------->")
@@ -257,7 +245,9 @@ async function processingRangeOrder(openBuyOrders, topBuyRange, botBuyRange, pri
                               ordersJson["inRange"] = 
                                       (
 	                                (botBuyRange <= (parseFloat(m["price"]))) &&
-		                        (topBuyRange >= (parseFloat(m["price"]))));
+		                        (topBuyRange >= (parseFloat(m["price"]))) &&
+					      (parseFloat(m["origQty"]) == btcQty)
+				      );
                               ordersJson["buyPrice"] = cBuyPrice;
                               return ordersJson;
                           })
@@ -271,42 +261,6 @@ async function processingRangeOrder(openBuyOrders, topBuyRange, botBuyRange, pri
 }
 /*
  *
-  let updateSecsDiff = nowSecs - (parseInt(apiAllOrders.data[j]["updateTime"])/1000)
-                let timeSecsDiff = nowSecs - (parseInt(apiAllOrders.data[j]["time"])/1000)
-              let rec  =  { "clientorderid" :parseInt(apiAllOrders.data[j]["clientOrderId"]),
-                "price": parseFloat(apiAllOrders.data[j]["price"]),
-                "side": apiAllOrders.data[j]["side"].toString(),
-                 "time":new Date(parseInt(apiAllOrders.data[j]["time"])/1),
-                 "updatetime":new Date(parseInt(apiAllOrders.data[j]["updateTime"])/1),
-                 "updatetimesecs":parseInt(apiAllOrders.data[j]["updateTime"])/1,
-                 "updateSecsDiff":updateSecsDiff,
-                 "timeSecsDiff":timeSecsDiff,
-                 "origQty": parseFloat(apiAllOrders.data[j]["origQty"]),
-                 "executedQty": parseFloat(apiAllOrders.data[j]["executedQty"]),
-                "status": apiAllOrders.data[j]["status"].toString()};
-//{"clientorderid":187918205460,"price":16521.68,"side":"BUY","time":"2022-11-25T19:35:20.982Z","updatetime":"2022-11-25T19:43:54.400Z","updatetimesecs":1669405434400,"origQty":0.00075,"executedQty":0.00075,"status":"FILLED"}
-                ////      console.log("*********** matched ---- ");
-//              console.log(JSON.stringify(rec));
-//                      console.log("status type == "+ statusType);
-//                      console.log("order type == "+ orderType);
-//
-                //console.log("api ordes  == "+ JSON.stringify(apiAllOrders.data[j]));
-                allFilledOrders[k1]= rec;
-
- **/
-
-/*
- * let timeSecsDiff = buyJson[key]["timeSecsDiff"];
-            let clientorderid = buyJson[key]["clientorderid"];
-            console.log(" diff = " + timeSecsDiff);
-            console.log(" timeallowed = " + timeAllowed);
-            console.log(" client order id = " + clientorderid);
-            if (timeSecsDiff > timeAllowed) {
-                    console.log("client order id cancel = "+ clientorderid);
-                let respcancel = await bmod.cancelClientOrder(clientorderid, 'TRUE');
-                  console.log(client.logger.log(respcancel.data))
-
-            }
 */
 
 
@@ -494,7 +448,7 @@ console.log("xxxxxxxxxxxoooooooo = " + saleDone);
           let openOrders = await bmod.getOpenOrders('TRUE');
           await insertAPI("marginOpenOrders", "ok");
 	  // ********************** get all open buy and sell orders 
- 	  client.logger.log(openOrders.data);
+ //	  client.logger.log(openOrders.data);
 	  let k=0;
 	  // BEGIN **** pop buy and sell orders and tot val
 	  let jsonOS = getOpenSell(openOrders);
@@ -502,9 +456,9 @@ console.log("xxxxxxxxxxxoooooooo = " + saleDone);
 	  let openSellOrders = jsonOS[1];
 	  let totTakeVal = jsonOS[3][0]["totTakeVal"];
 	  let openCancelOrders = jsonOS[2];
-		  console.log(" sell orders = "+ JSON.stringify(openSellOrders));
+//		  console.log(" sell orders = "+ JSON.stringify(openSellOrders));
           if ((openCancelOrders) && (openCancelOrders.length > 0)) {
-		  console.log(" cancel orders = "+ JSON.stringify(openCancelOrders));
+//		  console.log(" cancel orders = "+ JSON.stringify(openCancelOrders));
 	       await  processCancelOrders(openCancelOrders, parseFloat(statsmod.getBuyPrice())); // cancel and resell
 
           } else {
@@ -649,8 +603,10 @@ async function longTermBuys(
 	   // if ((!inRange) && (!saleDone) && 
 		//		    (totTakeVal < takeLimit) &&
 			//	    (!changeRange) && 
-			//	    (inBuyRange ) && (!dupSale)) {
-     if (!statsmod.getErrJson()[0]["err"]) {
+			//	    (inBuyRange ) && (!dupSale)) 
+	//	    {
+     let currErrIndex = (statsmod.getErrJson()).length - 1;
+     if (!statsmod.getErrJson()[currErrIndex]["err"]) {
            loggerp.error("*** price criteria met *** ");
 	   loggerp.warn("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
 	   loggerp.warn("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
@@ -767,6 +723,7 @@ async function processingBuying(
         let orderRefVal3 = orderRef + 20; 
 	let margin = parseFloat(2);
         sellPrice = parseFloat(orgBuyPricelocal) + parseFloat(parseFloat(margin)* parseFloat(priceBuyVariant));
+	 statsmod.setErrForJson(); // move later
 }
 async function rsell2() {
        await buyOrderInd(
