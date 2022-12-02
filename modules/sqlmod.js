@@ -647,11 +647,19 @@ i//crypto=# select avg(diff), min(minprice), max(maxprice), (max(maxprice) - min
          this.sql = "select avg(qty) from (select qty, id from stats order by id desc limit "+ n + ") as t";
 
      }
+//  id | txndate | opensellslot | opensellval | opensellper 
+
+     insertOpenSell = (opensellslot, opensellval, opensellper) => {
+         this.sql = "insert into opensell (txndate, opensellslot, opensellval, opensellper) " +
+         "values ( ' NOW()'," + opensellslot + "," + opensellval + ","+ opensellper+ ")";
+     }
+
 //  id | txndate | openbuyval | opensellval | capitalreserves | cash | totval 
 
-     insertCapital = (openbuyval, opensellval, capitalreserves, cash, totval) => {
-         this.sql = "insert into capital (txndate,openbuyval, opensellval, capitalreserves, cash, totval ) " +
-         "values ( ' NOW()'," + openbuyval + "," + opensellval + ","+ capitalreserves + "," + cash + "," +totval + ")";
+     insertCapital = (openbuyval, opensellval, capitalreserves, cash, totval, btcBal) => {
+         this.sql = "insert into capital (txndate,openbuyval, opensellval, capitalreserves, cash, totval, btcBal ) " +
+         "values ( ' NOW()'," + openbuyval + "," + opensellval + ","+ capitalreserves + "," + cash + "," 
+		     +totval + "," + btcBal + ")";
      }
 //  id | txndate | clientorderid | ordertime | orderprice | ordertype | orderstatus 
 

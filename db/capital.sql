@@ -5,5 +5,6 @@ CREATE TABLE capital(
    opensellval numeric(20,10),
    capitalreserves numeric(20,10),
    cash numeric(20,10),
+   btcBal numeric(20,10),
    totval numeric(20,10) 
 );

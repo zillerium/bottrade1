@@ -874,12 +874,12 @@ async function processBuyOrder(aSellPrice, aBuyPrice, aOrderRef, topLimit, botLi
 
     console.log("json avg === " +JSON.stringify(jsonAvg));
 //     let jsonout = { avgrange: avgrange, inrange: inrangeval, inrangebuy: inrangebuyval, levelsjson: levelsjson };
-
+    let rFactor = parseFloat(jsonAvg["avgrange"])/parseFloat(2); // range covers the whole min and max range
     let jsonout = {changeRange:  !jsonAvg["inrange"], 
 	           inBuyRange:   jsonAvg["inrangebuy"],
-	           priceBuyVar:  parseFloat(jsonAvg["avgrange"]),
-	           priceVar:     parseFloat(jsonAvg["avgrange"]),
-	           rangePrice:   parseFloat(jsonAvg["avgrange"]),
+	           priceBuyVar:  rFactor,
+	           priceVar:     rFactor,
+	           rangePrice:   rFactor,
 	           levelsjson:   jsonAvg["levelsjson"]}
 
     console.log("json out === " +JSON.stringify(jsonout));

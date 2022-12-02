@@ -17,7 +17,7 @@ const apiSecret = process.env.API_SECRET;
 const apiKey = process.env.API_KEY;
 var minTradeValue = 0.00125; // to sell left over coins
 var minTradingBalance = 80;
-var reserves = 400;
+var reserves = 200;
 var batchSize= 100;
 var minTradePrice = 10000; // safety
 var maxTradePrice = 25000; // safety
@@ -79,6 +79,9 @@ function getOpenSell(openOrders) {
 
 }
 
+function findSlot(ele) {
+// if (ele[0] == 
+}
 
 async function getOrders() {
           let openOrders = await bmod.getOpenOrders('TRUE');
@@ -97,17 +100,62 @@ async function getOrders() {
          for(var attributename in openSellOrders){
              console.log(attributename+": "+ JSON.stringify(openSellOrders[attributename]) );
 	 }
+
+let slotN = parseFloat(100);
+let arr = [];
+       openSellOrders.map(m =>{
+          // console.log(m["price"]);
+         //  console.log(m["origQty"]);
+                let val = parseFloat(m["price"])*parseFloat(m["origQty"]);
+                let     priceInt = parseInt(parseFloat(m["price"])/slotN)*parseInt(slotN);
+              //  console.log("val int " + priceInt);
+                let m1 = arr.some(n=>n[0]==priceInt);
+              //  console.log("m1 == "+ m1);
+                if (m1) {
+                       arr.map(n=>{
+                               if (n[0] == priceInt) n[1] +=val;
+                       })
+                } else {
+                        arr.push([priceInt,val]);
+                }
+        })
+
+console.log("arrays = "+ arr);
+	arr.map(async m=>{
+		let priceSlot = parseInt(m[0]);
+		let val = parseFloat(m[1]);
+		let perval = (val/totSell)*100;
+                sqlmod.insertOpenSell(priceSlot, val, perval);
+		await sqlmod.exSQL();
+
+	})
+	//      insertOpenSell = (opensellslot, opensellval, opensellper) => {
+
+
+  /*       let sellArray =[[0,0]]
+ 	  let slot = 100; // 100 dollars
+	 openSellOrders.map(item => {
+              let price = parseFloat(item["price"]);
+              let qty = parseFloat(item["origQty"]);
+      	      let val = price*qty;
+	      let slotN = parseInt(price/slot)
+	      sellArray.map(findSlot)
+	 })
+*/
+
      let jsonAccount = await bmod.getAccountDetails('BTCUSDT');
                 //  console.log(JSON.stringify(jsonAccount.data));
      let btcBal = parseFloat(jsonAccount.data["assets"][0]["baseAsset"]["free"]);
      let freeBal = parseFloat(jsonAccount.data["assets"][0]["quoteAsset"]["free"]);
+    // console.log("json sell == " + JSON.stringify(openSellOrders));
      console.log("total sell == " + totSell);
      console.log("total buy == " + totBuy);
+     console.log("total btcbal== " + btcBal);
      console.log("total reserves== " + reserves);
      console.log("total bal== " + freeBal);
      let otot = totSell + totBuy + freeBal + reserves;
      console.log("total overview== " + otot);
-     sqlmod.insertCapital(totBuy, totSell, reserves, freeBal, otot);
+     sqlmod.insertCapital(totBuy, totSell, reserves, freeBal, otot, btcBal);
      await sqlmod.exSQL();
 }
 //process.exit();
