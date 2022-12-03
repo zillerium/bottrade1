@@ -17,8 +17,9 @@ main();
 
 async function main() {
 let x = 1;
- var test1 =  function(a) { return !isNaN(a);}(x);
-console.log("test " + test1);
+// var test1 =  function(a) { return !isNaN(a);}(x);
+const test1 = (x) => { return !isNaN(x) }
+	console.log("test " + test1(x));
 
  }
 

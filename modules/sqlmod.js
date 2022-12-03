@@ -2,6 +2,7 @@ class SQLMod {
   constructor( 
     )   
     {
+		 this.statsPeriodRec= [];
 		 this.avgMaxMinRec = [];
 	    this.lastMinRec = {};
 	    this.statsRangeExists = false;
@@ -35,6 +36,7 @@ this.tradeprofitDB;
     }
 // sqlmod.getPeriodStatsDB
 	//
+     getStatsPeriodRec= () => { return this.statsPeriodRec }
      getProfitByDate= () => { return this.profitByDate }
      getAvgMaxMinRec= () => { return this.avgMaxMinRec }
      getPid= () => { return this.pid }
@@ -287,6 +289,46 @@ this.tradeprofitDB;
 	   if ((res) && (res.rowCount>0)) {
           //    console.log(JSON.stringify(res));
 		 this.statsRecTime = res.rows;
+           //   this.lastCurrPrice = parseFloat(res.rows[0]["price"]);
+           //   this.lastCurrPriceTime = parseInt(res.rows[0]["timeprice"]);
+	   }
+           //pool.end();
+       } catch (err) { throw(err);
+       }
+     }
+
+     updateLinearReg = (period, timemin, minm, minb, maxm, maxb, rangem, rangeb) => {
+	     
+	     this.sql = "update statsrange  " +
+		     " set minm =" + minm + "," + 
+		     " maxm =" + maxm + "," + 
+		     " rangem =" + rangem + "," + 
+		     " minb =" + minm + "," + 
+		     " maxb =" + maxm + "," + 
+		     " rangeb =" + rangem + 
+		     " where lasttimemin=" + timemin + " and avgperiod= " + period; 
+
+          console.log(this.sql);
+     }
+
+	//  id   | lasttimemin |   avgminprice    |   avgmaxprice    |   avgrange   | avgperiod | statsid 
+// select avgminprice, id as id1 from (select id, lasttimemin, avgminprice, avgmaxprice, avgrange, avgperiod from statsrange where avgperiod = 60 order by id desc limit 10) as t order by id1 asc;
+     getLinearReg = async(timePeriod, numberRecs) => {
+	     let sql = "select lasttimemin, avgminprice, avgmaxprice, avgrange, avgperiod, id as id1 from (select id, " +
+		     " lasttimemin, avgminprice, avgmaxprice, avgrange, avgperiod " +
+		     " from statsrange where avgperiod = " + timePeriod + " order by id desc " +
+		     " limit "+ numberRecs + " ) as t order by id1 asc";
+	     let sql1 = "select lasttimemin, avgminprice, avgmaxprice, avgrange, avgperiod " +
+	     "  from statsrange where avgperiod = " + timePeriod + " order by id desc limit " + numberRecs;
+
+	//	     " by id desc limit " + n;
+//console.log(sql);
+       try {
+	       let pool = this.pool;
+           let res=await pool.query(sql)
+	   if ((res) && (res.rowCount>0)) {
+          //    console.log(JSON.stringify(res));
+		 this.statsPeriodRec = res.rows;
            //   this.lastCurrPrice = parseFloat(res.rows[0]["price"]);
            //   this.lastCurrPriceTime = parseInt(res.rows[0]["timeprice"]);
 	   }

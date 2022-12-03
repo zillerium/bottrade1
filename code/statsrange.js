@@ -10,7 +10,7 @@ const __filename = fileURLToPath(import.meta.url);
 // 👇️ "/home/john/Desktop/javascript"r
 const __dirname = path.dirname(__filename);
 
-
+var statsPkg =require('simple-statistics')
 //var log4js = require("log4js");
 import pkg from 'log4js';
 const { configure, getLogger } = pkg;
@@ -84,11 +84,77 @@ async function calcPeriodDB(previd) {
 		await insertAvgs(id2, 10);
 		await insertAvgs(id2, 30);
 	await 	insertAvgs(id2, 60);
+		await insertLinearReg();
 	}
    // let jsonRange = sqlmod.getPeriodStatsDB();
    // console.log("json " + JSON.stringify(jsonRange));
 }
+function getStatsPeriodRec(jsonStatsPeriodRec, statsvar) {
 
+//      let tperiod = 60;
+//        let nrecs = 60;
+        //  [{"lasttimemin":"27834353","avgminprice":"16959.4811475410","avgmaxprice":"16964.9219672131","avgrange":"5.4408196721","avgperiod":60},{"lasttimemin":"27834352","avgminprice":"16958.8150819672","avgmaxprice":"16964.3439344262","avgrange":"5.5288524590","avgperiod":60},{"lasttimemin":"27834351","avgminprice"
+        let statsMinArray = [];
+        let initialMins = parseInt(jsonStatsPeriodRec[0]["lasttimemin"]);
+        let initialPrice = parseFloat(jsonStatsPeriodRec[0][statsvar]);
+        jsonStatsPeriodRec.map(m=>{
+               statsMinArray.push([parseInt(m["lasttimemin"])-
+                       initialMins, parseFloat(m[statsvar])-initialPrice]);
+        })
+        console.log("hhhh " + statsMinArray);
+        let linearStats = statsPkg.linearRegression(statsMinArray);
+        console.log("hhhh = "+ JSON.stringify(linearStats));
+        return linearStats;
+}
+
+async function insertLinearReg() {
+          const createJson = (jsonRec) => {
+//              console.log("json rec " + JSON.stringify(jsonRec));
+              return {min: getStatsPeriodRec(jsonRec, "avgminprice"),
+               max: getStatsPeriodRec(jsonRec, "avgmaxprice"),
+               range: getStatsPeriodRec(jsonRec, "avgrange")};
+
+        }
+
+	let jsonStatsRec = [];
+        await sqlmod.getLinearReg(60, 60);
+        let jsonSPR = sqlmod.getStatsPeriodRec();
+        let tMins = parseInt(jsonSPR[jsonSPR.length-1]["lasttimemin"]);
+
+        jsonStatsRec.push(createJson( sqlmod.getStatsPeriodRec()));
+
+        //       {min: getStatsPeriodRec(jsonRec, "avgminprice"),
+          //     max: getStatsPeriodRec(jsonRec, "avgmaxprice"),
+            //   range: getStatsPeriodRec(jsonRec, "avgrange")};
+
+          await sqlmod.getLinearReg(30, 30);
+        jsonStatsRec.push(createJson( sqlmod.getStatsPeriodRec()));
+
+           await sqlmod.getLinearReg(10, 10);
+        jsonStatsRec.push(createJson( sqlmod.getStatsPeriodRec()));
+
+           await sqlmod.getLinearReg(5, 5);
+        jsonStatsRec.push(createJson( sqlmod.getStatsPeriodRec()));
+//        console.log("nnnnnnbbbb = "+ JSON.stringify(jsonStatsRec));
+        // [{"min":{"m":0.09276483904922828,"b":-0.5264097464806015},"max":{"m":0.09434713194461344,"b":-0.3912321956843634},"range":{"m":0.001582292895473748,"b":0.13517755079185811}},{"min":{"m":0.06168014639956249,"b":-0.8404051335048749},"max":{"m":0.044907388136838464,"b":-0.7083184182885874},"range":{"m":-0.016772758262046723,"b":0.1320867152163439}},{"min":{"m":-0.379234159785979,"b":1.1682809917269465},"max":{"m":-0.24891460055082323,"b":1.019024793349143},"range":{"m":0.13031955922666666,"b":-0.1492561983400002}},{"min":{"m":-1.912000000000262,"b":0.03766666666051588},"max":{"m":-1.5878333333199408,"b":-0.06900000000023265},"range":{"m":0.3241666666799998,"b":-0.10666666665999991}}]
+ const createStatsDB = async (period, index, tMins) => { sqlmod.updateLinearReg(period, tMins,
+                parseFloat(jsonStatsRec[index]["min"]["m"]),
+                parseFloat(jsonStatsRec[index]["min"]["b"]),
+
+                parseFloat(jsonStatsRec[index]["max"]["m"]),
+                parseFloat(jsonStatsRec[index]["max"]["b"]),
+                parseFloat(jsonStatsRec[index]["range"]["m"]),
+                parseFloat(jsonStatsRec[index]["range"]["b"])
+             )
+             await sqlmod.exSQL();
+       }
+        await createStatsDB(60, 0, tMins);
+        await createStatsDB(30, 1, tMins);
+        await createStatsDB(10, 2, tMins);
+        await createStatsDB(5, 3, tMins);
+
+
+}
 async function insertAvgs(id2, period) {
 
    	    await sqlmod.existsStatsRange(id2, period);

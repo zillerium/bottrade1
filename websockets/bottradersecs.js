@@ -9,6 +9,7 @@ const __filename = fileURLToPath(import.meta.url);
 
 // 👇️ "/home/john/Desktop/javascript"r
 const __dirname = path.dirname(__filename);
+var statsPkg =require('simple-statistics')
 
 
 //var log4js = require("log4js");
@@ -146,7 +147,7 @@ async function processCancelOrders(cancelOrders, aBuyPrice){
 async function processSellOrderForBuy(allFilledBuyOrders, allSellOrders, btcBal) {
 
 
-                  //console.log("nnnnnnbbbb = " + JSON.stringify(allSellOrders));
+                //  console.log("nnnnnnbbbb = " + JSON.stringify(allSellOrders));
 	 let salesunresolved = await allFilledBuyOrders.map(async item =>  {
 		      let saleJson = {};
 			  let c = parseInt(item["clientOrderId"])+parseInt(1);	
@@ -164,11 +165,13 @@ async function processSellOrderForBuy(allFilledBuyOrders, allSellOrders, btcBal)
 		          {
 
 			  } else {
-                          let m1 = !allSellOrders.some(m => parseInt(m["clientOrderId"]) == c);
-			  if (m1) {
-				  let json = await sellOrder(item, btcBal);
-				  return json;	  
-			  } 
+				//  console.log("jjjjjjjjjjjjj match before if -- " + c);
+                                  let m1 = !allSellOrders.some(m => parseInt(m["clientOrderId"]) == c);
+			          if (m1) {
+				  //    console.log("jjjjjjjjjjjjj no matchyy -- " + c);
+				      let json = await sellOrder(item, btcBal);
+				      return json;	  
+			          } 
 			  }
 
 	 })
@@ -263,11 +266,43 @@ async function processingRangeOrder(openBuyOrders, topBuyRange, botBuyRange, pri
  *
 */
 
+function WithinSellRange(price, levelsjson, time) {
 
-function getOpenSell(openOrders) {
+	let nowSecs = (Date.now()/1000);
+	  let min5m =parseFloat(levelsjson["min5m"]);
+	  let max5m = parseFloat(levelsjson["max5m"]);
+	  let min10m =parseFloat(levelsjson["min10m"]);
+	  let max10m = parseFloat(levelsjson["max10m"]);
+console.log("hhhhhhh sell price = " + price);
+	console.log("hhhhh levels = " + JSON.stringify(levelsjson));
+      let range = max10m - min10m;
+	let withinRange = false;
+	if (price < (max10m + range)) {
+             withinRange = true;
+	} else {
+		if ((nowSecs - time)<timeAllowed) {
+			
+                    withinRange = true;
+		} else {
+			withinRange = false;
+		}
+	}
+	console.log("hh withinrange  "  + withinRange);
+        return withinRange;
+}
+
+function getOpenSell(openOrders, levelsjson) {
 	let nowSecs = (Date.now()/1000);
 //            let timeSecsDiff = nowSecs - (parseInt(apiAllOrders.data[j]["time"])/1000)
 
+	  let min5m =parseFloat(levelsjson["min5m"]);
+	  let max5m = parseFloat(levelsjson["max5m"]);
+	  let min10m =parseFloat(levelsjson["min10m"]);
+	  let max10m = parseFloat(levelsjson["max10m"]);
+console.log("hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh");
+console.log("h open check data for open sell hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh");
+console.log("hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh");
+console.log("hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh");
         let openBuyOrders=[];
 	let openSellOrders=[];
 	let openCancelOrders=[];
@@ -293,7 +328,9 @@ function getOpenSell(openOrders) {
 		    (item["side"] == 'SELL') 
 	             && (item["origQty"] == parseFloat(btcQty))
 		     && (isNumber(item["clientOrderId"]))
-		     && ((nowSecs - (parseInt(item["time"]/1000)))>timeAllowed)
+		     && (!WithinSellRange(parseFloat(item["price"]),
+			 levelsjson, parseInt(item["time"]/1000))) // expect price to be reached
+		//     && ((nowSecs - (parseInt(item["time"]/1000)))>timeAllowed)
                ) {
 		    openCancelOrders.push(item);
     	         }
@@ -348,6 +385,7 @@ async function processOrder() {
                //   let freeBal = 1000; // api calls can fail         
 	          let tradePrice = 0.00;
                   //let btcrtn = await btcBalCheck(btcBal, minTradeValue, currencyPair, minTradePrice);
+                  console.log(" ooooooo btcBal = " + btcBal);
                   console.log(" ooooooo freeBal = " + freeBal);
                   console.log(" ooooooo min trading balance = " + minTradingBalance);
 		  // avoid when profit is zero
@@ -361,6 +399,26 @@ async function processOrder() {
                       await processMainOrders(orderRefVal, btcBal);
 		  }
 }
+
+function getStatsPeriodRec(jsonStatsPeriodRec, statsvar) {
+
+//	let tperiod = 60;
+//	  let nrecs = 60;
+	//  [{"lasttimemin":"27834353","avgminprice":"16959.4811475410","avgmaxprice":"16964.9219672131","avgrange":"5.4408196721","avgperiod":60},{"lasttimemin":"27834352","avgminprice":"16958.8150819672","avgmaxprice":"16964.3439344262","avgrange":"5.5288524590","avgperiod":60},{"lasttimemin":"27834351","avgminprice"
+	let statsMinArray = [];
+	let initialMins = parseInt(jsonStatsPeriodRec[0]["lasttimemin"]);
+	let initialPrice = parseFloat(jsonStatsPeriodRec[0][statsvar]);
+	jsonStatsPeriodRec.map(m=>{
+               statsMinArray.push([parseInt(m["lasttimemin"])-
+		       initialMins, parseFloat(m[statsvar])-initialPrice]);
+	})
+	console.log("hhhh " + statsMinArray);
+        let linearStats = statsPkg.linearRegression(statsMinArray);
+	console.log("hhhh = "+ JSON.stringify(linearStats));
+        return linearStats;
+}
+
+
 async function processMainOrders(orderRefVal, btcBal) {
 
     loggerp.error("buying option now ");
@@ -369,7 +427,7 @@ async function processMainOrders(orderRefVal, btcBal) {
     console.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
     console.log("!       all orders       !!!!!!!!");
     console.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-    let apiAllOrders = await bmod.getAllOrdersSelect('TRUE', 100);
+    let apiAllOrders = await bmod.getAllOrdersSelect('TRUE', 200);
     //client.logger.log(apiAllOrders.data);
                          
     await insertAPI("marginAllOrders", "ok");
@@ -422,7 +480,7 @@ async function processMainOrders(orderRefVal, btcBal) {
     let saleDone = await  processSellOrderForBuy(allFilledBuyOrders, allSellOrders, btcBal);
 console.log("xxxxxxxxxxxoooooooo = " + saleDone);
     statsmod.setSaleDone(saleDone);
-
+// return 0;
 
     if (saleDone) return 0; // do not buy
     
@@ -451,11 +509,63 @@ console.log("xxxxxxxxxxxoooooooo = " + saleDone);
  //	  client.logger.log(openOrders.data);
 	  let k=0;
 	  // BEGIN **** pop buy and sell orders and tot val
-	  let jsonOS = getOpenSell(openOrders);
+	  // END **** pop buy and sell orders and tot val
+	  let riskFactor = 1;
+	  avgJsonObj = await avgStats(statsmod.getBuyPrice(), parseInt(1440));
+	  if (avgJsonObj["aboveavg"])  {
+	      riskFactor = 2;
+	      console.log("above avg == " + riskFactor);
+	  } 
+	  // ******************** get range data
+	  let jsonout = await getRangeAvg();
+	  if (!jsonout) return 0; // db has been failing
+	  if (jsonout.length == 0) return 0;
+
+	  levelsjson = jsonout["levelsjson"];
+	  let min5m =parseFloat(levelsjson["min5m"]);
+	  let max5m = parseFloat(levelsjson["max5m"]);
+	  let min10m =parseFloat(levelsjson["min10m"]);
+	  let max10m = parseFloat(levelsjson["max10m"]);
+	  let changeRange = jsonout["changeRange"];
+	  let inBuyRange = jsonout["inBuyRange"];
+	  console.log("KKKKKKKKKKKKKKKKKKKK = inbuy range = " + inBuyRange);
+	  let priceBuyVariant = parseFloat(jsonout["priceBuyVar"]);
+	  let priceVariant = parseFloat(jsonout["priceVar"]);
+	  let rangePrice = parseFloat(jsonout["rangePrice"]);
+	  statsmod.setPriceBuyVariant(priceBuyVariant);
+	  statsmod.setPriceVariant(priceVariant);
+	  statsmod.setRangePrice(rangePrice);
+	  statsmod.setChangeRange(changeRange);
+	  statsmod.setInBuyRange(inBuyRange);
+  	
+
+
+//	300      updateLinearReg = (period, timemin, minm, minb, maxm, maxb, rangem, rangeb) => {
+
+	/*  
+	await sqlmod.getLinearReg(tperiod, nrecs);
+          let jsonStatsPeriodRec = sqlmod.getStatsPeriodRec();
+          console.log("stats rec = "+JSON.stringify(jsonStatsPeriodRec));
+	//  [{"lasttimemin":"27834353","avgminprice":"16959.4811475410","avgmaxprice":"16964.9219672131","avgrange":"5.4408196721","avgperiod":60},{"lasttimemin":"27834352","avgminprice":"16958.8150819672","avgmaxprice":"16964.3439344262","avgrange":"5.5288524590","avgperiod":60},{"lasttimemin":"27834351","avgminprice"
+	let statsMinArray = [];
+	let initialMins = parseInt(jsonStatsPeriodRec[0]["lasttimemin"]);
+	let initialPrice = parseFloat(jsonStatsPeriodRec[0]["avgminprice"]);
+	jsonStatsPeriodRec.map(m=>{
+               statsMinArray.push([parseInt(m["lasttimemin"])-
+		       initialMins, parseFloat(m["avgminprice"])-initialPrice]);
+	})
+	console.log("hhhh " + statsMinArray);
+let linearStats = statsPkg.linearRegression(statsMinArray);
+	console.log("hhhh = "+ JSON.stringify(linearStats));
+	*/
+	return 0;
+	  let jsonOS = getOpenSell(openOrders, levelsjson);
 	  let openBuyOrders = jsonOS[0];
 	  let openSellOrders = jsonOS[1];
 	  let totTakeVal = jsonOS[3][0]["totTakeVal"];
 	  let openCancelOrders = jsonOS[2];
+	  statsmod.setTotTakeVal(totTakeVal);
+	  statsmod.setTakeLimit(takeLimit);
 //		  console.log(" sell orders = "+ JSON.stringify(openSellOrders));
           if ((openCancelOrders) && (openCancelOrders.length > 0)) {
 //		  console.log(" cancel orders = "+ JSON.stringify(openCancelOrders));
@@ -475,7 +585,8 @@ console.log("xxxxxxxxxxxoooooooo = " + saleDone);
                	    openBuyOrders,
 		    openSellOrders,
 	            totTakeVal,
-                    openCancelOrders
+                    openCancelOrders,
+		    changeRange, inBuyRange, priceBuyVariant, priceVariant, rangePrice
 	    ); 	    
          }
 }
@@ -495,7 +606,9 @@ async function longTermBuys(
 	openBuyOrders,
 	openSellOrders,
 	totTakeVal,
-	openCancelOrders
+	openCancelOrders,
+             changeRange, inBuyRange, priceBuyVariant, priceVariant, rangePrice
+
 ) {
 
 
@@ -527,34 +640,6 @@ async function longTermBuys(
            // cancel old sell orders eg over 10 mins
 	   // split sell to recover capital
 
-	  statsmod.setTotTakeVal(totTakeVal);
-	  statsmod.setTakeLimit(takeLimit);
-	  // END **** pop buy and sell orders and tot val
-	  let riskFactor = 1;
-	  avgJsonObj = await avgStats(statsmod.getBuyPrice(), parseInt(1440));
-	  if (avgJsonObj["aboveavg"])  {
-	      riskFactor = 2;
-	      console.log("above avg == " + riskFactor);
-	  } 
-	  // ******************** get range data
-	  let jsonout = await getRangeAvg();
-	  if (!jsonout) return 0; // db has been failing
-	  if (jsonout.length == 0) return 0;
-
-	  levelsjson = jsonout["levelsjson"];
-	  let min5m =parseFloat(levelsjson["min5m"]);
-	  let max5m = parseFloat(levelsjson["max5m"]);
-	  let changeRange = jsonout["changeRange"];
-	  let inBuyRange = jsonout["inBuyRange"];
-	  console.log("KKKKKKKKKKKKKKKKKKKK = inbuy range = " + inBuyRange);
-	  let priceBuyVariant = parseFloat(jsonout["priceBuyVar"]);
-	  let priceVariant = parseFloat(jsonout["priceVar"]);
-	  let rangePrice = parseFloat(jsonout["rangePrice"]);
-	  statsmod.setPriceBuyVariant(priceBuyVariant);
-	  statsmod.setPriceVariant(priceVariant);
-	  statsmod.setRangePrice(rangePrice);
-	  statsmod.setChangeRange(changeRange);
-	  statsmod.setInBuyRange(inBuyRange);
 	  // **************** end of range data
 // *** get dup sale
 	  let nsellprice = statsmod.getSellPrice();
@@ -572,7 +657,7 @@ async function longTermBuys(
 	  statsmod.setTopBuyRange(topBuyRange); 
 	  statsmod.setBotBuyRange(botBuyRange); 
 	  let cBuyPrice = statsmod.getBuyPrice();
-
+// looks for open orders to avoid new orders within existing ranges
 	  let inRange = await inRangeDecision
 			(openBuyOrders, 
 			 topBuyRange, 
@@ -876,7 +961,7 @@ async function processBuyOrder(aSellPrice, aBuyPrice, aOrderRef, topLimit, botLi
 //     let jsonout = { avgrange: avgrange, inrange: inrangeval, inrangebuy: inrangebuyval, levelsjson: levelsjson };
     let rFactor = parseFloat(jsonAvg["avgrange"])/parseFloat(2); // range covers the whole min and max range
     let jsonout = {changeRange:  !jsonAvg["inrange"], 
-	           inBuyRange:   jsonAvg["inrangebuy"],
+	           inBuyRange:   jsonAvg["inrangebuy"], // within 5 min range
 	           priceBuyVar:  rFactor,
 	           priceVar:     rFactor,
 	           rangePrice:   rFactor,
@@ -889,6 +974,10 @@ async function processBuyOrder(aSellPrice, aBuyPrice, aOrderRef, topLimit, botLi
     return jsonout;
 
 }
+
+//        let levelsjson = {min5m: range5minLow, max5m: range5minHigh,
+//                         min10m: minprice10min, max10m: maxprice10min, buyprice: buyprice};
+
 
 async function checkAvgQty() {
     await sqlmod.selectAvgQtyDB(60); // 60 mins - gets avg qty for all slots
