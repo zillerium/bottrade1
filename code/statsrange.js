@@ -98,12 +98,13 @@ function getStatsPeriodRec(jsonStatsPeriodRec, statsvar) {
         let initialMins = parseInt(jsonStatsPeriodRec[0]["lasttimemin"]);
         let initialPrice = parseFloat(jsonStatsPeriodRec[0][statsvar]);
         jsonStatsPeriodRec.map(m=>{
-               statsMinArray.push([parseInt(m["lasttimemin"])-
-                       initialMins, parseFloat(m[statsvar])-initialPrice]);
+        //       statsMinArray.push([parseInt(m["lasttimemin"])-
+         //              initialMins, parseFloat(m[statsvar])-initialPrice]);
+               statsMinArray.push([parseInt(m["lasttimemin"]), parseFloat(m[statsvar])]);
         })
-        console.log("hhhh " + statsMinArray);
+      //  console.log("hhhh " + statsMinArray);
         let linearStats = statsPkg.linearRegression(statsMinArray);
-        console.log("hhhh = "+ JSON.stringify(linearStats));
+     //   console.log("hhhh = "+ JSON.stringify(linearStats));
         return linearStats;
 }
 
