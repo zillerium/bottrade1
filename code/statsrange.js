@@ -155,7 +155,8 @@ async function insertLinearReg() {
                 parseFloat(jsonStatsRec[index]["range"]["b"])
              )
              await sqlmod.exSQL();
-             
+             sqlmod.updateForecastSQL(tMins);
+             await sqlmod.exSQL();
              await sqlmod.selectLastMinAvgDBByPeriod(tMins, period);
 	    let pricejson = sqlmod.getLastMinRecSingle();
       //     console.log("price json == "+ JSON.stringify(pricejson)); 

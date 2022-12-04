@@ -719,6 +719,33 @@ i//crypto=# select avg(diff), min(minprice), max(maxprice), (max(maxprice) - min
 //  id | timemin | avgminprice | avgmaxprice | avgspreadprice | avgperiod 
 // insert into statsrange (lasttimemin, avgminprice, avgmaxprice, avgrange, avgperiod) select  max(timemin) as lasttimemin, avg(minprice) as avgminprice, avg(maxprice) as avgmaxprice,  avg(diff) as avgrange, 60 as avgperiod from (select maxprice, minprice,  (maxprice - minprice) as diff, id, timemin from stats where id  between 7100 and 7160 )  as t;
 
+	// select statsrange.avgminprice, statsrange.avgperiod, forecast.forecastminprice-statsrange.avgminprice,statsrange.lasttimemin from forecast  inner join statsrange on forecast.lasttimemin =  statsrange.lasttimemin and forecast.avgperiod = statsrange.avgperiod and forecast.devminprice = 0 order by forecast.lasttimemin desc, forecast.avgperiod desc;
+// update forecast set devminprice=t.forecastminprice-avgminprice, devmaxprice=t.forecastmaxprice-avgmaxprice,devrangeprice=t.forecastrangeprice-avgrange from ( select forecastminprice, forecastmaxprice, forecastrangeprice, avgminprice, avgmaxprice, avgrange from forecast  inner join statsrange on forecast.lasttimemin =  statsrange.lasttimemin and forecast.avgperiod = statsrange.avgperiod and forecast.devminprice = 0) as t;
+
+	// update forecast set devminprice = t.mind from ((select f.avgperiod, f.lasttimemin, f.forecastminprice, statsrange.avgminprice, (f.forecastminprice-statsrange.avgminprice) as mind from forecast as f inner join statsrange on f.lasttimemin =  statsrange.lasttimemin and f.avgperiod = statsrange.avgperiod)) as t where t.lasttimemin = forecast.lasttimemin and t.avgperiod= forecast.avgperiod;
+
+// select * from (select f.avgperiod, f.lasttimemin, f.forecastminprice, statsrange.avgminprice, (f.forecastminprice-statsrange.avgminprice) as mind from forecast as f inner join statsrange on f.lasttimemin =  statsrange.lasttimemin and f.avgperiod = statsrange.avgperiod and f.lasttimemin = 27836136) as t;
+      updateForecastSQL = (lasttimemin) => {
+         this.sql = "update forecast set " +
+		      " devminprice = t.mind, " +
+		      " devmaxprice = t.maxd, " +
+		      " devrangeprice = t.ranged " +
+		      " from " + 
+		      " ((select f.avgperiod, f.lasttimemin, f.forecastminprice, statsrange.avgminprice, " +
+		      " (f.forecastminprice-statsrange.avgminprice) as mind, " +
+		      " (f.forecastmaxprice-statsrange.avgmaxprice) as maxd, " +
+		      " (f.forecastrangeprice-statsrange.avgrange) as ranged " +
+		      " from forecast as f inner join statsrange on " +
+		      " f.lasttimemin =  statsrange.lasttimemin " + 
+		      " and f.avgperiod = statsrange.avgperiod)) as t " +
+		      " where t.lasttimemin = forecast.lasttimemin " +
+		      " and t.avgperiod= forecast.avgperiod " +
+		      " and forecast.lasttimemin=" + lasttimemin;
+ console.log("sql == " + this.sql);
+
+      }
+
+	// update forecast set devminprice = t.mind from ((select f.avgperiod, f.lasttimemin, f.forecastminprice, statsrange.avgminprice, (f.forecastminprice-statsrange.avgminprice) as mind from forecast as f inner join statsrange on f.lasttimemin =  statsrange.lasttimemin and f.avgperiod = statsrange.avgperiod)) as t where t.lasttimemin = forecast.lasttimemin and t.avgperiod= forecast.avgperiod and forecast.lasttimemin=27836136;
 
 // id | lasttimemin | forecastminprice | forecastmaxprice | forecastrangeprice | avgperiod 
      insertForecastSQL = (lasttimemin,
@@ -732,7 +759,9 @@ i//crypto=# select avg(diff), min(minprice), max(maxprice), (max(maxprice) - min
                  " values (" + lasttimemin + "," + forecastminprice +"," +
 			     forecastmaxprice + "," + forecastrangeprice + "," + avgperiod + "," +
 			     devminprice + "," + devmaxprice + "," + devrangeprice +
-			     ")";
+			     ")" + " on conflict on constraint clasttimemin do nothing";
+
+		//	     " where not exists ( select lasttimemin from forecast where lasttimemin = " + lasttimemin + ")";
 		     console.log("sql == "+ this.sql);
 	     }
 

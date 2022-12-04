@@ -9,3 +9,6 @@ CREATE TABLE forecast(
    devrangeprice numeric(20,10),
    avgperiod int
 );
+
+crypto=# alter table forecast add constraint clasttimemin unique (lasttimemin, avgperiod);
+
