@@ -64,28 +64,35 @@ const pool = new Pool({
 //client.connect();
 sqlmod.setPool(pool);
 pool.connect();
+var previd = 0;
+var id2 = 0;
 main();
 
 //> h=x.split(' ');
 //[ 'Thu', 'Nov', '24', '2022', '04:53:13' ]
 //> 
 //const calcPeriodDB = async (previd) => {
-async function calcPeriodDB(previd) {
-// this.periodStatsDB
+async function calcPeriodDB() {
+	// this.periodStatsDB
 	//
       //  let n = 10; // period of historical recs
-        await sqlmod.getLastIdStats();
-	let id2 = sqlmod.getLastIdStatsPriceDB();
+//        await sqlmod.getLastIdStats();
+//	let id2 = sqlmod.getLastIdStatsPriceDB();
 	if (previd == id2) { 
 	} 
 	else {
+console.log("previd == " + previd);
+console.log("id 2 == " + id2);
 	    previd = id2;
 		await insertAvgs(id2, 5);
 		await insertAvgs(id2, 10);
 		await insertAvgs(id2, 30);
-	await 	insertAvgs(id2, 60);
+         	await 	insertAvgs(id2, 60);
 		await insertLinearReg();
 	}
+        await sqlmod.getLastIdStats();
+	id2 = sqlmod.getLastIdStatsPriceDB();
+//console.log("id 2after  == " + id2);
    // let jsonRange = sqlmod.getPeriodStatsDB();
    // console.log("json " + JSON.stringify(jsonRange));
 }
@@ -148,12 +155,48 @@ async function insertLinearReg() {
                 parseFloat(jsonStatsRec[index]["range"]["b"])
              )
              await sqlmod.exSQL();
+             
+             await sqlmod.selectLastMinAvgDBByPeriod(tMins, period);
+	    let pricejson = sqlmod.getLastMinRecSingle();
+      //     console.log("price json == "+ JSON.stringify(pricejson)); 
+	    let mb = { m: parseFloat(jsonStatsRec[index]["min"]["m"]),
+	   	       b: parseFloat(jsonStatsRec[index]["min"]["b"])}
+	    let price = parseFloat(pricejson[0]["avgminprice"]);
+//	 console.log("price == "+ price);
+//	 console.log("mb == "+ JSON.stringify(mb));
+	 // readforcast
+	 // // calc diff
+	 // update forecast
+	    let ftime =tMins+1;
+    	 console.log("mins  == "+ tMins);
+    	 console.log("ftime  == "+ ftime);
+	    let forecastminprice = statsPkg.linearRegressionLine(mb)(ftime);
+  //         console.log("fmin == " +forecastminprice); 
+	    mb = { m: parseFloat(jsonStatsRec[index]["max"]["m"]),
+	   	       b: parseFloat(jsonStatsRec[index]["max"]["b"])}
+	    price = parseFloat(pricejson[0]["avgmaxprice"]);
+	    let forecastmaxprice = statsPkg.linearRegressionLine(mb)(ftime);
+            
+	    mb = { m: parseFloat(jsonStatsRec[index]["range"]["m"]),
+	   	       b: parseFloat(jsonStatsRec[index]["range"]["b"])}
+	    price = parseFloat(pricejson[0]["avgrange"]);
+	    let forecastrangeprice = statsPkg.linearRegressionLine(mb)(ftime);
+	    let devminprice = 0;
+	    let devmaxprice = 0;
+	    let devrangeprice = 0;
+	    sqlmod.insertForecastSQL(ftime,
+             forecastminprice,
+             forecastmaxprice,
+             forecastrangeprice,
+             period, devminprice, devmaxprice, devrangeprice);
+             await sqlmod.exSQL();
        }
         await createStatsDB(60, 0, tMins);
         await createStatsDB(30, 1, tMins);
         await createStatsDB(10, 2, tMins);
         await createStatsDB(5, 3, tMins);
-
+//  id | lasttimemin | forecastminprice | forecastmaxprice | forecastrangeprice | avgperiod | devminprice | devmaxprice | devrangeprice 
+//statsPkg.linearRegressionLine(
 
 }
 async function insertAvgs(id2, period) {
@@ -176,9 +219,9 @@ function isNumber(val) {
 
 async function main() {
 let recs = true;
-	let initialid = sqlmod.getLastIdStatsPriceDB();
+//	let initialid = sqlmod.getLastIdStatsPriceDB();
 while (recs) {
-	await  calcPeriodDB(initialid);
+	await  calcPeriodDB();
 }
 
 process.exit();

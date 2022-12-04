@@ -2,6 +2,9 @@ class SQLMod {
   constructor( 
     )   
     {
+	     this.lastMinRecSingle={};
+	    this.StatsRangeData = {};
+	    this.statsRangeId = 0;
 	    this.LinearRegTrend = [];
 		 this.statsPeriodRec= [];
 		 this.avgMaxMinRec = [];
@@ -37,6 +40,10 @@ this.tradeprofitDB;
     }
 // sqlmod.getPeriodStatsDB
 	// sqlmod.getLinearRegTrend
+     //this.statsRangeId
+     getLastMinRecSingle= () => { return  this.lastMinRecSingle }
+     getStatsRangeData= () => { return this.StatsRangeData }
+     getStatsRangeId= () => { return this.statsRangeId }
      getLinearRegTrend= () => { return this.LinearRegTrend }
      getStatsPeriodRec= () => { return this.statsPeriodRec }
      getProfitByDate= () => { return this.profitByDate }
@@ -338,6 +345,45 @@ this.tradeprofitDB;
        } catch (err) { throw(err);
        }
      }
+     getStatsRangeById = async(id) => {
+       let sql = "select id, lasttimemin, avgminprice, avgmaxprice, "+
+		     " avgrange, avgperiod, statsid, minm, minb, maxb, maxm, rangem, rangeb " +
+		     " from statsrange where id =  " + id;
+	//	     " by id desc limit " + n;
+console.log(sql);
+       try {
+	       let pool = this.pool;
+           let res=await pool.query(sql)
+	   if ((res) && (res.rowCount>0)) {
+          //    console.log(JSON.stringify(res));
+		 this.StatsRangeData = res.rows;
+           //   this.lastCurrPrice = parseFloat(res.rows[0]["price"]);
+           //   this.lastCurrPriceTime = parseInt(res.rows[0]["timeprice"]);
+	   }
+           //pool.end();
+       } catch (err) { throw(err);
+       }
+     }
+     getLastStatsRange = async() => {
+       let sql = "select id, lasttimemin, avgminprice, avgmaxprice, "+
+		     " avgrange, avgperiod, statsid, minm, minb, maxb, maxm, rangem, rangeb " +
+		     " from statsrange " +
+		     " order by id desc limit 1";
+	//	     " by id desc limit " + n;
+//console.log(sql);
+       try {
+	       let pool = this.pool;
+           let res=await pool.query(sql)
+	   if ((res) && (res.rowCount>0)) {
+          //    console.log(JSON.stringify(res));
+		 this.StatsRangeData = res.rows;
+           //   this.lastCurrPrice = parseFloat(res.rows[0]["price"]);
+           //   this.lastCurrPriceTime = parseInt(res.rows[0]["timeprice"]);
+	   }
+           //pool.end();
+       } catch (err) { throw(err);
+       }
+     }
      getLinearRegData = async(period) => {
        let sql = "select id, lasttimemin, avgminprice, avgmaxprice, "+
 		     " avgrange, avgperiod, statsid, minm, minb, maxb, maxm, rangem, rangeb " +
@@ -351,6 +397,24 @@ this.tradeprofitDB;
 	   if ((res) && (res.rowCount>0)) {
           //    console.log(JSON.stringify(res));
 		 this.LinearRegTrend = res.rows;
+           //   this.lastCurrPrice = parseFloat(res.rows[0]["price"]);
+           //   this.lastCurrPriceTime = parseInt(res.rows[0]["timeprice"]);
+	   }
+           //pool.end();
+       } catch (err) { throw(err);
+       }
+     }
+     selectLastMinAvgDBByPeriod = async(timemin, period) => {
+       let sql = "select lasttimemin, avgminprice, avgmaxprice, avgrange, avgperiod, statsid from statsrange "+
+		     " where lasttimemin = " + timemin + " and avgperiod = "+ period;
+	//	     " by id desc limit " + n;
+console.log(sql);
+       try {
+	       let pool = this.pool;
+           let res=await pool.query(sql)
+	   if ((res) && (res.rowCount>0)) {
+          //    console.log(JSON.stringify(res));
+		 this.lastMinRecSingle = res.rows;
            //   this.lastCurrPrice = parseFloat(res.rows[0]["price"]);
            //   this.lastCurrPriceTime = parseInt(res.rows[0]["timeprice"]);
 	   }
@@ -655,6 +719,24 @@ i//crypto=# select avg(diff), min(minprice), max(maxprice), (max(maxprice) - min
 //  id | timemin | avgminprice | avgmaxprice | avgspreadprice | avgperiod 
 // insert into statsrange (lasttimemin, avgminprice, avgmaxprice, avgrange, avgperiod) select  max(timemin) as lasttimemin, avg(minprice) as avgminprice, avg(maxprice) as avgmaxprice,  avg(diff) as avgrange, 60 as avgperiod from (select maxprice, minprice,  (maxprice - minprice) as diff, id, timemin from stats where id  between 7100 and 7160 )  as t;
 
+
+// id | lasttimemin | forecastminprice | forecastmaxprice | forecastrangeprice | avgperiod 
+     insertForecastSQL = (lasttimemin,
+	     forecastminprice,
+	     forecastmaxprice,
+	     forecastrangeprice,
+	     avgperiod, devminprice, devmaxprice, devrangeprice) => {
+                 this.sql = "insert into forecast (lasttimemin, forecastminprice, " +
+			     " forecastmaxprice, forecastrangeprice, avgperiod, devminprice, devmaxprice, devrangeprice "+ 
+			     " ) " +
+                 " values (" + lasttimemin + "," + forecastminprice +"," +
+			     forecastmaxprice + "," + forecastrangeprice + "," + avgperiod + "," +
+			     devminprice + "," + devmaxprice + "," + devrangeprice +
+			     ")";
+		     console.log("sql == "+ this.sql);
+	     }
+
+
      insertPeriodStats = (n1, n2) => {
 	     // n- time in mins - 1 min slots on table
 	     // p1 - diff avg for the min define the price moves on the min
@@ -897,6 +979,17 @@ i//crypto=# select avg(diff), min(minprice), max(maxprice), (max(maxprice) - min
 
 
 
+    getStatsRangeLastId = async() => {
+       let sql = "select last_value from statsrange_id_seq";
+
+       try {
+	       let pool = this.pool;
+           let res=await pool.query(sql)
+           this.statsRangeId = parseInt(res.rows[0]["last_value"]);
+
+       } catch (err) { throw(err);
+       }
+    }
     getPriceOrderLastIdShort = async() => {
        let sql = "select last_value from priceordershort_id_seq";
 
