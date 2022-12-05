@@ -413,7 +413,7 @@ console.log(sql);
      }
      getLinearRegDataDB = async(period, nrecs) => {
        let sql = "select id, lasttimemin, avgminprice, avgmaxprice, "+
-		     " avgrange, avgperiod, statsid, minm, minb, maxb, maxm, rangem, rangeb " +
+		     " avgrange, avgperiod, statsid, mind, maxd, ranged, minm, minb, maxb, maxm, rangem, rangeb " +
 		     " from statsrange " +
 		     " where avgperiod = " + period + " order by lasttimemin desc limit " + nrecs;
 	//	     " by id desc limit " + n;

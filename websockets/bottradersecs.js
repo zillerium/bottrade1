@@ -476,6 +476,46 @@ async function processMainOrders(orderRefVal, btcBal) {
        })
 //console.log("xxxxxxxxxxxoooooooo = " + JSON.stringify(allSellOrders));
 //let	saleDone = true;
+	//
+	await sqlmod.getLinearRegDataDB(10,10); // time, number recs
+	let jsonLR60 = sqlmod.getLinearRegTrend();
+	console.log("kkkkkk = "+ JSON.stringify(jsonLR60));
+	console.log(" kkkk min price = "+statsmod.getMinPrice());
+	console.log(" kkkk max price = "+statsmod.getMaxPrice());
+	let buyArray = [];
+        jsonLR60.map(m=> {
+            buyArray.push([
+		    parseInt(m["lasttimemin"]), // 0 
+		    parseFloat(m["avgminprice"]), // 1
+		    parseFloat(m["avgmaxprice"]), // 2
+		    parseFloat(m["minm"]),  // 3
+		    parseFloat(m["maxm"]), // 4
+		    parseFloat(m["mind"]), // 5
+		    parseFloat(m["maxd"]), // 6
+		    parseFloat(m["avgrange"]) // 7
+	             ] );
+
+	});
+	//buyArray.reverse();
+	let slopeDown = buyArray.some(m => {
+		m[5]<0; // slope downwards
+	});
+	if (slopeDown) {
+            // find end of slope down
+	    let ind = buyArray.findIndex(m=>m[5]<0);
+	    if (ind>0) { 
+		    ind--;
+		 // ind this is the buy position
+		 let buyprice = buyArray[ind][5];
+                // predict peak for sell price
+	    }
+		
+			
+	    })
+	}
+	console.log("array == " + buyArray);
+	//[{"id":52303,"lasttimemin":"27835466","avgminprice":"16961.9022950820","avgmaxprice":"16966.0073770492","avgrange":"4.1050819672","avgperiod":60,"statsid":20426,"minm":"-0.1515024217","minb":"4234100.3491088520","maxb":"4526984.1846015660","maxm":"-0.1620242447","rangem":"-0.0105214216","rangeb":"292872.6606604770"},
+		return 0;
     // detect filled buy orders without a sale - sell the current btc
     let saleDone = await  processSellOrderForBuy(allFilledBuyOrders, allSellOrders, btcBal);
 console.log("xxxxxxxxxxxoooooooo = " + saleDone);

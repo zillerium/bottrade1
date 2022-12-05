@@ -133,9 +133,12 @@ let rangeArr = [];
     let minm = parseFloat(m["minm"]);
     let maxm = parseFloat(m["maxm"]);
     let rangem = parseFloat(m["rangem"]);
-minArr.push([t, minp, minm]);
-maxArr.push([t, maxp, maxm]);
-rangeArr.push([t, rangep, rangem]);
+    let mind = parseFloat(m["mind"]);
+    let maxd = parseFloat(m["maxd"]);
+    let ranged = parseFloat(m["ranged"]);
+minArr.push([t, minp, minm, mind]);
+maxArr.push([t, maxp, maxm, maxd]);
+rangeArr.push([t, rangep, rangem, ranged]);
 
 	})
 
@@ -143,13 +146,13 @@ rangeArr.push([t, rangep, rangem]);
 	maxArr.reverse();
 	rangeArr.reverse();
 minArr.map(m => {
-	 minStr = minStr + m[0] +","+ m[1] + "," + m[2] + "\n";
+	 minStr = minStr + m[0] +","+ m[1] + "," + m[2] + "," + m[3] + "\n";
 });
 maxArr.map(m => {
-	 maxStr = maxStr + m[0] +","+ m[1] + "," + m[2] + "\n";
+	 maxStr = maxStr + m[0] +","+ m[1] + "," + m[2] +","+ m[3] + "\n";
 });
 rangeArr.map(m => {
-	 rangeStr = rangeStr + m[0] +","+ m[1] + "," + m[2] + "\n";
+	 rangeStr = rangeStr + m[0] +","+ m[1] + "," + m[2] +","+ m[3] + "\n";
 });
 console.log(minStr);
 	fs.writeFile('minstr.txt', minStr, function (err) {
