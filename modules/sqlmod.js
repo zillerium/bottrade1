@@ -97,6 +97,7 @@ this.tradeprofitDB;
              let pool = this.pool;		 
              let rtn = await  pool.query(this.sql
 	     );
+		// console.log ("nnnnnnnnnnnnnnnnnnnnnnnn = " + JSON.stringify(rtn));
              //  pool.end;
             // return res.rows;
              } catch (err) { throw(err);
@@ -384,11 +385,37 @@ console.log(sql);
        } catch (err) { throw(err);
        }
      }
-     getLinearRegData = async(period) => {
+
+// select sr1.avgminprice, sr1.avgperiod, sr1.lasttimemin, sr1.minm - t.minm as diff, sr1.minm, t.minm from statsrange sr1 inner join (select sr.lasttimemin, minm, avgperiod from statsrange sr where sr.avgperiod = 10 order by sr.lasttimemin desc limit 20) as t on t.lasttimemin+1  = sr1.lasttimemin and t.avgperiod = sr1.avgperiod and sr1.avgperiod = 10;
+
+// select sr1.avgminprice, sr1.avgperiod, sr1.lasttimemin, sr1.minm - t.minm as diff, sr1.minm as sr1min, t.minm as tmin from statsrange sr1 inner join (select sr.lasttimemin, minm, avgperiod from statsrange sr where sr.avgperiod = 10 order by sr.lasttimemin desc limit 20) as t on t.lasttimemin+1  = sr1.lasttimemin and t.avgperiod = sr1.avgperiod and sr1.avgperiod = 10;
+
+
+     getDiffLinearRegDataDB = async(period, nrecs) => {
        let sql = "select id, lasttimemin, avgminprice, avgmaxprice, "+
 		     " avgrange, avgperiod, statsid, minm, minb, maxb, maxm, rangem, rangeb " +
 		     " from statsrange " +
-		     " where avgperiod = " + period + " order by id desc limit " + period;
+		     " where avgperiod = " + period + " order by lasttimemin desc limit " + nrecs;
+	//	     " by id desc limit " + n;
+//console.log(sql);
+       try {
+	       let pool = this.pool;
+           let res=await pool.query(sql)
+	   if ((res) && (res.rowCount>0)) {
+          //    console.log(JSON.stringify(res));
+		 this.LinearRegTrend = res.rows;
+           //   this.lastCurrPrice = parseFloat(res.rows[0]["price"]);
+           //   this.lastCurrPriceTime = parseInt(res.rows[0]["timeprice"]);
+	   }
+           //pool.end();
+       } catch (err) { throw(err);
+       }
+     }
+     getLinearRegDataDB = async(period, nrecs) => {
+       let sql = "select id, lasttimemin, avgminprice, avgmaxprice, "+
+		     " avgrange, avgperiod, statsid, minm, minb, maxb, maxm, rangem, rangeb " +
+		     " from statsrange " +
+		     " where avgperiod = " + period + " order by lasttimemin desc limit " + nrecs;
 	//	     " by id desc limit " + n;
 //console.log(sql);
        try {
@@ -741,9 +768,48 @@ i//crypto=# select avg(diff), min(minprice), max(maxprice), (max(maxprice) - min
 		      " where t.lasttimemin = forecast.lasttimemin " +
 		      " and t.avgperiod= forecast.avgperiod " +
 		      " and forecast.lasttimemin=" + lasttimemin;
- console.log("sql == " + this.sql);
+ //console.log("sql == " + this.sql);
 
       }
+// pdate statsrange sru set mind = mindiff, maxd = maxdiff, ranged = rangediff from (select sr1.avgminprice, sr1.avgperiod, sr1.lasttimemin, sr2.minm - sr1.minm as mindiff, sr2.maxm - sr1.maxm as maxdiff, sr2.rangem - sr1.rangem as rangediff, sr1.minm as sr1min, sr2.minm as sr2min from statsrange sr1 inner join statsrange sr2 on sr2.lasttimemin-1 = sr1.lasttimemin and sr2.avgperiod = sr1.avgperiod and sr1.lasttimemin = 27837309)  as t where sru.lasttimemin = t.lasttimemin and sru.avgperiod = t.avgperiod;
+// update statsrange sru set mind = mindiff, maxd = maxdiff, ranged = rangediff  from (select sr1.avgminprice, sr1.avgperiod, sr1.lasttimemin,   sr1.minm - sr2.minm as mindiff, sr1.maxm - sr2.maxm as maxdiff,  sr1.rangem - sr2.rangem as rangediff, sr1.minm as sr1min,  sr2.minm as sr2min from statsrange sr1 inner join  statsrange sr2 on sr2.lasttimemin+1 = sr1.lasttimemin  and sr2.avgperiod = sr1.avgperiod and sr1.lasttimemin = 27837356)  as t where sru.lasttimemin = t.lasttimemin and sru.avgperiod = t.avgperiod;
+
+      updateDiffStatsRangeSQL = (lasttimemin) => {
+         
+ this.sql = "update statsrange sru set mind = mindiff, maxd = maxdiff, ranged = rangediff " +
+		      " from (select sr1.avgminprice, sr1.avgperiod, sr1.lasttimemin,  " +
+		      " sr1.minm - sr2.minm as mindiff, sr1.maxm - sr2.maxm as maxdiff, " +
+		      " sr1.rangem - sr2.rangem as rangediff, sr1.minm as sr1min, " +
+		      " sr2.minm as sr2min from statsrange sr1 inner join " +
+		      " statsrange sr2 on sr2.lasttimemin+1 = sr1.lasttimemin " +
+		      " and sr2.avgperiod = sr1.avgperiod and   sr1.lasttimemin = " + lasttimemin + ") " +
+		      //" and sr2.avgperiod = sr1.avgperiod ) " +
+		      " as t where sru.lasttimemin = t.lasttimemin and sru.avgperiod = t.avgperiod  ";
+		      //" and t.lasttimemin = " + lasttimemin;
+
+ //console.log("sql == " + this.sql);
+/*	this.sql = "update forecast set " +
+		      " devminprice = t.mind, " +
+		      " devmaxprice = t.maxd, " +
+		      " devrangeprice = t.ranged " +
+		      " from " + 
+		      " ((select f.avgperiod, f.lasttimemin, f.forecastminprice, statsrange.avgminprice, " +
+		      " (f.forecastminprice-statsrange.avgminprice) as mind, " +
+		      " (f.forecastmaxprice-statsrange.avgmaxprice) as maxd, " +
+		      " (f.forecastrangeprice-statsrange.avgrange) as ranged " +
+		      " from forecast as f inner join statsrange on " +
+		      " f.lasttimemin =  statsrange.lasttimemin " + 
+		      " and f.avgperiod = statsrange.avgperiod)) as t " +
+		      " where t.lasttimemin = forecast.lasttimemin " +
+		      " and t.avgperiod= forecast.avgperiod " +
+		      " and forecast.lasttimemin=" + lasttimemin;
+ console.log("sql == " + this.sql);
+*/
+      }
+
+//update statsrange sru set mind = diff from (select sr1.avgminprice, sr1.avgperiod, sr1.lasttimemin, sr1.minm - sr2.minm as diff, sr1.minm as sr1min, sr2.minm as sr2min from statsrange sr1 inner join statsrange sr2 on sr2.lasttimemin+1 = sr1.lasttimemin and sr2.avgperiod = sr1.avgperiod and sr2.avgperiod = 10)  as t where sru.lasttimemin = t.lasttimemin and sru.avgperiod = t.avgperiod;
+// current update statsrange sru set mind = mindiff, maxd = maxdiff, ranged = rangediff from (select sr1.avgminprice, sr1.avgperiod, sr1.lasttimemin, sr1.minm - sr2.minm as mindiff, sr1.maxm - sr2.maxm as maxdiff, sr1.rangem - sr2.rangem as rangediff, sr1.minm as sr1min, sr2.minm as sr2min from statsrange sr1 inner join statsrange sr2 on sr2.lasttimemin+1 = sr1.lasttimemin and sr2.avgperiod = sr1.avgperiod and sr2.avgperiod = 10)  as t where sru.lasttimemin = t.lasttimemin and sru.avgperiod = t.avgperiod;
+
 
 	// update forecast set devminprice = t.mind from ((select f.avgperiod, f.lasttimemin, f.forecastminprice, statsrange.avgminprice, (f.forecastminprice-statsrange.avgminprice) as mind from forecast as f inner join statsrange on f.lasttimemin =  statsrange.lasttimemin and f.avgperiod = statsrange.avgperiod)) as t where t.lasttimemin = forecast.lasttimemin and t.avgperiod= forecast.avgperiod and forecast.lasttimemin=27836136;
 
@@ -762,7 +828,7 @@ i//crypto=# select avg(diff), min(minprice), max(maxprice), (max(maxprice) - min
 			     ")" + " on conflict on constraint clasttimemin do nothing";
 
 		//	     " where not exists ( select lasttimemin from forecast where lasttimemin = " + lasttimemin + ")";
-		     console.log("sql == "+ this.sql);
+//		     console.log("sql == "+ this.sql);
 	     }
 
 

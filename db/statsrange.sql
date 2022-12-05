@@ -10,6 +10,9 @@ CREATE TABLE statsrange(
    minb numeric(20,10),
    maxb numeric(20,10),
    rangeb numeric(20,10),
+   ranged numeric(20,10),
+   mind numeric(20,10),
+   maxd numeric(20,10),
     avgperiod int,
     statsid int
 );
