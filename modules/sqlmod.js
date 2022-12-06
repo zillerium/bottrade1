@@ -2,6 +2,7 @@ class SQLMod {
   constructor( 
     )   
     {
+	    this.currentStatsMins={};
 	     this.lastMinRecSingle={};
 	    this.StatsRangeData = {};
 	    this.statsRangeId = 0;
@@ -41,6 +42,7 @@ this.tradeprofitDB;
 // sqlmod.getPeriodStatsDB
 	// sqlmod.getLinearRegTrend
      //this.statsRangeId
+     getCurrentStatsMins= () => { return   this.currentStatsMins}
      getLastMinRecSingle= () => { return  this.lastMinRecSingle }
      getStatsRangeData= () => { return this.StatsRangeData }
      getStatsRangeId= () => { return this.statsRangeId }
@@ -288,6 +290,21 @@ this.tradeprofitDB;
      }  
 
 
+     selectCurrentStatsMins = async(timemin) => {
+       let sql = "select minprice, maxprice, avgprice, timemin from stats where timemin = "+ timemin;
+       try {
+	       let pool = this.pool;
+           let res=await pool.query(sql)
+	   if ((res) && (res.rowCount>0)) {
+          //    console.log(JSON.stringify(res));
+		 this.currentStatsMins = res.rows;
+           //   this.lastCurrPrice = parseFloat(res.rows[0]["price"]);
+           //   this.lastCurrPriceTime = parseInt(res.rows[0]["timeprice"]);
+	   }
+           //pool.end();
+       } catch (err) { throw(err);
+       }
+     }
 
 	//  id | lasttimemin |   avgminprice    |   avgmaxprice    |   avgrange    | avgperiod | statsid 
 

@@ -418,7 +418,152 @@ function getStatsPeriodRec(jsonStatsPeriodRec, statsvar) {
         return linearStats;
 }
 
+async function buyDecision() {
 
+	await sqlmod.getLinearRegDataDB(10,30); // time, number recs
+	let jsonLR60 = sqlmod.getLinearRegTrend();
+	console.log("kkkkkk = "+ JSON.stringify(jsonLR60));
+	console.log(" kkkk min price = "+statsmod.getMinPrice());
+	console.log(" kkkk max price = "+statsmod.getMaxPrice());
+	let buyArray = [];
+	let buyArrayMinm = [];
+	let prevmind = 0;
+        jsonLR60.map(m=> {
+		let gradmind = parseFloat(m["mind"]) - prevmind;
+            buyArray.push([
+		    parseInt(m["lasttimemin"]), // 0 
+		    parseFloat(m["avgminprice"]), // 1
+		    parseFloat(m["avgmaxprice"]), // 2
+		    parseFloat(m["minm"]),  // 3
+		    parseFloat(m["maxm"]), // 4
+		    parseFloat(m["mind"]), // 5
+		    parseFloat(m["maxd"]), // 6
+		    parseFloat(m["avgrange"]), // 7
+		    parseFloat(gradmind) // 8
+		     
+	             ] );
+	prevmind = parseFloat(m["mind"]);
+	    buyArrayMinm.push(parseFloat(m["mind"]));
+	});
+        for (let j=0;j< buyArray.length; j++) {
+    	    console.log("array mind == " + buyArray[j][5] + " " + buyArray[j][8]);
+	}
+	console.log("array buy == " + buyArray);
+	console.log("array == " + buyArrayMinm);
+	let minmVal = Math.min(...buyArrayMinm);
+	let maxmVal = Math.max(...buyArrayMinm);
+        let minmInd = buyArrayMinm.findIndex(m=>m==minmVal);
+        let maxmInd = buyArrayMinm.findIndex(m=>m==minmVal);
+	console.log( "mmmmm = min " +Math.min(...buyArrayMinm));
+	console.log( "mmmmm = max " +Math.max(...buyArrayMinm));
+	console.log( "mmmmm = findindex min " +buyArrayMinm.findIndex(m=>m==minmVal));
+	console.log( "mmmmm = findindex max " +buyArrayMinm.findIndex(m=>m==maxmVal));
+        let bnd = getBoundaryPoints(buyArray); // gets peaks and troughs in mind data
+        let cos = getCrossOvers(buyArray); // gets peaks and troughs in mind data
+	console.log("bnd == "+ JSON.stringify(bnd));
+	console.log("cos == "+ JSON.stringify(cos));
+	
+	let timemins =buyArray[0][0];
+	await sqlmod.selectCurrentStatsMins(timemins);
+	let jsonPrices = sqlmod.getCurrentStatsMins();
+		// |          txndate           |     minprice     |     maxprice     |    openprice     |    closeprice    |     avgprice     |      sumprice       | timemin  | itemnum |      qty 
+		let minprice = parseFloat(jsonPrices[0]["minprice"]);
+		let maxprice = parseFloat(jsonPrices[0]["maxprice"]);
+		let avgprice = parseFloat(jsonPrices[0]["avgprice"]);
+		let avgminprice10 = buyArray[0][1];
+		let avgmaxprice10 = buyArray[0][2];
+		let buyPrice = minprice;
+		let sellPrice = maxprice;
+                let t = buyArray[0][0];
+	        let buyOrder = false;
+	        //let buyOrderUnresolved = cos["up"].map(n=>{
+	        cos["up"].map(n=>{
+                   let tup=parseInt(buyArray[n][0]);
+	  	   cos["down"].map(o=>{
+		      let tdown = parseInt(buyArray[o][0]);
+			      console.log(" time  + " + t + " tup + " + tup + " tdown + " + tdown);
+                      if (t> tup && t< tdown) {
+			      console.log(" time if + " + t + " tup + " + tup + " tdown + " + tdown);
+			      buyOrder = true;
+		      }
+		  })
+                })
+//	let buyOrder = await Promise.all(buyOrderUnresolved);
+        if (buyOrder) {
+             statsmod.setBuyPrice(buyPrice);
+             statsmod.setSellPrice(sellPrice);
+		return buyPrice;
+	}
+
+		console.log("buy price == "+ buyPrice);
+/*	if ((buyArray[1]["mind"]<0) && (buyArray[0]["mind"]>0)) {
+             // turning point - buying possibility
+		if (buyPrice > avgminprice10) {
+                    buyPrice = avgminprice10;
+		}
+		console.log("buy price == "+ buyPrice);
+		console.log("sell price == "+ sellPrice);
+		return buyPrice;
+	}
+*/
+	return 0;
+/*	while (notFound) {
+	    if (minmInd>0) {
+             // minimum is not first entry so data is past minimum
+	     // split array before min value
+	        let afterMin = [];
+		afterMin = buyArrayMinm.slice(0,minmInd-1);
+		console.log(" new array == " + afterMin);
+	        let minmVal = Math.min(..a.buyArrayMinm);
+         	let maxmVal = Math.max(...buyArrayMinm);
+                let minmInd = buyArrayMinm.findIndex(m=>m==minmVal);
+                let maxmInd = buyArrayMinm.findIndex(m=>m==minmVal);
+    	    }
+	console.log( "mmmmm = min " +Math.min(...buyArrayMinm));
+	console.log( "mmmmm = max " +Math.max(...buyArrayMinm));
+	console.log( "mmmmm = findindex min " +buyArrayMinm.findIndex(m=>m==minmVal));
+	console.log( "mmmmm = findindex max " +buyArrayMinm.findIndex(m=>m==maxmVal));
+	 } */
+}
+function getBoundaryPoints (arr) {
+	var bnd = { highs:[], lows: []} 
+	for (let i=1; i<arr.length - 1; i++) {
+           let current = arr[i][5];
+           let last = arr[i-1][5];
+	   let next = arr[i+1][5];
+//		console.log("curr == "+ current);
+	   if (current > next && current > last) {
+		   bnd["highs"].push(i);
+//		   console.log("found peak");
+	   }
+	   else {
+		   if (current < next && current < last) {
+		   bnd["lows"].push(i);
+//		   console.log("found lows");
+	        }
+	   }
+	}
+	return bnd;
+}
+function getCrossOvers (arr) {
+	var bnd = {up:[], down: []} 
+	for (let i=0; i<arr.length - 2; i++) {
+           let current = arr[i][5];
+           let last = arr[i+1][5];
+	  // let next = arr[i-1][5];
+           if (current > 0 && last < 0) {
+		   bnd["up"].push(i);
+//		   console.log("current == "+ current + " up " + "last " + last);
+	   }
+	   else {
+		   if (current < 0 && last  >0 ) {
+		   bnd["down"].push(i);
+//		   console.log("current == "+ current + " down " + "last " + last);
+	        }
+	   }
+	}
+	return bnd;
+}
 async function processMainOrders(orderRefVal, btcBal) {
 
     loggerp.error("buying option now ");
@@ -477,26 +622,9 @@ async function processMainOrders(orderRefVal, btcBal) {
 //console.log("xxxxxxxxxxxoooooooo = " + JSON.stringify(allSellOrders));
 //let	saleDone = true;
 	//
-	await sqlmod.getLinearRegDataDB(10,10); // time, number recs
-	let jsonLR60 = sqlmod.getLinearRegTrend();
-	console.log("kkkkkk = "+ JSON.stringify(jsonLR60));
-	console.log(" kkkk min price = "+statsmod.getMinPrice());
-	console.log(" kkkk max price = "+statsmod.getMaxPrice());
-	let buyArray = [];
-        jsonLR60.map(m=> {
-            buyArray.push([
-		    parseInt(m["lasttimemin"]), // 0 
-		    parseFloat(m["avgminprice"]), // 1
-		    parseFloat(m["avgmaxprice"]), // 2
-		    parseFloat(m["minm"]),  // 3
-		    parseFloat(m["maxm"]), // 4
-		    parseFloat(m["mind"]), // 5
-		    parseFloat(m["maxd"]), // 6
-		    parseFloat(m["avgrange"]) // 7
-	             ] );
-
-	});
 	//buyArray.reverse();
+//	if 
+	return 0;
 	let slopeDown = buyArray.some(m => {
 		m[5]<0; // slope downwards
 	});
@@ -511,7 +639,6 @@ async function processMainOrders(orderRefVal, btcBal) {
 	    }
 		
 			
-	    })
 	}
 	console.log("array == " + buyArray);
 	//[{"id":52303,"lasttimemin":"27835466","avgminprice":"16961.9022950820","avgmaxprice":"16966.0073770492","avgrange":"4.1050819672","avgperiod":60,"statsid":20426,"minm":"-0.1515024217","minb":"4234100.3491088520","maxb":"4526984.1846015660","maxm":"-0.1620242447","rangem":"-0.0105214216","rangeb":"292872.6606604770"},
@@ -1303,11 +1430,12 @@ async function newSecond() {
        let delim = ",";
        loggerp.warn(delim, statsmod.getNumberSecs(), delim, statsmod.getBuyPrice(), delim, statsmod.getSellPrice()); 
        let trade = true;
-       
+       let buyPrice = await buyDecision();
+           console.log("++++++++++++++ buyPrice = " + buyPrice + " ++++++++++++");
            console.log("++++++++++++++ totOrders = " + totOrders + " ++++++++++++");
            console.log("++++++++++++++ totOrderLimit = " + totOrderLimit + " ++++++++++++");
            if (totOrders < totOrderLimit) {
-               let rtn = await processOrder();
+              // let rtn = await processOrder();
            }
        //process.exit();
        if (statsmod.getMinPrice() > 0) {
