@@ -1,0 +1,3 @@
+dataset = pd.read_csv('minstrfile.csv')
+x = dataset.iloc[:, 0:2].values
+x
