@@ -8,6 +8,8 @@ CREATE TABLE stats(
    avgprice numeric(20,10),
    sumprice numeric(20,10),
    timemin bigint,
-   itemNum int
+   itemNum int,
+   peak int,
+   pricec numeric(20,10)
 );
 

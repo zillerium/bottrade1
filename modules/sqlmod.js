@@ -135,6 +135,28 @@ this.tradeprofitDB;
              "delete from currprice where timeprice < " + timeprice ;
     //     console.log(this.sql); 
      }
+     createChannelSQL = (beforepeakprice, 
+	     beforepeaktime, 
+	     peakprice, 
+	     peaktime, 
+	     afterpeakprice, 
+	     afterpeaktime 
+) => {
+//  id | beforepeakprice | beforepeaktime | peakprice | peaktime | afterpeakprice | aftepeaktime 
+
+         this.sql =
+             "insert into currprice (beforepeakprice, beforepeaktime, peakprice, peaktime, afterpeakprice, afterpeaktime) " +
+             " values " +
+             "( " +
+		beforepeakprice + "," + 
+		beforepeaktime + ", " + 
+		peakprice + ", " + 
+		peaktime + ", " + 
+		afterpeakprice + "," + 
+		afterpeaktime + " " + 
+		")";
+//         console.log(this.sql); 
+     }
      createCurrentPriceSQL = (price, timeprice, qty) => {
 
          this.sql =
@@ -955,13 +977,22 @@ i//crypto=# select avg(diff), min(minprice), max(maxprice), (max(maxprice) - min
          this.sql = "insert into trends (txndate, timemin, rsi) values ( NOW(), " + timemin + "," + rsi + ")";
      }
 
-     createStatsSQL = (minprice, maxprice, openprice, avgprice, closeprice, timemin, sumprice, itemnum, qty) => {
+     updateStatsSQL = (timec, peak, pricec) => {
 
           this.sql =
-              "insert into stats (txndate, minprice, maxprice, openprice, closeprice, avgprice, sumprice, timemin, itemnum, qty) " +
+              "update stats set peak = " + peak + ", pricec=" + pricec + " where timemin = " + timec;
+          console.log(this.sql);
+     }
+     createStatsSQL = (minprice, maxprice, openprice, avgprice, 
+	     closeprice, timemin, sumprice, itemnum, qty, peak, pricec) => {
+
+          this.sql =
+              "insert into stats (txndate, minprice, maxprice, openprice," +
+		     " closeprice, avgprice, sumprice, timemin, itemnum, qty, peak, pricec) " +
               " values " +
               "( NOW()," + minprice + "," + maxprice + "," + openprice + "," + closeprice + "," + avgprice + "," + 
-		     sumprice + "," + timemin + "," + itemnum + ", " + qty +")";
+		     sumprice + "," + timemin + "," + itemnum + ", " + 
+			     qty + "," + peak + "," + pricec + ")" +  " on conflict on constraint ctimemin do nothing";
           console.log(this.sql);
      }
  //    sumPrices = async () => {

@@ -469,8 +469,8 @@ async function buyDecision() {
 	let avgprice = parseFloat(jsonPrices[0]["avgprice"]);
 	let avgminprice10 = buyArray[0][1];
 	let avgmaxprice10 = buyArray[0][2];
-	let buyPrice = avgprice; // min prices left orders not bought
-	let sellPrice = avgprice + (maxprice - minprice); // range is usually constant unless there is a crash or breakout
+	let buyPrice = maxprice; // min prices left orders not bought - avg prices also were left not bought on the up curve
+	let sellPrice = buyPrice + (maxprice - minprice); // range is usually constant unless there is a crash or breakout
         let t = buyArray[0][0];
         let buyOrder = false;
         //let buyOrderUnresolved = cos["up"].map(n=>{
@@ -562,7 +562,7 @@ function getCrossOvers (arr) {
            let current = arr[i][5];
            let last = arr[i+1][5];
 	  // let next = arr[i-1][5];
-           if (current > 0 && last < 0) {
+           if ((current > 0 && last < 0) && (i<3)) { // take only first three up pts - avoid buy orders being left unbought
 		   bnd["up"].push(i);
 //		   console.log("current == "+ current + " up " + "last " + last);
 	   }
