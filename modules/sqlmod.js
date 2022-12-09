@@ -43,7 +43,7 @@ this.tradeprofitDB;
 // sqlmod.getPeriodStatsDB
 	// sqlmod.getLinearRegTrend
      //this.statsRangeId - sqlmod.getStatsDirRec
-     geStatsDirRec= () => { return   this.statsDirRec}
+     getStatsDirRec= () => { return   this.statsDirRec}
      getCurrentStatsMins= () => { return   this.currentStatsMins}
      getLastMinRecSingle= () => { return  this.lastMinRecSingle }
      getStatsRangeData= () => { return this.StatsRangeData }

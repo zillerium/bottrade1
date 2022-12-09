@@ -54,7 +54,7 @@ const RSIN=14; // period for RS
 var totOrders = 0;
 var histId = 0;
 var totOrderLimit = 2;
-var btcStdQty = parseFloat(0.00075);
+var btcStdQty = parseFloat(0.0015);
 var btcQty =(parseFloat(2)* btcStdQty);
 console.log("%%%%%--- btcQty "+ btcQty);
 
@@ -502,11 +502,15 @@ async function buyDecision() {
       //  })
 	} else { buyOrder=true;}
 
-	if (buyOrder) {
+	   console.log(" buy order ============================================= "+ buyOrder);
 	    await sqlmod.selectStatsDirection(15);
 	    let jsondir = sqlmod.getStatsDirRec(); //peakc, pricev
-	    let peakc = parseInt(jsondir["peakc"]);
-	    let pricev = parseFloat(jsondir["pricev"]);
+	   console.log(" json dir ============================================= "+ JSON.stringify(jsondir));
+	    let peakc = parseInt(jsondir[0]["peakc"]);
+	    let pricev = parseFloat(jsondir[0]["pricev"]);
+	   console.log(" peakc == "+ peakc);
+	   console.log(" pricev ============================================= "+ pricev);
+	if (buyOrder) {
 	    if (peakc > 0 && pricev>0) {
 
 	    } else {
@@ -576,7 +580,7 @@ function getCrossOvers (arr) {
            let current = arr[i][5];
            let last = arr[i+1][5];
 	  // let next = arr[i-1][5];
-           if ((current > 0 && last < 0) && (i<3)) { // take only first three up pts - avoid buy orders being left unbought
+           if ((current > 0 && last < 0) ) { // take only first three up pts - avoid buy orders being left unbought
 		   bnd["up"].push(i);
 //		   console.log("current == "+ current + " up " + "last " + last);
 	   }
