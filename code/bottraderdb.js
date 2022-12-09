@@ -353,22 +353,28 @@ return 0;
 async function updateDown(avgc, avgc1, timec) {
 
                                 let pricec = avgc - avgc1;
-				gradtrough=gradtrough-1; 
+	                        if (Math.abs(pricec)< 500) {
+				  gradtrough=gradtrough-1; 
 				     
-			        if (timec>0) {
+			          if (timec>0) {
 			            sqlmod.updateStatsSQL(timec, gradtrough, pricec); // trough
 	                            await sqlmod.exSQL();
-		                 }
+		                   
+				  }
+				}
 				     return 0;
 }
 async function updateUp(avgc, avgc1, timec) {
 
                                 let pricec = avgc - avgc1;
-				gradpeak=gradpeak+1;     
-			        if (timec>0) {
+	                        if (Math.abs(pricec)< 500) {
+			  	  gradpeak=gradpeak+1;     
+			          if (timec>0) {
 			            sqlmod.updateStatsSQL(timec, gradpeak, pricec); // trough
 	                            await sqlmod.exSQL();
-		                 }
+		                   }
+			 	}
+	return 0;
 }
 async function processStats() {
 // update a new mins recs

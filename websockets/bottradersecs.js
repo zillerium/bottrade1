@@ -464,13 +464,14 @@ async function buyDecision() {
 	await sqlmod.selectCurrentStatsMins(timemins);
 	let jsonPrices = sqlmod.getCurrentStatsMins();
 		// |          txndate           |     minprice     |     maxprice     |    openprice     |    closeprice    |     avgprice     |      sumprice       | timemin  | itemnum |      qty 
+        let pricemove = parseFloat(jsonPrices[0]["pricec"]);
         let minprice = parseFloat(jsonPrices[0]["minprice"]);
 	let maxprice = parseFloat(jsonPrices[0]["maxprice"]);
 	let avgprice = parseFloat(jsonPrices[0]["avgprice"]);
 	let avgminprice10 = buyArray[0][1];
 	let avgmaxprice10 = buyArray[0][2];
-	let buyPrice = maxprice; // min prices left orders not bought - avg prices also were left not bought on the up curve
-	let sellPrice = buyPrice + (maxprice - minprice); // range is usually constant unless there is a crash or breakout
+	let buyPrice = avgprice; // min prices left orders not bought - avg prices also were left not bought on the up curve
+	let sellPrice = buyPrice + Math.abs(pricemove); // range is usually constant unless there is a crash or breakout
         let t = buyArray[0][0];
         let buyOrder = false;
         //let buyOrderUnresolved = cos["up"].map(n=>{
@@ -500,6 +501,19 @@ async function buyDecision() {
     //	    })
       //  })
 	} else { buyOrder=true;}
+
+	if (buyOrder) {
+	    await sqlmod.selectStatsDirection(15);
+	    let jsondir = sqlmod.getStatsDirRec(); //peakc, pricev
+	    let peakc = parseInt(jsondir["peakc"]);
+	    let pricev = parseFloat(jsondir["pricev"]);
+	    if (peakc > 0 && pricev>0) {
+
+	    } else {
+                 buyOrder = false;
+	    }
+
+	}
 //	let buyOrder = await Promise.all(buyOrderUnresolved);
         if (buyOrder) {
              statsmod.setBuyPriceVal(buyPrice);

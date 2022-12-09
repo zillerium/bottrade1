@@ -38,10 +38,12 @@ this.tradeprofitDB;
 	this.lastCurrPrice =0.00; 
 	this.lastCurrQty =0.00; 
         this.lastCurrPriceTime = 0;
+	this.statsDirRec={};
     }
 // sqlmod.getPeriodStatsDB
 	// sqlmod.getLinearRegTrend
-     //this.statsRangeId
+     //this.statsRangeId - sqlmod.getStatsDirRec
+     geStatsDirRec= () => { return   this.statsDirRec}
      getCurrentStatsMins= () => { return   this.currentStatsMins}
      getLastMinRecSingle= () => { return  this.lastMinRecSingle }
      getStatsRangeData= () => { return this.StatsRangeData }
@@ -171,6 +173,28 @@ this.tradeprofitDB;
 // id | txndate | clientorderid | price | qty | ordertype | exitprice 
 
 
+     selectStatsDirection = async(lim) => {
+//crypto=# select sum(peak), sum(pricec) from (select peak, pricec, avgprice, timemin, minprice, maxprice from stats order by id desc limit 15) as t;
+
+       let sql = "select sum(peak) as peakc, sum(pricec) as pricev "+
+		     " from (select peak, pricec, avgprice, timemin, minprice, " +
+		     " maxprice from stats order by id desc limit "+ lim +" ) as t ";
+
+         console.log("sql==" + sql);
+         //console.log(sql);
+       try {
+	       let pool = this.pool;
+           let res=await pool.query(sql)
+	   if ((res) && (res.rowCount>0)) {
+          //    console.log(JSON.stringify(res));
+		 this.statsDirRec = res.rows;
+           //   this.lastCurrPrice = parseFloat(res.rows[0]["price"]);
+           //   this.lastCurrPriceTime = parseInt(res.rows[0]["timeprice"]);
+	   }
+           //pool.end();
+       } catch (err) { throw(err);
+       }
+     }
      selectPriceOrderRecByIdShort = async(id) => {
        let sql = "select id,clientorderid, price, qty, ordertype, exitprice" +
 		     " from priceordershort where id =    " + parseInt(id);
@@ -313,7 +337,7 @@ this.tradeprofitDB;
 
 
      selectCurrentStatsMins = async(timemin) => {
-       let sql = "select minprice, maxprice, avgprice, timemin from stats where timemin = "+ timemin;
+       let sql = "select minprice, maxprice, avgprice, timemin, peak, pricec from stats where timemin = "+ timemin;
        try {
 	       let pool = this.pool;
            let res=await pool.query(sql)
