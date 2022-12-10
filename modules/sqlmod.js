@@ -2,6 +2,7 @@ class SQLMod {
   constructor( 
     )   
     {
+	    this.statsPeaks=[];
 	    this.currentStatsMins={};
 	     this.lastMinRecSingle={};
 	    this.StatsRangeData = {};
@@ -43,6 +44,7 @@ this.tradeprofitDB;
 // sqlmod.getPeriodStatsDB
 	// sqlmod.getLinearRegTrend
      //this.statsRangeId - sqlmod.getStatsDirRec
+     getStatsPeaks= () => { return   this.statsPeaks}
      getStatsDirRec= () => { return   this.statsDirRec}
      getCurrentStatsMins= () => { return   this.currentStatsMins}
      getLastMinRecSingle= () => { return  this.lastMinRecSingle }
@@ -186,7 +188,7 @@ this.tradeprofitDB;
 // 27844169 |    1 | 17143.2485347986 |   -2 | 27844168 | 17143.0580528846
 // 27844178 |    1 | 17141.6847735192 |   -7 | 27844177 | 17141.6617910448
 // ((sr2.peak>0 and sr1.peak < 0) or (sr2.peak<0 and sr1.peak>0))
-     getStatsPeaksAndTroughs = async(lim, pkValue, trValue) => {
+     getStatsPeaksAndTroughsSQL = async(lim, pkValue, trValue) => {
 //crypto=# select sum(peak), sum(pricec) from (select peak, pricec, avgprice, timemin, minprice, maxprice from stats order by id desc limit 15) as t;
 
            let sql = "select sr1.timemin as sr1timemin, " +
@@ -203,7 +205,8 @@ this.tradeprofitDB;
 		     " inner join stats sr2 on sr2.timemin+1 = sr1.timemin "+
                      " ((sr2.peak> " + pkValue + " and sr1.peak < 0)  " +
 		     " or (sr2.peak < " + trValue + " and sr1.peak>0)) " +
-		     " order by sr1.timemin desc " +
+		     //" order by sr1.timemin desc " +
+		     " order by sr2.id desc " +
 		     " limit " + lim;
 
          console.log("sql==" + sql);
@@ -213,7 +216,7 @@ this.tradeprofitDB;
            let res=await pool.query(sql)
 	   if ((res) && (res.rowCount>0)) {
           //    console.log(JSON.stringify(res));
-		 this.statsPeaks = res.rows;
+		 this.statsPeaksTroughs = res.rows;
            //   this.lastCurrPrice = parseFloat(res.rows[0]["price"]);
            //   this.lastCurrPriceTime = parseInt(res.rows[0]["timeprice"]);
 	   }
@@ -221,25 +224,29 @@ this.tradeprofitDB;
        } catch (err) { throw(err);
        }
      }
-     getStatsPeaks = async(lim, pkValue) => {
+     getStatsPeaksSQL = async(lim, pkValue) => {
 //crypto=# select sum(peak), sum(pricec) from (select peak, pricec, avgprice, timemin, minprice, maxprice from stats order by id desc limit 15) as t;
+// select sr2peak, sr2maxprice, sr2timemin from (select sr1.timemin as sr1timemin,  sr1.peak as sr1peak,  sr1.minprice as sr1minprice,  sr1.maxprice as sr1maxprice,  sr1.avgprice as sr1avgprice,  sr2.peak as sr2peak,  sr2.timemin as sr2timemin,  sr2.avgprice as sr2avgprice,  sr2.minprice as sr2minprice,  sr2.maxprice as sr2maxprice  from stats sr1  inner join stats sr2 on sr2.timemin+1 = sr1.timemin  and sr2.peak> 3 and sr1.peak < 0  order by sr2.id desc  limit 15) as t order by sr2timemin asc;
 
-           let sql = "select sr1.timemin as sr1timemin, " +
-		     " sr1.peak as sr1peak, "+
-		     " sr1.minprice as sr1minprice, " +
-		     " sr1.maxprice as sr1maxprice, " +
-		     " sr1.avgprice as sr1avgprice, " +
+           let sql = "select sr2peak, sr2maxprice, sr2timemin from " +
+		     " (select "+
+		    // " sr1.timemin as sr1timemin, " +
+		   //  " sr1.peak as sr1peak, "+
+		  //   " sr1.minprice as sr1minprice, " +
+		  //   " sr1.maxprice as sr1maxprice, " +
+		  //   " sr1.avgprice as sr1avgprice, " +
 		     " sr2.peak as sr2peak, " +
 		     " sr2.timemin as sr2timemin, " +
-		     " sr2.avgprice as sr2avgprice, " +
-		     " sr2.minprice as sr2minprice, " +
-		     " sr2.maxprice as sr2maxprice, " +
+		  //   " sr2.avgprice as sr2avgprice, " +
+		  //   " sr2.minprice as sr2minprice, " +
+		     " sr2.maxprice as sr2maxprice " +
 		     " from stats sr1 " +
 		     " inner join stats sr2 on sr2.timemin+1 = sr1.timemin "+
 		     " and sr2.peak> " + pkValue +
 	             " and sr1.peak < 0 " +
-		     " order by sr1.timemin desc " +
-		     " limit " + lim;
+		     " order by sr2.id desc " +
+		   //  " order by sr1.timemin asc " +
+		     " limit " + lim + ") as t order by sr2timemin asc";
 
          console.log("sql==" + sql);
          //console.log(sql);
@@ -256,7 +263,7 @@ this.tradeprofitDB;
        } catch (err) { throw(err);
        }
      }
-     getStatsTroughs = async(lim, trValue) => {
+     getStatsTroughsSQL = async(lim, trValue) => {
 //crypto=# select sum(peak), sum(pricec) from (select peak, pricec, avgprice, timemin, minprice, maxprice from stats order by id desc limit 15) as t;
 
 // trValue is defaulted as zero but large declines can have -1 (ie < -1)
@@ -274,7 +281,8 @@ this.tradeprofitDB;
 		     " inner join stats sr2 on sr2.timemin+1 = sr1.timemin "+
 		     " and sr2.peak< " + trValue + 
 	             " and sr1.peak > 0 " +
-		     " order by sr1.timemin desc " +
+		    // " order by sr1.timemin desc " +
+		     " order by sr2.id desc " +
 		     " limit " + lim;
          console.log("sql==" + sql);
          //console.log(sql);
