@@ -334,6 +334,7 @@ console.log("hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh");
             if (
 		    (item["side"] == 'SELL') 
 	             && (item["origQty"] == parseFloat(btcQty))
+	             && (item["origQty"] >= 0.0015)
 		     && (isNumber(item["clientOrderId"]))
 		     && (!WithinSellRange(parseFloat(item["price"])))
 	//		 levelsjson, parseInt(item["time"]/1000))) // expect price to be reached
@@ -513,7 +514,12 @@ async function buyDecision() {
       //  })
 	} else { buyOrder=true;}
 
-	   console.log(" buy order ============================================= "+ buyOrder);
+                 let pricerange = await getMaxMinRange(100); // 100 mins
+		   let maxpricel = parseFloat(pricerange["maxprice"]);
+                 let rangeval = {maxprice: maxpricel, minprice: parseFloat(pricerange["minprice"])};
+		 statsmod.setRangeVal(rangeval); // min and max for whole range
+	   
+	console.log(" buy order ============================================= "+ buyOrder);
 	    await sqlmod.selectStatsDirection(15);
 	    let jsondir = sqlmod.getStatsDirRec(); //peakc, pricev
 	   console.log(" json dir ============================================= "+ JSON.stringify(jsondir));
@@ -524,10 +530,6 @@ async function buyDecision() {
         //   statsmod.emptyBuySellPrices();
 	if (buyOrder) {
 	    if (peakc > 0 && pricev>0) {
-                 let pricerange = await getMaxMinRange(100); // 100 mins
-		   let maxpricel = parseFloat(pricerange["maxprice"]);
-                 let rangeval = {maxprice: maxpricel, minprice: parseFloat(pricerange["minprice"])};
-		 statsmod.setRangeVal(rangeval); // min and max for whole range
 		 if (buyPrice < maxpricel) {
 		     statsmod.setBuySellPrices({buyPrice: buyPrice, sellPrice: maxpricel}); 
 		 }
