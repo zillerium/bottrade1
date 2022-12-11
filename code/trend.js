@@ -25,7 +25,7 @@ configure({
       price: { appenders: ['price', 'out'], level: "info"}},	
 })
 
-
+const jsonsort=require('sort-json-array');
 const takeLimit = 30;
 const openOrderLimit = 5;
 const cycleLimit = 5;
@@ -77,6 +77,38 @@ async function main() {
  let timep = 30; // no. of peaks
  	await sqlmod.getStatsPeaksSQL(timep, 0, 1); // threshold for a peak and sum of actual price rise
  let jsonPks = 	sqlmod.getStatsPeaks();
+//getStatsPeaksTroughsSQL
+	let peakval = 10;
+	let trval = -10;
+await sqlmod.getStatsPeaksTroughsSQL(20,0,peakval,0, trval);
+let jsonPT = sqlmod.getStatsPeaksTroughs();
+	let jsonPTsort = jsonsort(jsonPT, 'sr2maxprice', 'des');
+	let maxprice = parseFloat(jsonPTsort[0]["sr2maxprice"]);
+	let minprice = parseFloat(jsonPTsort[jsonPTsort.length-1]["sr2maxprice"]);
+	console.log("jsonpt max ============== " + maxprice);
+	console.log("jsonpt min ============== " + minprice);
+	console.log("jsonpt sort ============== " + JSON.stringify(jsonPTsort));
+let jsonLinkPT=[];
+	let pricePT0 = parseFloat(jsonPT[jsonPT.length-1]["sr2avgprice"]);
+	let timePT0 = parseInt(jsonPT[jsonPT.length-1]["sr2timemin"]);
+jsonPT.map(m=>{
+    let price = parseFloat(m["sr2avgprice"])-pricePT0;
+    let timem = parseInt(m["sr2timemin"])-timePT0;
+
+    jsonLinkPT.push([timem, price]);
+});
+
+	console.log("jsonpt ============== " + JSON.stringify(jsonLinkPT));
+        let linearStatsPT = statsPkg.linearRegression(jsonLinkPT);
+	let nprice2 = statsPkg.linearRegressionLine(linearStatsPT)(100); // this = min time but this is measured from the series of peaks
+	// if there aree 15 peaks - see timep - then the last peak defines the end of the line, so we predict based on the t in this
+        console.log("nprice2 == "+ nprice2);
+// sr2peak |   sr2maxprice    | sr2timemin |    sr2sumc     |   sr2avgprice    
+//---------+------------------+------------+----------------+------------------
+//      -6 | 17170.4400000000 |   27845799 | -12.3561999483 | 17169.5496734694
+//       3 | 17186.0000000000 |   27845788 |  10.5604646486 | 17184.4413675213
+//      -7 | 17166.0000000000 |   27845773 | -16.6414570057 | 17165.2908372828
+//      -4 | 17184.7700000000 |   27845757 | -10.5187144622 | 17180.7370204082
 
 //{"sr1timemin":"27844611","sr1peak":-1,"sr1minprice":"17154.3100000000","sr1maxprice":"17156.5200000000","sr1avgprice":"17155.0902889246","sr2peak":1,"sr2timemin":"27844610","sr2avgprice":"17155.3542234332","sr2minprice":"17154.7100000000","sr2maxprice":"17156.7600000000"},{"sr1timemin":"27844607","sr1peak":-1,"sr1minprice":"17155.3800000000","sr1maxprice":"17156.8400000000","sr1avgpri
         let lenInd = jsonPks.length - 1;
@@ -94,15 +126,15 @@ async function main() {
 //	let linStatsRev = jsonLinPks.reverse();
 	
         let linearStats = statsPkg.linearRegression(jsonLinPks);
-        console.log("hhhh = "+ JSON.stringify(jsonPks));
-        console.log("price array = "+ JSON.stringify(jsonLinPks));
+   //     console.log("hhhh = "+ JSON.stringify(jsonPks));
+     //   console.log("price array = "+ JSON.stringify(jsonLinPks));
   //      console.log("price rev array = "+ JSON.stringify(linStatsRev));
         console.log("hhhh = "+ JSON.stringify(linearStats));
 	let m = parseFloat(linearStats["m"]);
 	let b = parseFloat(linearStats["b"]);
         let newprice = 50;
         let newtime =	(newprice- b)/m;
-        console.log(" new time == " + newtime);
+       // console.log(" new time == " + newtime);
 	let nprice = statsPkg.linearRegressionLine(linearStats)(100); // this = min time but this is measured from the series of peaks
 	// if there aree 15 peaks - see timep - then the last peak defines the end of the line, so we predict based on the t in this
         console.log("nprice == "+ nprice);

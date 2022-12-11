@@ -5,6 +5,7 @@ class StatsMod {
         this.priceUD = {};
         this.priceUDdef = { "up": 0.00, "down": 0.00};
         this.priceMoves = [];
+        this.rangeVal = [];
         this.jsonAvg = {};
         this.cycle = 0;
         this.RSIN = 14;
@@ -59,6 +60,7 @@ class StatsMod {
 	    this.keyOrderVars = {};
 	    this.openOrdersRangeJson = [];
             this.openSalesRangeJson =[];
+            this.buysellprices =[];
 
     }
      setKeyOrderVars = () => {
@@ -83,6 +85,11 @@ class StatsMod {
 
      }
 
+     getBuySellPrices = () => {return this.buysellprices };
+     setBuySellPrices = (buysell) => {this.buysellprices.push(buysell) };
+     emptyBuySellPrices = () => {this.buysellprices = []; };
+     getRangeVal = () => {return this.rangeVal };
+     setRangeVal = (rangeval) => { this.rangeVal=rangeval };
      getOpenSalesRangeJson = () => {return this.openSalesRangeJson };
      setOpenSalesRangeJson = (orders) => { this.openSalesRangeJson= orders };
      

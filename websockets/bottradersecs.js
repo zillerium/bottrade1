@@ -27,6 +27,7 @@ configure({
 var timeAllowed = parseInt(60) * parseInt(60); 
 var devLimit = parseFloat(1); // limit of changed allowed on deviation from the period avg - eg 60 mins
 var summarySellJson = [];
+const jsonsort=require('sort-json-array');
 var summaryBuyJson = [];
 const takeLimit = 5000; // open sale orders - limit liabilities 
 var riskFactor = parseFloat(2); // defines the risk on the range default is 1, raise this number to decrease risk
@@ -54,8 +55,8 @@ const RSIN=14; // period for RS
 var totOrders = 0;
 var histId = 0;
 var totOrderLimit = 2;
-var btcStdQty = parseFloat(0.0015);
-var btcQty =(parseFloat(2)* btcStdQty);
+var btcStdQty = parseFloat(0.00075);
+var btcQty =(parseFloat(1)* btcStdQty);
 console.log("%%%%%--- btcQty "+ btcQty);
 
 //var btcQty = 0.00075;
@@ -266,7 +267,17 @@ async function processingRangeOrder(openBuyOrders, topBuyRange, botBuyRange, pri
  *
 */
 
-function WithinSellRange(price, levelsjson, time) {
+function WithinSellRange(price) {
+        let json = statsmod.getRangeVal();
+	if ((json) && (json.length > 0)) {
+            let maxprice = parseFloat(json["maxprice"]);
+            let minprice = parseFloat(json["minprice"]);
+    	    if ((price<=maxprice) && (price >= minprice)) return true;
+	}
+        return false;
+}
+
+function WithinSellRange2(price, levelsjson, time) {
 
 	let nowSecs = (Date.now()/1000);
 	  let min5m =parseFloat(levelsjson["min5m"]);
@@ -324,7 +335,7 @@ console.log("hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh");
 		    (item["side"] == 'SELL') 
 	             && (item["origQty"] == parseFloat(btcQty))
 		     && (isNumber(item["clientOrderId"]))
-		     //&& (!WithinSellRange(parseFloat(item["price"]),
+		     && (!WithinSellRange(parseFloat(item["price"])))
 	//		 levelsjson, parseInt(item["time"]/1000))) // expect price to be reached
 		     && ((nowSecs - (parseInt(item["time"]/1000)))>timeAllowed)
                ) {
@@ -510,10 +521,17 @@ async function buyDecision() {
 	    let pricev = parseFloat(jsondir[0]["pricev"]);
 	   console.log(" peakc == "+ peakc);
 	   console.log(" pricev ============================================= "+ pricev);
+        //   statsmod.emptyBuySellPrices();
 	if (buyOrder) {
 	    if (peakc > 0 && pricev>0) {
-
-	    } else {
+                 let pricerange = await getMaxMinRange(100); // 100 mins
+		   let maxpricel = parseFloat(pricerange["maxprice"]);
+                 let rangeval = {maxprice: maxpricel, minprice: parseFloat(pricerange["minprice"])};
+		 statsmod.setRangeVal(rangeval); // min and max for whole range
+		 if (buyPrice < maxpricel) {
+		     statsmod.setBuySellPrices({buyPrice: buyPrice, sellPrice: maxpricel}); 
+		 }
+            } else {
                  buyOrder = false;
 	    }
 
@@ -522,6 +540,7 @@ async function buyDecision() {
         if (buyOrder) {
              statsmod.setBuyPriceVal(buyPrice);
              statsmod.setSellPriceVal(sellPrice);
+//		 statsmod.setBuySellPrices({buyprice: buyPrice, sellPrice: sellPrice}); 
 		return {buy: buyPrice, sell: sellPrice, range: range, buyOrder: true}
 	} else {
 		return {buy: 0, sell: sellPrice, range: range, buyOrder: false}
@@ -554,6 +573,45 @@ async function buyDecision() {
 	console.log( "mmmmm = findindex max " +buyArrayMinm.findIndex(m=>m==maxmVal));
 	 } */
 }
+
+async function getMaxMinRange(futuremins) {
+
+//	let timep = 30; // no. of peaks
+  //      await sqlmod.getStatsPeaksSQL(timep, 0, 1); // threshold for a peak and sum of actual price rise
+    //    let jsonPks =  sqlmod.getStatsPeaks();
+        
+	let peakval = 10;
+        let trval = -10;
+        await sqlmod.getStatsPeaksTroughsSQL(20,0,peakval,0, trval);
+        let jsonPT = sqlmod.getStatsPeaksTroughs();
+
+        let jsonPTsort = jsonsort(jsonPT, 'sr2maxprice', 'des');
+        let maxprice = parseFloat(jsonPTsort[0]["sr2maxprice"]);
+        let minprice = parseFloat(jsonPTsort[jsonPTsort.length-1]["sr2maxprice"]);
+       
+	console.log("jsonpt max ============== " + maxprice);
+        console.log("jsonpt min ============== " + minprice);
+        console.log("jsonpt sort ============== " + JSON.stringify(jsonPTsort));
+        let jsonLinkPT=[];
+        let pricePT0 = parseFloat(jsonPT[jsonPT.length-1]["sr2avgprice"]);
+        let timePT0 = parseInt(jsonPT[jsonPT.length-1]["sr2timemin"]);
+        jsonPT.map(m=>{
+            let price = parseFloat(m["sr2avgprice"])-pricePT0;
+            let timem = parseInt(m["sr2timemin"])-timePT0;
+            jsonLinkPT.push([timem, price]);
+        });
+
+        console.log("jsonpt ============== " + JSON.stringify(jsonLinkPT));
+        let linearStatsPT = statsPkg.linearRegression(jsonLinkPT);
+        let nprice2 = statsPkg.linearRegressionLine(linearStatsPT)(futuremins); 
+
+	let jsonRtn = { maxprice: maxprice, minprice: minprice, newprice: nprice2};
+
+	return jsonRtn;
+
+}
+
+
 function getBoundaryPoints (arr) {
 	var bnd = { highs:[], lows: []} 
 	for (let i=1; i<arr.length - 1; i++) {
@@ -885,13 +943,18 @@ async function processingBuying(
 	catNum = parseInt(3);
         let orderRefVal3 = orderRef + 20; 
 	let margin = parseFloat(2);
-        sellPrice = parseFloat(orgBuyPricelocal) + parseFloat(parseFloat(margin)* parseFloat(priceBuyVariant));
+        //sellPrice = parseFloat(orgBuyPricelocal) + parseFloat(parseFloat(margin)* parseFloat(priceBuyVariant));
 	 statsmod.setErrForJson(); // move later
-}
-async function rsell2() {
+	//
+	let json = statsmod.getBuySellPrices();
+           statsmod.emptyBuySellPrices();
+	console.log("xxxxxxxxxxxxxxxx == buy sell json == " + JSON.stringify(json));
+// buyPrice: buyPrice, sellPrice: maxpricel
+	let buyPrice = parseFloat(json[0]["buyPrice"]);
+	let sellPriceR = parseFloat(json[0]["sellPrice"]);
        await buyOrderInd(
-   	     sellPrice, 
-	     orgBuyPricelocal,
+   	     sellPriceR, 
+	     buyPrice,
    	     catNum,
 	     orderRefVal3,
              'BUY',
@@ -902,7 +965,8 @@ async function rsell2() {
              origQty,
 	     openSellOrders
          );
-
+}
+async function rsell2() {
 // new buy price, sell price is current sell price, check no current buy prices exist
 	let newBuyprice =  parseFloat(orgBuyPricelocal) - parseFloat(priceBuyVariant);
 	let topBuyRange1 = parseFloat(newBuyprice) + parseFloat(priceVariant);
@@ -1287,6 +1351,7 @@ async function newSecond() {
        loggerp.warn(delim, statsmod.getNumberSecs(), delim, statsmod.getBuyPrice(), delim, statsmod.getSellPrice()); 
        let trade = true;
        let buyJson = await buyDecision();
+       console.log("++++++++++++++ buyPrice json range = " + JSON.stringify(statsmod.getBuySellPrices())+ " ++++++++++++");
        console.log("++++++++++++++ buyPrice = " + JSON.stringify(buyJson)+ " ++++++++++++");
        console.log("++++++++++++++ totOrders = " + totOrders + " ++++++++++++");
        console.log("++++++++++++++ totOrderLimit = " + totOrderLimit + " ++++++++++++");
