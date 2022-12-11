@@ -224,17 +224,18 @@ this.tradeprofitDB;
        } catch (err) { throw(err);
        }
      }
-     getStatsPeaksSQL = async(lim, pkValue) => {
+     getStatsPeaksSQL = async(lim, pkValue, pkSumValue) => {
 //crypto=# select sum(peak), sum(pricec) from (select peak, pricec, avgprice, timemin, minprice, maxprice from stats order by id desc limit 15) as t;
 // select sr2peak, sr2maxprice, sr2timemin from (select sr1.timemin as sr1timemin,  sr1.peak as sr1peak,  sr1.minprice as sr1minprice,  sr1.maxprice as sr1maxprice,  sr1.avgprice as sr1avgprice,  sr2.peak as sr2peak,  sr2.timemin as sr2timemin,  sr2.avgprice as sr2avgprice,  sr2.minprice as sr2minprice,  sr2.maxprice as sr2maxprice  from stats sr1  inner join stats sr2 on sr2.timemin+1 = sr1.timemin  and sr2.peak> 3 and sr1.peak < 0  order by sr2.id desc  limit 15) as t order by sr2timemin asc;
 
-           let sql = "select sr2peak, sr2maxprice, sr2timemin from " +
+           let sql = "select sr2peak, sr2maxprice, sr2timemin, sr2sumc from " +
 		     " (select "+
 		    // " sr1.timemin as sr1timemin, " +
 		   //  " sr1.peak as sr1peak, "+
 		  //   " sr1.minprice as sr1minprice, " +
 		  //   " sr1.maxprice as sr1maxprice, " +
 		  //   " sr1.avgprice as sr1avgprice, " +
+		     " sr2.sumc as sr2sumc, " +
 		     " sr2.peak as sr2peak, " +
 		     " sr2.timemin as sr2timemin, " +
 		  //   " sr2.avgprice as sr2avgprice, " +
@@ -243,10 +244,12 @@ this.tradeprofitDB;
 		     " from stats sr1 " +
 		     " inner join stats sr2 on sr2.timemin+1 = sr1.timemin "+
 		     " and sr2.peak> " + pkValue +
+		     " and sr2.sumc > " + pkSumValue +
 	             " and sr1.peak < 0 " +
 		     " order by sr2.id desc " +
 		   //  " order by sr1.timemin asc " +
-		     " limit " + lim + ") as t order by sr2timemin asc";
+		     " limit " + lim + ") as t " + " ";
+		    // " order by sr2timemin asc";
 
          console.log("sql==" + sql);
          //console.log(sql);
@@ -1127,10 +1130,12 @@ i//crypto=# select avg(diff), min(minprice), max(maxprice), (max(maxprice) - min
          this.sql = "insert into trends (txndate, timemin, rsi) values ( NOW(), " + timemin + "," + rsi + ")";
      }
 
-     updateStatsSQL = (timec, peak, pricec) => {
+     updateStatsSQL = (timec, peak, pricec, sumc) => {
 
           this.sql =
-              "update stats set peak = " + peak + ", pricec=" + pricec + " where timemin = " + timec;
+              "update stats set peak = " + peak + ", pricec=" + pricec +
+                        ", sumc = " + sumc +
+		     " where timemin = " + timec;
           console.log(this.sql);
      }
      createStatsSQL = (minprice, maxprice, openprice, avgprice, 

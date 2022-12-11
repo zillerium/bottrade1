@@ -74,26 +74,39 @@ pool.connect();
 main();
 
 async function main() {
- let timep = 15; // no. of peaks
- 	await sqlmod.getStatsPeaksSQL(timep, 3); // threshold for a peak
+ let timep = 30; // no. of peaks
+ 	await sqlmod.getStatsPeaksSQL(timep, 0, 1); // threshold for a peak and sum of actual price rise
  let jsonPks = 	sqlmod.getStatsPeaks();
 
 //{"sr1timemin":"27844611","sr1peak":-1,"sr1minprice":"17154.3100000000","sr1maxprice":"17156.5200000000","sr1avgprice":"17155.0902889246","sr2peak":1,"sr2timemin":"27844610","sr2avgprice":"17155.3542234332","sr2minprice":"17154.7100000000","sr2maxprice":"17156.7600000000"},{"sr1timemin":"27844607","sr1peak":-1,"sr1minprice":"17155.3800000000","sr1maxprice":"17156.8400000000","sr1avgpri
-     let jsonLinPks = [];
-	let time0 = parseInt(jsonPks[0]["sr2timemin"]);
-	let price0 = parseFloat(jsonPks[0]["sr2maxprice"]);
+        let lenInd = jsonPks.length - 1;
+	let jsonLinPks = [];
+	let sumc0 = parseFloat(jsonPks[lenInd]["sr2sumc"]);
+	let time0 = parseInt(jsonPks[lenInd]["sr2timemin"]);
+	let price0 = parseFloat(jsonPks[lenInd]["sr2maxprice"]);
 	jsonPks.map(m=>{
+                           let sumc = parseFloat(m["sr2sumc"])-sumc0;
                            let price = parseFloat(m["sr2maxprice"])-price0;
                            let timem = parseInt(m["sr2timemin"]) - time0;
 		jsonLinPks.push([timem,price]);
 	});
-let linearStats = statsPkg.linearRegression(jsonLinPks);
+
+//	let linStatsRev = jsonLinPks.reverse();
+	
+        let linearStats = statsPkg.linearRegression(jsonLinPks);
         console.log("hhhh = "+ JSON.stringify(jsonPks));
-        console.log("hhhh = "+ JSON.stringify(jsonLinPks));
+        console.log("price array = "+ JSON.stringify(jsonLinPks));
+  //      console.log("price rev array = "+ JSON.stringify(linStatsRev));
         console.log("hhhh = "+ JSON.stringify(linearStats));
+	let m = parseFloat(linearStats["m"]);
+	let b = parseFloat(linearStats["b"]);
+        let newprice = 50;
+        let newtime =	(newprice- b)/m;
+        console.log(" new time == " + newtime);
 	let nprice = statsPkg.linearRegressionLine(linearStats)(100); // this = min time but this is measured from the series of peaks
 	// if there aree 15 peaks - see timep - then the last peak defines the end of the line, so we predict based on the t in this
         console.log("nprice == "+ nprice);
+// hhhh = {"m":0.0005085248871631026,"b":5.2240409948634525}
 
 //console.log("json == "+JSON.stringify(jsonPks));
 process.exit();

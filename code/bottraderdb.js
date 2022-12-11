@@ -10,6 +10,7 @@ var minc2 = parseFloat(0);
 var minc1 = parseFloat(0);
 var maxc2 = parseFloat(0);
 var maxc1 = parseFloat(0);
+var sumc = parseFloat(0);
 var avgc2 = parseFloat(0);
 var avgc1 = parseFloat(0);
 var pricemin = parseFloat(0);
@@ -313,6 +314,7 @@ async function updatepeaks(timec, minc, maxc, avgc) {
                          //  let pricec = avgc - avgc1;
 			   gradtrough = 0;
 		  	   gradpeak = 0;
+			    sumc = 0;
 			   if (timec1>0) {
 			  //    sqlmod.updateStatsSQL(timec1, peak, pricec); // peak
 	                  //    await sqlmod.exSQL();
@@ -329,6 +331,7 @@ async function updatepeaks(timec, minc, maxc, avgc) {
                             //   let pricec = avgc - avgc1;
 			       gradtrough = 0;
 			       gradpeak = 0;
+				 sumc = 0;
 			       if (timec1>0) {
 			   //        sqlmod.updateStatsSQL(timec1, peak, pricec); // trough
 	                     //      await sqlmod.exSQL();
@@ -353,11 +356,12 @@ return 0;
 async function updateDown(avgc, avgc1, timec) {
 
                                 let pricec = avgc - avgc1;
+	                        sumc = pricec + sumc;
 	                        if (Math.abs(pricec)< 500) {
 				  gradtrough=gradtrough-1; 
 				     
 			          if (timec>0) {
-			            sqlmod.updateStatsSQL(timec, gradtrough, pricec); // trough
+			            sqlmod.updateStatsSQL(timec, gradtrough, pricec, sumc); // trough
 	                            await sqlmod.exSQL();
 		                   
 				  }
@@ -367,10 +371,11 @@ async function updateDown(avgc, avgc1, timec) {
 async function updateUp(avgc, avgc1, timec) {
 
                                 let pricec = avgc - avgc1;
+	                        sumc = pricec + sumc;
 	                        if (Math.abs(pricec)< 500) {
 			  	  gradpeak=gradpeak+1;     
 			          if (timec>0) {
-			            sqlmod.updateStatsSQL(timec, gradpeak, pricec); // trough
+			            sqlmod.updateStatsSQL(timec, gradpeak, pricec, sumc); // trough
 	                            await sqlmod.exSQL();
 		                   }
 			 	}
